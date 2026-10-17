@@ -1,9 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { CampaignLibrary } from './campaigns/library';
 import { Status } from './platform/status';
 
 @Component({
-  imports: [MatButtonModule], selector: 'app-root',
+  imports: [MatButtonModule, CampaignLibrary], selector: 'app-root',
   styleUrl: './app.css', templateUrl: './app.html',
 })
 export class App {

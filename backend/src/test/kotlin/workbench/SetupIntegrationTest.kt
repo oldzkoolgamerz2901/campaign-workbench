@@ -30,7 +30,9 @@ class SetupIntegrationTest : StringSpec({
                 "spring.datasource.url" to database.jdbcUrl,
                 "spring.datasource.username" to database.username,
                 "spring.datasource.password" to database.password))
-            .run()
+            .run("--spring.datasource.url=${database.jdbcUrl}",
+                "--spring.datasource.username=${database.username}",
+                "--spring.datasource.password=${database.password}")
     }
     afterSpec {
         appContext?.close()

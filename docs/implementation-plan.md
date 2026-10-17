@@ -6,7 +6,7 @@ Date: 2026-10-17
 
 The owner revised the architectural direction during stack discussion: Angular frontend and local Kotlin/Spring backend in a separate application monorepo, hexagonal architecture and DDD, independent Markdown campaign directories, and database-owned application state. Multiple campaigns can be registered, with one selected at a time. Laptop preparation and play come first; tablet support is deferred.
 
-**The browser-local architecture and first increment preserved below are superseded and must not be implemented.** React, Dexie, snapshot upload, a TypeScript backend, campaign-specific packaging, and service-worker offline startup are not current selections. Setup increment 0 is accepted below; later implementation increments remain unapproved.
+**The browser-local architecture and first increment preserved below are superseded and must not be implemented.** React, Dexie, snapshot upload, a TypeScript backend, campaign-specific packaging, and service-worker offline startup are not current selections. Setup increment 0 and the current increment 1 plan are accepted below. The historical browser-local increment 1 remains superseded.
 
 ## Current accepted direction
 
@@ -73,6 +73,82 @@ Place database transaction boundaries around application use cases, keeping doma
 ### Supersession rationale
 
 The earlier plan optimized for tablet-browser access and assumed a Sea Witch-specific application. The owner prioritizes laptop operation, their Angular/Kotlin/Spring stack, direct repository access, and generic campaign support. The new direction avoids snapshot-upload administration and separates reusable application development from campaign authorship. Trade-offs include operating a local backend/database and providing an explicit backup/launch workflow.
+
+## Increment 1 — Accepted searchable-library architecture
+
+Status: The owner accepted the following architecture on 2026-10-17 after approving the increment 1 requirements in the product specification. The implementation plan for this increment still requires approval; this section does not authorize implementation. The historical browser-local increment 1 below remains superseded.
+
+### Ownership and persistence
+
+- Campaigns owns campaign identity, display name, registered directory, source inclusion/exclusion configuration, and remembered campaign selection. Sources obtains campaign configuration through Campaigns' public API; the dependency is Sources → Campaigns. No reverse module dependency or shared JPA entities are introduced.
+- Sources owns discovery, captured document content, sections, and search. PostgreSQL stores one current successful capture per campaign in Sources-owned tables. Refresh replaces that capture atomically; historical captures are not retained. Markdown remains authoritative and is never rewritten.
+- Persisting captured text duplicates source content as a replaceable read model, but lets consistent reading and search survive backend restart. An in-memory-only capture was considered and rejected because it would require rebuilding before that content became available again.
+- Existing module package, schema ownership, inward dependency, generated-client, typed-error, and transaction conventions continue to apply. Only Campaigns and Sources receive domain behavior in this increment.
+
+### Refresh and consistency
+
+- Opening a campaign or explicitly refreshing starts a filesystem scan outside a database transaction. Publish the complete result in a short database transaction. Filesystem reads are not made atomic by that transaction.
+- An unreadable included document or a detected change that prevents a reliable read fails the refresh. Preserve the complete previous capture and expose the failure. Before the first successful refresh, show an empty library with the failure rather than claiming success. Publishing a partially readable library was rejected because it could silently omit content.
+- A file removed before discovery is absent from the new successful capture. A file disappearing during its read fails that refresh. This policy provides a consistent captured library, not a guarantee that all files describe the same filesystem-wide instant.
+- Give each published capture an identifier. Document lists, reads, search results, and local link navigation retain the originating campaign and capture identity. If a referenced capture has been replaced, report that explicitly and have the UI reload; never silently open newer text for an old search result.
+- Permit one refresh at a time per campaign and reject overlapping requests. Different campaigns remain independent.
+- Save configuration changes independently, mark the existing capture as needing refresh, and retain it until a refresh succeeds. Completion must not mark a capture current for configuration that changed while its scan was running.
+
+### Discovery, search, and interface
+
+- Use campaign-relative glob patterns for included/excluded paths, with exclusions taking precedence. Default to all Markdown while excluding hidden/tooling directories and agent instructions. Show effective rules. Do not follow symlinks. Exact default names and supported glob grammar must be specified before implementation.
+- Search uses the trimmed query as a literal, case-insensitive substring across captured paths, headings, and section text. No stemming, fuzzy matching, query language, or separate search engine is selected. Revisit indexing only if measured behavior warrants it.
+- Feature services wrap the generated Angular client. Signals own selection and view state; asynchronous requests retain their originating campaign/capture identity, including when selection changes.
+- Use a campaign selector, document navigation/search panel, and reading pane, with refresh status and errors visible alongside the library. Safely render the accepted Markdown elements and resolve links against the same campaign capture. Exact parser/renderer dependencies and browser support remain to be settled before affected implementation.
+
+### Consequences and limits
+
+Old references may require reloading after refresh because only one capture is retained. One unreadable included file blocks publication until corrected or excluded. Remembered selection does not replace explicit campaign identity on individual operations. Automatic watching and retained versions remain future work under the broader architecture; they are excluded from increment 1. This architecture delivers no preparation, play, assistance, assets, backup/restore, or session-use launcher.
+
+### Approved implementation plan
+
+The owner approved this bounded plan on 2026-10-17. Implement Campaigns registration/configuration/remembered selection; Sources discovery, atomic current captures, refresh coordination and configuration-version checks, sections, literal search, and capture-bound reading; and an Angular library with registration/configuration, campaign selection, navigation/search, reading, and visible refresh errors. Update generated-client integration, owned-schema migrations, exact dependency pins, isolated fixtures, README, and developer evidence. This is the current increment 1 plan; the historical plan below remains superseded.
+
+Filters match normalized campaign-relative paths: `*` and `?` stay within a segment; `**` spans directories, and `**/*.md` includes root documents. Exclusions win. Reject absolute paths, traversal, and unsupported grammar. Default to case-insensitive `.md` discovery, excluding hidden segments, `node_modules`, `build`, `dist`, `target`, `coverage`, and `AGENTS.md`/`CLAUDE.md`. Show editable defaults.
+
+Use `org.commonmark:commonmark:0.30.0` and `commonmark-ext-gfm-tables:0.30.0` in a Sources adapter, with source positions for sections and controlled HTML rendering. Escape raw HTML, suppress images, validate links, retain Angular's default HTML sanitization without trust bypasses, and require explicit clicks for external links. [Tagged documentation](https://github.com/commonmark/commonmark-java/blob/commonmark-parent-0.30.0/README.md) and [release](https://github.com/commonmark/commonmark-java/releases/tag/commonmark-parent-0.30.0) establish available features; repository compatibility must be checked during implementation. Flexmark's broader syntax support was considered unnecessary. Chromium from the pinned Playwright version is the acceptance target; Safari/WebKit support is deferred.
+
+Expected areas: `backend/src/main/{kotlin,java}/workbench/{campaigns,sources}/`, module-owned SQL migrations, backend tests, `frontend/src/app/campaigns/`, root application integration, frontend tests and e2e fixtures, build/catalog pins, existing check scripts, README, and developer evidence here. No campaign-content, harness, deployment, commit, or remote changes are included.
+
+Completion requires restart persistence, two-campaign isolation and late-response handling, filters and symlink checks, exact passage navigation (including repeated headings), safe rendering and links, failed-refresh preservation, stale-capture handling, overlapping refresh/configuration races, rollback including `Either.Left`, and unchanged source files. Backend tests/build, frontend tests/build/version checks, and isolated Chromium e2e flows must pass. Formal verification is separately authorized. Automatic watching, history, authority assignments, assets, preparation, play, AI, backup/restore, and session-use packaging remain excluded.
+
+### Developer-check evidence — increment 1
+
+Implementation and developer checks completed on 2026-10-17 using the existing runtime baseline. This is not formal verification or owner acceptance of the completed increment.
+
+- `./scripts/check-setup.sh`: passed for the current implementation. Backend `test bootJar` passed with 9 Kotest tests (2 architecture, 5 library behavior, 1 library integration, 1 setup integration). Frontend Vitest/TestBed passed 7 tests, the production build passed, version drift checks passed, and both Chromium Playwright flows passed. PostgreSQL setup state survived Compose restart; smoke services were stopped afterward.
+- Real PostgreSQL/Testcontainers checks exercised Campaigns/Sources migrations and JPA mappings, persistence across backend restart, remembered selection, duplicate/unavailable registration, campaign isolation, old-capture rejection, and configuration requiring refresh. Actual campaign writes and capture replacement were rolled back on `Either.Left`; unexpected exceptions also rolled back. Expected failures use sealed types, mapped to documented Problem Details in web adapters.
+- Behavior checks exercised recursive inclusion/exclusion, default exclusions, symlinks, invalid UTF-8 with an identified failed document, repeated headings, table rendering, escaped executable markup, omitted images, encoded-space local links, missing targets, case-insensitive search, scan failure preservation, overlapping refresh rejection, and configuration changes during scans.
+- Frontend checks exercised late reading/search responses after campaign switching, search response ordering, pending configuration after refresh races, and registration racing with startup selection restoration. Browser coverage exercised registration, source browsing, search focusing the exact block under repeated headings, local/missing links, tables, no remote-image requests or script execution, explicit refresh, source rules, isolation, and selection restored on browser reload. Fixture-source contents were checked; independent campaign repositories were not used or modified.
+- Spring-generated OpenAPI, including explicit required fields and the Problem Details error shape, generated the Angular client consumed by the passing compilation/browser checks. Commonmark core and tables 0.30.0 resolved and compiled with the selected Kotlin/JDK baseline. Modulith checked the introduced module boundaries; ArchUnit checked inward dependencies and excluded Spring/JPA/filesystem/network/parser dependencies from domain packages.
+- Corrected the pre-existing setup integration test to pass its Testcontainers connection as command-line properties: its former low-priority Spring defaults were overridden by application configuration and attempted the development database port when checks ran independently.
+
+Implementation details: captures persist raw text and rederive sections/rendering/search text through one Commonmark adapter on access; no separately persisted search index was needed. The operational platform package now also supplies cross-cutting failure/transaction/web support, not a sixth domain module. Registration/configuration revisions and pessimistic campaign-row locking coordinate short publication transactions; a per-campaign application lock excludes overlapping scans in the single local backend.
+
+Limits: Chromium automation only; no Safari/WebKit or full manual accessibility/visual review. Captures do not guarantee a filesystem-wide instant, historical versions are not retained, and large-library performance has not been benchmarked. Backup/restore and session-use packaging remain deferred. No formal verification record, commit, deployment, or later increment was produced.
+
+## Development startup — accepted design and implementation scope
+
+The owner accepted the development-startup requirements and design on 2026-10-17. Add a dedicated Gradle `dev` task and a small development-only JVM launcher, outside application modules and the production artifact. It loads local `.env`, starts the existing Compose database, waits for readiness, starts Spring, generates the Angular client from live OpenAPI with the existing generator/configuration, and starts Angular. It owns its child processes and cleans them up on normal stop, cancellation, or startup failure; PostgreSQL remains running. Existing `bootRun`, build, and test behavior remains unchanged. A shared IntelliJ Gradle run configuration points at `dev`.
+
+A separate launcher process keeps lifecycle code outside the Gradle daemon and application domain modules, without adding plugins/dependencies. Reuse the selected JDK, Compose definition, frontend npm script, and OpenAPI generator. No Docker Desktop launch, automatic runtime installation, production packaging, campaign-content changes, or application feature changes are included.
+
+Bounded scope: `backend/build.gradle.kts`, a development source set/launcher, `.run/` Gradle configuration, startup developer checks, README, and evidence here. Check successful startup/proxied connectivity, readiness ordering, occupied-port and configuration failures, process cleanup on cancellation/failure, retained PostgreSQL state, and absence of startup side effects during ordinary Gradle tasks. GUI Stop behavior must not be claimed tested solely from documentation.
+
+### Developer-check evidence — development startup
+
+Implemented on 2026-10-17. `dev` is a JavaExec task using a development-only source set and the selected JDK. The launcher uses the existing Compose definition, packaged backend, OpenAPI generator dependency, and `npm start`. It parses `.env` as data, with process/run-configuration variables taking precedence; no shell evaluation or secret printing is used. The shared `.run/Campaign Workbench.run.xml` targets the backend Gradle project's `dev` task. Ordinary `bootRun` and the existing backend-only script remain unchanged.
+
+- `cd backend && ./gradlew checkDevStartup --console=plain`: passed. The opt-in check uses the installed Gradle Tooling API (the cancellation mechanism used by IntelliJ) and the separate `campaign-workbench-startup-check` Compose project, retained test-only volume, and database port 55433. It exercised occupied-port rejection without terminating the unrelated listener, two successful real stack launches and proxied status requests, cancellation, released server ports, immediate relaunch, unchanged PostgreSQL installation state across stops/relaunches, and a deliberately failed generator after Spring startup that cleaned up Spring. The check stopped its isolated database afterward.
+- Readiness probes use HTTP/1.1 and bounded response waits. Port preflight permits normal TIME_WAIT reuse so a stopped stack can restart immediately. Child-process ownership and descendant cleanup cover normal shutdown and failure; PostgreSQL is deliberately left running by the launcher.
+- `./gradlew test bootJar --console=plain`: succeeded with all tasks up-to-date from the passing increment 1 checks. Its graph included neither development launcher nor startup-check execution, and started no development services. Production jar inspection confirmed that neither launcher nor lifecycle-check classes were packaged. Shared run-configuration XML parsed; `git diff --check` passed.
+
+Limits: cancellation was exercised through the real Gradle Tooling API, not by manually clicking IntelliJ's GUI. Force-killing the launcher JVM or machine power loss cannot run its shutdown hook. Docker Desktop and installed Java/Node/npm/frontend dependencies remain prerequisites; runtime installation and session-use distribution are outside this change. Formal verification was not performed.
 
 ## Version baseline proposal — 2026-10-17
 

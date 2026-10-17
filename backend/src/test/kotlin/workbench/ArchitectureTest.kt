@@ -15,7 +15,8 @@ class ArchitectureTest : StringSpec({
             .importPackages("workbench")
         noClasses().that().resideInAPackage("..domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                "org.springframework..", "jakarta.persistence..", "java.nio.file..",
+                "org.springframework..", "jakarta.persistence..", "java.nio.file..", "java.net..",
+                "org.commonmark..",
                 "..adapter..", "..application..")
             .allowEmptyShould(true).check(classes)
         noClasses().that().resideInAPackage("..application..")

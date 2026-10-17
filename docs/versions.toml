@@ -27,6 +27,8 @@ vitest = "5.0.5"
 playwright = "1.64.1"
 flyway = "13.10.3" # Aligned override; setup startup/migration checks passed. Boot uses 12.4.0.
 
+commonmark = "0.30.0"
+
 [libraries]
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
@@ -34,6 +36,8 @@ kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref =
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
 springdoc = { module = "org.springdoc:springdoc-openapi-starter-webmvc-api", version.ref = "springdoc" }
 openapi-generator = { module = "org.openapitools:openapi-generator-cli", version.ref = "openapi-generator" }
+commonmark-core = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
+commonmark-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

@@ -1,0 +1,73 @@
+<section aria-label="Campaign library">
+  <div class="toolbar">
+    <label>Campaign
+      <select aria-label="Campaign" [ngModel]="state.selected()?.id ?? ''" (ngModelChange)="select($event)">
+        <option value="" disabled>Select a campaign</option>
+        @for (campaign of state.campaigns(); track campaign.id) { <option [value]="campaign.id">{{ campaign.name }}</option> }
+      </select>
+    </label>
+    @if (state.selected()) {
+      <button matButton="filled" (click)="state.refresh()" [disabled]="state.refreshing()">{{ state.refreshing() ? 'Refreshing…' : 'Refresh library' }}</button>
+      <button matButton (click)="editRules()">Source rules</button>
+    }
+  </div>
+  <details>
+    <summary>Register a campaign</summary>
+    <form (ngSubmit)="state.register(name, directory)">
+      <label>Display name <input name="name" [(ngModel)]="name" required maxlength="200"></label>
+      <label>Folder path <input name="directory" [(ngModel)]="directory" required placeholder="/path/to/campaign"></label>
+      <button matButton="filled" type="submit" [disabled]="!name.trim() || !directory.trim()">Register campaign</button>
+    </form>
+  </details>
+  @if (editingRules) {
+    <form class="rules" (ngSubmit)="state.configure(includes, excludes)">
+      <p>Relative paths: * and ? match within a directory; ** spans directories. Exclusions win. One pattern per line.</p>
+      <label>Include patterns <textarea name="includes" [(ngModel)]="includes" rows="4"></textarea></label>
+      <label>Exclude patterns <textarea name="excludes" [(ngModel)]="excludes" rows="9"></textarea></label>
+      <button matButton="filled" type="submit">Save source rules</button>
+      <button matButton type="button" (click)="editingRules = false">Close rules</button>
+    </form>
+  }
+  @if (state.error()) { <p role="alert">{{ state.error() }}</p> }
+  <p role="status" aria-live="polite">{{ state.notice() }} @if (state.library()?.needsRefresh) { Source rules need refresh. } @if (state.loading()) { Opening campaign… }</p>
+  @if (state.selected(); as campaign) {
+    <p class="directory">{{ campaign.directory }}</p>
+    <div class="workspace">
+      <nav aria-label="Sources">
+        <form (ngSubmit)="state.search(query)">
+          <label>Search sources <input name="query" [(ngModel)]="query" type="search"></label>
+          <button matButton="filled" type="submit" [disabled]="!state.library()?.capture">Search</button>
+        </form>
+        @if (query.trim()) {
+          <h2>Search results</h2>
+          <ul class="results">
+            @for (hit of state.results(); track $index) {
+              <li><button (click)="state.open(hit.path, hit.section, hit.block)"><strong>{{ hit.path }}</strong><span>{{ hit.heading }}</span><small>{{ hit.excerpt }}</small></button></li>
+            } @empty { <li>No matching passages.</li> }
+          </ul>
+        }
+        <h2>Documents</h2>
+        <ul class="documents">
+          @for (document of state.library()?.documents ?? []; track document.path) {
+            <li><button (click)="state.open(document.path)" [attr.aria-current]="state.document()?.path === document.path ? 'page' : null">{{ document.path }}</button></li>
+          } @empty { <li>No captured Markdown documents.</li> }
+        </ul>
+      </nav>
+      <article id="source-reader" tabindex="-1" (click)="state.follow($event)">
+        @if (state.document(); as document) {
+          <h2>{{ document.path }}</h2>
+          @for (section of document.sections; track section.id) {
+            <section [id]="section.id" tabindex="-1" [attr.aria-label]="section.heading">
+              @for (block of section.blocks; track block.id) { <div [id]="block.id" tabindex="-1" [innerHTML]="block.html"></div> }
+            </section>
+          }
+          @if (document.links.length) {
+            <aside aria-label="Document links"><h3>Document links</h3>
+              @for (link of document.links; track link.key) { @if (link.missing) { <p>Missing or unsupported link ({{ link.key }}).</p> } }
+            </aside>
+          }
+        } @else { <p>Choose a document or search for a passage.</p> }
+      </article>
+    </div>
+  } @else { <p>Register a campaign folder to browse and search its Markdown.</p> }
+</section>

@@ -194,6 +194,46 @@ Acceptance:
 
 Supporting multiple concurrent groups or playthroughs of one campaign is not established by this requirement and remains deferred.
 
+## Increment 1 — Searchable campaign library
+
+Status: Requirements accepted by the owner on 2026-10-17. This slice delivers parts of R1 and R15; neither requirement is complete. Architecture and implementation require their own approval.
+
+### Scope and behavior
+
+- Register an independent campaign folder by entering its path and a display name. Retain registrations after application restart. Reject unavailable folders and duplicate registrations of the same resolved directory.
+- Work with one selected campaign and remember the last selection. Browse and search only that campaign; responses originating from another campaign must not replace its current view.
+- Discover Markdown recursively with configurable included and excluded paths per campaign. Exclude hidden files, tooling directories, and agent instructions by default. Do not follow symlinks.
+- Browse documents and safely render headings, lists, tables, and code. Support links between discovered Markdown documents and their sections; identify missing targets explicitly. Images and other assets are deferred.
+- Search paths, headings, and body text case-insensitively. Each result identifies its document path, section, and matching excerpt, and opens the matching passage.
+- Refresh the source library when opening a campaign or through an explicit refresh action. Browsing and search use the same content captured at the last successful refresh; subsequent file edits appear after refresh. Missing or unreadable sources produce visible status. Consistent refresh content does not establish retained historical versions.
+
+### Acceptance criteria
+
+- Register two differently structured campaign folders, restart the application, and recover both registrations and the last selected campaign. Unavailable-folder and duplicate-directory registration attempts produce useful errors.
+- Switch between those campaigns and confirm that document listings, reading, and search remain isolated, including when a response from a previously selected campaign arrives late.
+- Configure source inclusion/exclusion independently for each campaign. Confirm recursive Markdown discovery, default exclusions, and that symlinks are not followed. Registration, reading, searching, and refreshing do not rewrite campaign files.
+- Read documents containing headings, lists, tables, and code; follow local document and section links, and see explicit missing-target feedback. Campaign Markdown cannot execute active content through rendering.
+- Find matches in paths, headings, and body text regardless of case. Results show source path, section, and excerpt and open the matching passage, including when headings repeat.
+- Edit source files after a successful refresh. Existing browsing and search continue to agree on the captured content until another successful refresh exposes the edits. Missing or unreadable sources are reported visibly.
+
+### Exclusions and remaining detail
+
+Automatic watching, retained source history, authority assignments, images/assets, session preparation, play, and AI are outside this increment. Their approved broader requirements remain in effect for later increments. This slice does not complete R5 or claim session-use packaging, backup/restore, or full browser compatibility.
+
+The accepted increment 1 architecture and plan in `docs/implementation-plan.md` refine filter syntax/defaults, refresh failure handling, and literal search semantics. Chromium is the increment acceptance browser; broader browser support remains outstanding.
+
+## Development startup automation
+
+Status: Requirements accepted by the owner on 2026-10-17. This concerns developer operation; it does not establish session-use distribution or authorize implementation.
+
+- Provide one development task runnable from IntelliJ's Gradle panel and the terminal.
+- Assume Docker Desktop is already running. Load existing local `.env` configuration, start PostgreSQL through Compose, and wait for database readiness.
+- Start the backend, generate the Angular client from its live OpenAPI contract, then start the frontend.
+- Display startup errors and service logs. Stopping the task stops the backend and frontend processes it started. PostgreSQL remains running, with its data preserved.
+- Normal builds and tests retain their existing startup behavior.
+
+Acceptance: from the Gradle task, reach the Angular interface and its local backend without separate startup commands; observe useful errors on startup failure; stop the task and confirm its backend/frontend processes terminate while database state remains. Ordinary build/test tasks must not start the development stack.
+
 ## Evaluation scenario
 
 Proposed review scenario: prepare and run the Agelus investigation from Tordeck's chest through the monastery, using linked scenes, NPC context, clues, handouts, assisted creation, and discovery records.

@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Campaign Workbench" type="GradleRunConfiguration" factoryName="Gradle">
+    <ExternalSystemSettings>
+      <option name="executionName" value="Campaign Workbench" />
+      <option name="externalProjectPath" value="$PROJECT_DIR$/backend" />
+      <option name="externalSystemIdString" value="GRADLE" />
+      <option name="taskNames"><list><option value="dev" /></list></option>
+      <option name="vmOptions" value="" />
+      <option name="scriptParameters" value="" />
+    </ExternalSystemSettings>
+    <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+    <ExternalSystemReattachDebugProcess>false</ExternalSystemReattachDebugProcess>
+    <method v="2" />
+  </configuration>
+</component>

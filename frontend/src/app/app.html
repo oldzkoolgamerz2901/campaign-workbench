@@ -1,7 +1,7 @@
 <main>
   <h1>Campaign Workbench</h1>
   <p>Your workspace for preparing and playing campaigns.</p>
-  <p>Campaign features will arrive in later increments.</p>
+  <campaign-library />
   <button matButton="filled" (click)="checkConnection()" [disabled]="checking()">Check connection</button>
-  <p role="status">{{ connection() }}</p>
+  <p role="status" aria-label="Connection status">{{ connection() }}</p>
 </main>
