@@ -1,0 +1,16 @@
+package workbench.preparation.application
+
+import workbench.preparation.domain.Session
+import workbench.preparation.domain.PreparedItem
+import workbench.preparation.api.RenderedMarkdown
+import java.util.UUID
+
+interface SessionStore {
+    fun list(campaign: UUID): List<Session>
+    fun get(campaign: UUID, id: UUID): Session?
+    fun put(session: Session)
+}
+interface PreparationMarkdown {
+    fun render(text: String): RenderedMarkdown
+    fun captured(items: List<PreparedItem>): Map<UUID, RenderedMarkdown>
+}

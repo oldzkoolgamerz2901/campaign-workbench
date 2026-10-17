@@ -1,0 +1,45 @@
+:host { display:block; --gold:#c6a772; --muted:#a3aca0; --line:#ffffff12; --mat-button-filled-container-color:#c6a772; --mat-button-filled-label-text-color:#1c241f; --mat-button-text-label-text-color:#d4bb91; }
+* { box-sizing:border-box; }
+button,a,input,textarea { -webkit-tap-highlight-color:transparent; }
+button { cursor:pointer; font:inherit; }
+button:disabled { cursor:default; opacity:.4; }
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible { outline:2px solid #dfba7b; outline-offset:4px; }
+button.plain { border:0; background:none; color:inherit; padding:0; }
+button.small { border:1px solid #ffffff24; background:transparent; padding:7px 10px; color:#d3d8cc; font-size:10px; border-radius:4px; }
+h1,h2,h3,p { margin:0; }
+h1,h2,h3 { font-family:Georgia,'Times New Roman',serif; font-weight:400; }
+.eyebrow { font-size:9px; font-weight:600; letter-spacing:.17em; text-transform:uppercase; color:var(--gold); }
+.muted { color:var(--muted); }
+.brand { display:flex; align-items:center; gap:11px; font:16px Georgia,serif; letter-spacing:.01em; color:#ece7da; }
+.seal { display:grid; place-content:center; border:1px solid #a98e5c; width:32px; height:36px; font:23px Georgia,serif; color:#d0b27c; clip-path:polygon(0 0,100% 0,100% 78%,50% 100%,0 78%); background:#b79b5b0a; }
+.save { display:inline-flex; align-items:center; gap:7px; font-size:10px; color:#afc4a2; white-space:nowrap; }
+.save::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; }
+.save.failed { color:#f0a28d; }
+.save.saving { color:#e8c48d; }
+.ghost { padding:9px 13px; border:1px solid #ffffff26; background:none; color:#ddd9c8; border-radius:4px; font-size:11px; }
+.notes-label { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.segment { display:inline-flex; border:1px solid #ffffff1a; border-radius:4px; padding:3px; gap:2px; }
+.segment button { border:0; color:#aaa; background:none; padding:5px 9px; font-size:9px; border-radius:2px; }
+.segment button.active { color:#eee8d9; background:#ffffff13; }
+textarea { display:block; width:100%; background:transparent; color:inherit; border:0; resize:vertical; font:12px/1.9 ui-monospace,SFMono-Regular,Consolas,monospace; padding:14px 0; min-height:185px; }
+.note-preview { white-space:pre-wrap; font:15px/1.8 Georgia,serif; min-height:185px; padding:14px 0; }
+.note-preview h3 { font:21px Georgia,serif; margin:6px 0 12px; }
+.note-preview p { min-height:10px; margin:5px 0; }
+.error { padding:10px 12px; margin-top:12px; background:#6b302e44; color:#f2b5a7; border-left:2px solid #be7969; font-size:11px; line-height:1.6; }
+.error button { color:inherit; text-decoration:underline; background:none; border:0; padding:0; }
+.chip { display:inline-flex; font-size:8px; letter-spacing:.09em; text-transform:uppercase; padding:5px 7px; color:#bac8ae; background:#a0ba9512; border:1px solid #b5c99c26; border-radius:3px; }
+.source-path { font:9px/1.6 ui-monospace,SFMono-Regular,monospace; color:#929f91; overflow-wrap:anywhere; }
+.icon { font-family:Georgia,serif; color:#c6a772; }
+.prose { font:16px/1.85 Georgia,'Times New Roman',serif; }
+.prose p { margin:15px 0; }
+.prose h3 { font-size:21px; margin:25px 0 10px; }
+.prose blockquote { margin:20px 0; padding:3px 0 3px 20px; border-left:2px solid #ba9867; font-style:italic; }
+.drawer-shade { position:fixed; inset:35px 0 0; z-index:40; background:#0008; display:flex; justify-content:flex-end; }
+.source-drawer { width:440px; max-width:95vw; padding:28px; background:#202923; color:#e7e7d8; box-shadow:-15px 0 60px #0005; overflow:auto; }
+.source-drawer>header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.source-drawer h2 { font-size:28px; }
+.searchbox { padding:12px; border:1px solid #ffffff25; width:100%; background:#0002; color:#eee5d5; font:12px inherit; border-radius:4px; }
+.library-hit { padding:20px 0; border-bottom:1px solid #ffffff16; }
+.library-hit h3 { font-size:21px; margin:8px 0; }
+.library-hit p { font-size:12px; color:#b7bfb0; line-height:1.7; margin:10px 0; }
+.drawer-caption { font-size:11px; color:#b8c4b2; line-height:1.8; margin:14px 0; }

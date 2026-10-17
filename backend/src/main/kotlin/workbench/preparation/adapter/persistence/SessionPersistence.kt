@@ -1,0 +1,49 @@
+package workbench.preparation.adapter.persistence
+
+import jakarta.persistence.*
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.stereotype.Repository
+import workbench.preparation.application.SessionStore
+import workbench.preparation.domain.*
+import java.util.UUID
+
+@Entity
+@Table(name = "session", schema = "preparation")
+class SessionEntity(
+    @Id var id: UUID = UUID.randomUUID(), var campaign: UUID = UUID.randomUUID(), var revision: Long = 0,
+    var title: String = "", var objective: String = "", var notes: String = "",
+    @OneToMany(cascade = [CascadeType.ALL], orphanRemoval = true)
+    @JoinColumn(name = "session_id", nullable = false)
+    @OrderColumn(name = "position")
+    var items: MutableList<ItemEntity> = mutableListOf()
+)
+@Entity
+@Table(name = "item", schema = "preparation")
+class ItemEntity(
+    @Id var id: UUID = UUID.randomUUID(), var title: String = "", var markdown: String = "", var notes: String = "",
+    @Column(name = "source_campaign") var sourceCampaign: UUID = UUID.randomUUID(), var capture: UUID = UUID.randomUUID(),
+    var path: String = "", var section: String? = null,
+    @Column(name = "document_hash") var documentHash: String = "",
+    @Column(name = "content_hash") var contentHash: String = "",
+    @ElementCollection
+    @CollectionTable(name = "anchor", schema = "preparation", joinColumns = [JoinColumn(name = "item_id")])
+    @MapKeyColumn(name = "original_anchor") @Column(name = "local_anchor")
+    var anchors: MutableMap<String, String> = mutableMapOf()
+)
+interface SessionRepository : JpaRepository<SessionEntity, UUID> { fun findByCampaignOrderByTitle(campaign: UUID): List<SessionEntity> }
+@Repository
+class JpaSessionStore(private val repository: SessionRepository, private val em: EntityManager) : SessionStore {
+    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash), it.anchors.toMap(), it.notes) })
+    override fun list(campaign: UUID) = repository.findByCampaignOrderByTitle(campaign).map(::model)
+    override fun get(campaign: UUID, id: UUID) = repository.findById(id).orElse(null)?.takeIf { it.campaign == campaign }?.let(::model)
+    override fun put(session: Session) {
+        // Replace ordered rows explicitly so moves cannot violate the unique position constraint mid-flush.
+        em.createNativeQuery("DELETE FROM preparation.item WHERE session_id = :id").setParameter("id", session.id).executeUpdate()
+        em.flush(); em.clear()
+        val entity = repository.findById(session.id).orElseGet { SessionEntity(id = session.id, campaign = session.campaign) }
+        entity.revision = session.revision; entity.title = session.title; entity.objective = session.objective; entity.notes = session.notes
+        entity.items.clear()
+        entity.items.addAll(session.items.map { i -> ItemEntity(i.id, i.title, i.markdown, i.notes, i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.anchors.toMutableMap()) })
+        repository.saveAndFlush(entity)
+    }
+}
