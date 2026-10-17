@@ -1,7 +1,6 @@
-<main>
-  <h1>Campaign Workbench</h1>
-  <p>Your workspace for preparing and playing campaigns.</p>
-  <campaign-library />
-  <button matButton="filled" (click)="checkConnection()" [disabled]="checking()">Check connection</button>
-  <p role="status" aria-label="Connection status">{{ connection() }}</p>
-</main>
+@if (showingPrototype) {
+  @if (prototypeType(); as prototype) { <ng-container [ngComponentOutlet]="prototype" /> }
+} @else {
+<header class="app-header"><div><h1>Campaign Workbench</h1><p>A place for the world you are building.</p></div><div class="connection"><button matButton (click)="checkConnection()" [disabled]="checking()">Check connection</button><span role="status" aria-label="Connection status">{{ connection() }}</span></div></header>
+<main><router-outlet /></main>
+}

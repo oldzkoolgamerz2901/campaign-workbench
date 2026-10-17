@@ -13,7 +13,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 
-class SourceService(private val campaigns: Campaigns, private val store: CaptureStore, private val scanner: SourceScanner, private val markdown: Markdown, private val tx: Transactions) {
+class SourceService(private val campaigns: Campaigns, private val store: CaptureStore, private val scanner: SourceScanner, private val markdown: Markdown, private val tx: Transactions) : Sources {
     private val locks = ConcurrentHashMap<UUID, ReentrantLock>()
     fun library(id: UUID): Either<Failure, Library> = tx.run { either {
         val campaign = campaigns.configuration(id).bind()
@@ -51,6 +51,23 @@ class SourceService(private val campaigns: Campaigns, private val store: Capture
         val parsed = markdown.parse(text)
         SourceDocument(id, version, path, parsed.sections, parsed.links.map { link -> resolveLink(path, link, capture) })
     }
+    override fun select(campaign: UUID, capture: UUID, path: String, section: String?): Either<Failure, SelectedSource> = tx.run { either {
+        val current = capture(campaign, capture).bind()
+        val text = ensureNotNull(current.documents[path]) { Failure.NotFound("sources.document-not-found", "Document not found in this capture.") }
+        val parsed = markdown.parse(text)
+        val range = if (section == null) null else ensureNotNull(parsed.ranges[section]) { Failure.NotFound("sources.section-not-found", "Section not found in this capture.") }
+        val selected = if (range == null) text else text.substring(range.start, range.end)
+        fun hash(value: String) = java.security.MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        val offset = range?.start ?: 0
+        val frozen = markdown.parse(selected)
+        val anchors = parsed.anchors.mapNotNull { (slug, sectionId) ->
+            val start = parsed.ranges[sectionId]?.start ?: return@mapNotNull null
+            if (start < offset || start >= (range?.end ?: text.length)) return@mapNotNull null
+            val localId = "s-${start - offset}"
+            frozen.anchors.entries.firstOrNull { it.value == localId }?.let { slug to it.key }
+        }.toMap()
+        SelectedSource(campaign, capture, path, section, if (section == null) path else parsed.sections.first { it.id == section }.heading, selected, hash(text), hash(selected), anchors)
+    } }
     fun search(id: UUID, version: UUID, query: String): Either<Failure, SearchResults> = either {
         val capture = capture(id, version).bind()
         val term = query.trim()

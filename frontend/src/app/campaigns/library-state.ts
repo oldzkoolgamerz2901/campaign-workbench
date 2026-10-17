@@ -3,7 +3,7 @@ import { firstValueFrom } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { CampaignControllerService, SourceControllerService, Campaign, Library, SourceDocument, SearchHit } from '../../api/generated';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class LibraryState {
   private readonly campaignsApi = inject(CampaignControllerService);
   private readonly sourcesApi = inject(SourceControllerService);
@@ -16,11 +16,15 @@ export class LibraryState {
   readonly notice = signal('');
   readonly refreshing = signal(false);
   readonly loading = signal(false);
+  beforeSelect: (id: string) => Promise<boolean> = async () => true;
+  private initialized = false;
   private epoch = 0;
   private searchEpoch = 0;
   private documentEpoch = 0;
 
   async initialize() {
+    if (this.initialized) return;
+    this.initialized = true;
     const token = this.epoch;
     try {
       const list = await firstValueFrom(this.campaignsApi.listCampaigns());
@@ -43,6 +47,7 @@ export class LibraryState {
     } catch (error) { if (token === this.epoch) this.fail(error); }
   }
   async select(id: string) {
+    if (!(await this.beforeSelect(id))) return;
     const token = ++this.epoch;
     this.searchEpoch++; this.documentEpoch++;
     this.selected.set(this.campaigns().find(item => item.id === id) ?? null);

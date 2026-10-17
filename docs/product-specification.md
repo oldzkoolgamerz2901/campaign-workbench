@@ -222,6 +222,32 @@ Automatic watching, retained source history, authority assignments, images/asset
 
 The accepted increment 1 architecture and plan in `docs/implementation-plan.md` refine filter syntax/defaults, refresh failure handling, and literal search semantics. Chromium is the increment acceptance browser; broader browser support remains outstanding.
 
+## Increment 2 — Manual session preparation and visual design
+
+Status: Requirements accepted by the owner on 2026-10-17. The accepted production design and increment plan, following the three disposable visual studies, are recorded in `docs/implementation-plan.md`. Developer implementation evidence is recorded there; formal verification remains separate.
+
+### Scope and behavior
+
+- Create and reopen campaign-scoped sessions with a title and objective. Collect whole source documents or sections, reorder selected items, and remove items from the session.
+- Selecting a heading section includes its content and all subsections until the next heading of equal or higher level. Preserve the captured prepared material when original files change or disappear; source text is read-only in this slice.
+- Provide session-level and per-item Markdown preparation notes, with a rendered preview and automatic saving. Display saving, saved, and failed states based on completed saves. Preserve working edits on failure and prevent navigation from silently discarding them.
+- Export/import selected sessions with their order, notes, and captured material. Imports create new sessions under an explicitly selected registered campaign; they do not overwrite existing sessions. Campaign ownership remains explicit.
+- Apply a coherent atmospheric campaign-desk visual design to the shared application shell, existing source library, and new preparation workspace. Use darker surfaces, warm accents, and a stronger fantasy character while preserving readable text, keyboard access, clear controls, and clear interaction/save states. Remain campaign-independent and reuse the accepted Angular Material/CDK foundation.
+- Use the writing-desk layout (prototype A) for preparation and the session-folio layout (prototype B) for reading prepared material, including during a session. Both views use the same saved session; changing views does not create copies or lose edits. The reading view does not introduce play journals, outcomes, discoveries, or lifecycle transitions.
+
+### Acceptance criteria
+
+- After app/backend restart, recover the session title/objective, selected items, order, and notes. Switching campaigns and late saves/responses cannot put work into another campaign/session.
+- Add a complete document and a section with nested headings, and confirm the exact intended content is retained. Refresh/edit/remove the original sources and reopen the prepared material unchanged.
+- Edit both levels of notes, observe save completion, and preview Markdown. Simulate failed saves; retain working edits and expose the failure without falsely claiming success or silently losing edits during navigation.
+- Export a session and import it as a new session under an explicitly chosen campaign. Recover its prepared material, ordering, objective, and notes without overwriting an existing session or needing the original source files to read the captured material.
+- Review the visual direction across the shared shell, source library, and preparation workspace at laptop sizes. Demonstrate keyboard access, readable content, clear selected states, and distinguishable save/error states.
+- Switch between preparation and reading views and confirm they retain the same session, item order, captured material, and notes without losing working edits.
+
+### Exclusions
+
+AI, play journals, player output, full session lifecycle, automatic source updates, assets, and full database/campaign backup remain outside this increment. Session export/import protects session preparation only; it is not full-system backup. The accepted architecture is recorded in `docs/implementation-plan.md`; the accepted increment plan and developer evidence are recorded there. Metadata conventions, typed Markdown cards, tags/filtering, and dedicated type-specific UI sections are deferred to [increment 3](increment-3-typed-markdown-cards.md).
+
 ## Development startup automation
 
 Status: Requirements accepted by the owner on 2026-10-17. This concerns developer operation; it does not establish session-use distribution or authorize implementation.

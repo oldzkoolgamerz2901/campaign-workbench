@@ -29,10 +29,10 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     expect(await readFile(join(first, 'source.md'), 'utf8')).toBe(original);
     await writeFile(join(first, 'source.md'), '# Updated\nNew passage');
     await page.getByRole('button', { name: 'source.md', exact: true }).click(); await expect(page.locator('article')).toContainText('First needle');
-    await page.getByRole('button', { name: 'Refresh library', exact: true }).click(); await expect(page.getByRole('status').first()).toContainText('Library refreshed');
+    await page.getByRole('button', { name: 'Refresh library', exact: true }).click(); await expect(page.locator('campaign-library').getByRole('status').first()).toContainText('Library refreshed');
     await page.getByRole('button', { name: 'source.md', exact: true }).click(); await expect(page.locator('article')).toContainText('New passage');
     await page.getByRole('button', { name: 'Source rules', exact: true }).click(); await page.getByLabel('Exclude patterns').fill('**/AGENTS.md\nsource.md'); await page.getByRole('button', { name: 'Save source rules' }).click();
-    await expect(page.getByRole('status').first()).toContainText('need refresh');
+    await expect(page.locator('campaign-library').getByRole('status').first()).toContainText('need refresh');
     await page.getByRole('button', { name: 'Refresh library', exact: true }).click(); await expect(page.getByRole('button', { name: 'source.md', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Close rules' }).click();
     await page.getByLabel('Display name').fill(name + ' Other'); await page.getByLabel('Folder path').fill(second); await page.getByRole('button', { name: 'Register campaign', exact: true }).click();

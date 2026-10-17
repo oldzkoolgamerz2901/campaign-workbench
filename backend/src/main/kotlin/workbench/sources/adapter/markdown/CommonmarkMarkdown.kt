@@ -46,7 +46,20 @@ class CommonmarkMarkdown : Markdown {
         }
         finish()
         if (sections.isEmpty()) sections += SourceSection("start", "Document", listOf(SourceBlock("b-0", "", "")))
-        return ParsedDocument(sections, anchors, links)
+        val headings = mutableListOf<Triple<String, Int, Int>>()
+        var cursor = root.firstChild
+        while (cursor != null) {
+            if (cursor is Heading) {
+                val offset = cursor.sourceSpans.first().inputIndex
+                headings += Triple("s-$offset", offset, cursor.level)
+            }
+            cursor = cursor.next
+        }
+        val ranges = headings.mapIndexed { index, h ->
+            h.first to SectionRange(h.second, headings.drop(index + 1).firstOrNull { it.third <= h.third }?.second ?: text.length)
+        }.toMap().toMutableMap()
+        if (sections.any { it.id == "start" }) ranges["start"] = SectionRange(0, headings.firstOrNull()?.second ?: text.length)
+        return ParsedDocument(sections, anchors, links, ranges)
     }
     private fun plain(node: Node): String {
         val out = StringBuilder()

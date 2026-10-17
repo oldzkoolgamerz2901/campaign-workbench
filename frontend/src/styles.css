@@ -1,2 +1,66 @@
 @import '@angular/material/prebuilt-themes/azure-blue.css';
-body { margin: 0; font-family: system-ui, sans-serif; background: #faf9fd; color: #20202a; }
+:root {
+  color-scheme: dark;
+  --ink: #e8e8d9;
+  --muted: #a9b8a8;
+  --accent: #d9bd7c;
+  --line: #3c5144;
+  --panel: #1c3026;
+  --mat-sys-primary: #d9bd7c;
+  --mat-sys-on-primary: #1c2c21;
+  --mat-sys-surface: #192d22;
+  --mat-sys-on-surface: #e8e8d9;
+}
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #17281f;
+  color: var(--ink);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  touch-action: manipulation;
+}
+input,
+select,
+textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: #12241b;
+  color: var(--ink);
+}
+textarea {
+  resize: vertical;
+  line-height: 1.6;
+  width: 100%;
+}
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+summary {
+  cursor: pointer;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+[hidden] {
+  display: none !important;
+}
+a {
+  color: var(--accent);
+}

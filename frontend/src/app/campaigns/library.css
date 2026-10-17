@@ -2,22 +2,22 @@ select,input,textarea { font: inherit; padding: .55rem; border: 1px solid #888; 
 label { display: grid; gap: .35rem; min-width: 0; }
 .toolbar,form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin: 1rem 0; }
 .toolbar label,form label { flex: 1; min-width: 12rem; }
-details,.rules { border: 1px solid #ccc; padding: 1rem; border-radius: .5rem; }
+details,.rules { border: 1px solid var(--line); padding: 1rem; border-radius: .5rem; }
 summary { cursor: pointer; }
 .rules { align-items: start; }
 .rules p { flex-basis: 100%; }
-.workspace { display: grid; grid-template-columns: minmax(16rem, 28%) minmax(0,1fr); border-top: 1px solid #ccc; }
-nav { padding: 1rem 1rem 1rem 0; border-right: 1px solid #ccc; }
+.workspace { display: grid; grid-template-columns: minmax(16rem, 28%) minmax(0,1fr); border-top: 1px solid var(--line); }
+nav { padding: 1rem 1rem 1rem 0; border-right: 1px solid var(--line); }
 article { padding: 1rem 2rem; min-width: 0; overflow-wrap: anywhere; }
 h2 { font-size: 1.2rem; }
 ul { list-style: none; padding: 0; }
-li button { display: block; width: 100%; padding: .7rem; border: 0; border-radius: .3rem; text-align: left; background: transparent; color: #124a8c; cursor: pointer; overflow-wrap: anywhere; }
-li button:hover,li button[aria-current] { background: #e3edfc; }
-li button span,li button small { display: block; color: #333; margin-top: .3rem; }
-[role=alert] { color: #912a12; background: #ffede8; padding: .8rem; }
-.directory { color: #555; overflow-wrap: anywhere; }
-article ::ng-deep pre { overflow: auto; background: #eee; padding: 1rem; }
+li button { display: block; width: 100%; padding: .7rem; border: 0; border-radius: .3rem; text-align: left; background: transparent; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+li button:hover,li button[aria-current] { background: #344d3d; }
+li button span,li button small { display: block; color: var(--muted); margin-top: .3rem; }
+[role=alert] { color: #ffe0d6; background: #492d27; padding: .8rem; }
+.directory { color: var(--muted); overflow-wrap: anywhere; }
+article ::ng-deep pre { overflow: auto; background: #102017; padding: 1rem; }
 article ::ng-deep table { border-collapse: collapse; display: block; overflow: auto; }
 article ::ng-deep th,article ::ng-deep td { border: 1px solid #aaa; padding: .5rem; }
 article ::ng-deep :focus { outline: 2px solid #3974ad; outline-offset: 3px; }
-@media(max-width: 800px) { .workspace { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid #ccc; } article { padding: 1rem 0; } }
+@media(max-width: 800px) { .workspace { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid var(--line); } article { padding: 1rem 0; } }

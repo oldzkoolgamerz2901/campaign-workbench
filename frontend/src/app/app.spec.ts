@@ -1,19 +1,14 @@
-import { Component } from '@angular/core';
-import { CampaignLibrary } from './campaigns/library';
+import { provideRouter } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { App } from './app';
 import { Status } from './platform/status';
 
-@Component({ selector: 'campaign-library', template: '' })
-class LibraryStub {}
-
 describe('Connection check', () => {
   const check = vi.fn();
   beforeEach(() => {
     check.mockReset();
-    TestBed.overrideComponent(App, { remove: { imports: [CampaignLibrary] }, add: { imports: [LibraryStub] } });
-    TestBed.configureTestingModule({ imports: [App], providers: [{ provide: Status, useValue: { check } }] });
+    TestBed.configureTestingModule({ imports: [App], providers: [provideRouter([]), { provide: Status, useValue: { check } }] });
   });
   it('checks only after an explicit action and displays the response', async () => {
     check.mockReturnValue(of({ status: 'ready' }));

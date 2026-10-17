@@ -1,6 +1,6 @@
 # Campaign Workbench
 
-A local laptop workspace for campaign preparation and play. Increment 1 provides campaign registration, switching, Markdown browsing, and passage search. Preparation, play, authority assignments, retained source history, and AI remain future work.
+A local laptop workspace for campaign preparation and play. The source library provides campaign registration, switching, Markdown browsing, and passage search. Increment 2 adds durable session preparation, frozen source material, Markdown notes, a reading folio, and portable session archives. Play records, authority assignments, general source history, and AI remain future work.
 
 The Angular frontend and Kotlin/Spring modular backend live here. Independent campaign directories retain authoritative Markdown. PostgreSQL owns application state. The backend reads explicitly registered campaign directories and never rewrites their sources.
 
@@ -55,10 +55,24 @@ Search matches the trimmed query literally and case-insensitively against docume
 
 A refresh replaces the current capture rather than retaining history. Old references prompt a library reload. There is one refresh at a time per campaign; scans are outside database transactions and publication is atomic. Concurrent filesystem edits cannot be guaranteed to represent one instant; detected unreliable reads fail the scan. No background watching, source authority classification, assets, campaign-file editing, backup/restore, or live-session functionality is included. Chromium is the current developer acceptance browser; Safari/WebKit support is deferred. The development startup above remains required.
 
+## Session preparation and reading
+
+Choose a campaign and expand **New session** in the left rail. Give it a title and objective, then create it. Reopen saved sessions from the same rail. **Add source material** opens the library; add an entire document or a section from the reader. A section includes its nested headings up to the next heading of equal or higher level. Search results open the same section reader. Use the up/down buttons to order prepared items, or remove them.
+
+Prepared material is a frozen copy of captured Markdown, with source provenance. Changing, removing, excluding, or refreshing the original never rewrites an existing prepared item. Links resolve only to material captured into the session from the same original capture; unavailable targets are identified. Images are omitted, raw HTML remains escaped, and external HTTP(S) links require a click.
+
+The writing desk edits the title, objective, session notes, and item notes. Notes use Markdown with a rendered preview. Text edits autosave after a short pause; **Saved** means the backend completed the save. Failed saves retain local edits and show **Retry save** and **Reload / discard local edits**. Conflicting revisions require an explicit reload rather than overwriting another browser's changes. Leaving a session waits for pending edits or asks whether to discard failed local edits. Browser close/reload warns when edits remain; forced termination can still lose unsaved changes.
+
+**Read session** opens the folio with the same item order, selection, and working notes. **Return to Prepare** resumes editing. Reading introduces no journal or session lifecycle records.
+
+**Export session** exports the open session after pending edits save. For several sessions, tick their export checkboxes and choose **Export selected sessions**. Import a version 1 JSON archive using the labelled file input for the destination campaign. Import creates new sessions and items; it never overwrites existing sessions or requires the original files. Archives contain only selected sessions, notes, captured text, provenance, and captured anchor metadata. Limits are 20 MiB per archive, 100 sessions, 1,000 prepared items total, and 2 MiB per text/note field. These archives are not full database backups.
+
+Typed Markdown cards, NPC/item/background library sections, tags, and filtering remain future work in [increment 3](docs/increment-3-typed-markdown-cards.md).
+
 ## Design and evidence
 
 - [Approved requirements](docs/product-specification.md)
 - [Accepted architecture, setup scope, superseded history and developer-check evidence](docs/implementation-plan.md)
 - [Historical Sea Witch assessment](../sea_witch/repository-app-assessment.md), in a separate campaign repository; its suggestions are not approved requirements.
 
-Read [AGENTS.md](AGENTS.md) before agent development. Workflow documents and skills are under `.agents/`. Developer checks do not constitute formal verification; no formal verification record exists yet. No product requirement is claimed complete by this setup increment.
+Read [AGENTS.md](AGENTS.md) before agent development. Workflow documents and skills are under `.agents/`. Developer checks do not constitute formal verification; no formal verification record exists yet. Implementation evidence is recorded per increment; formal acceptance remains separate.

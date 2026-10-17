@@ -56,8 +56,10 @@
       <article id="source-reader" tabindex="-1" (click)="state.follow($event)">
         @if (state.document(); as document) {
           <h2>{{ document.path }}</h2>
+          <button matButton="filled" (click)="addSource.emit({path: document.path, section: null})">Add document to session</button>
           @for (section of document.sections; track section.id) {
             <section [id]="section.id" tabindex="-1" [attr.aria-label]="section.heading">
+              <button matButton (click)="addSource.emit({path: document.path, section: section.id})">Add section: {{ section.heading }}</button>
               @for (block of section.blocks; track block.id) { <div [id]="block.id" tabindex="-1" [innerHTML]="block.html"></div> }
             </section>
           }

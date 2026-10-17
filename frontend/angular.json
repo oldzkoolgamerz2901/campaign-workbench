@@ -43,7 +43,13 @@
                   "maximumError": "8kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/app/preparation/prototype-loader.ts",
+                  "with": "src/app/preparation/prototype-loader.production.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,
