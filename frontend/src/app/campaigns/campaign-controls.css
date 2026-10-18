@@ -1,0 +1,49 @@
+:host {
+  display: block;
+}
+header,
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+}
+h2 {
+  font:
+    1.4rem Georgia,
+    serif;
+  margin: 0;
+}
+.directory {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.actions {
+  justify-content: start;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+details {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+form {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+form button {
+  justify-self: start;
+}
+.rules {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+p {
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+textarea {
+  width: 100%;
+}

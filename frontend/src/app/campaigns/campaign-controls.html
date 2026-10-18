@@ -1,0 +1,75 @@
+<section aria-label="Campaign management">
+  <header>
+    <h2>Campaign management</h2>
+    <button matButton (click)="close.emit()" aria-label="Close campaign management">Close</button>
+  </header>
+  @if (state.selected(); as campaign) {
+    <p class="directory">{{ campaign.directory }}</p>
+    <div class="actions">
+      <button
+        matButton="filled"
+        (click)="state.refresh()"
+        [disabled]="!ready() || state.refreshing()"
+      >
+        {{ state.refreshing() ? 'Refreshing…' : 'Refresh library' }}
+      </button>
+      <button matButton (click)="editRules()" [disabled]="!ready()">Source rules</button>
+    </div>
+  }
+  <details [open]="!state.selected()">
+    <summary>Register a campaign</summary>
+    <form (ngSubmit)="state.register(name, directory)">
+      <label
+        >Display name<input
+          name="name"
+          [(ngModel)]="name"
+          required
+          maxlength="200"
+          [disabled]="!ready()"
+      /></label>
+      <label
+        >Folder path<input
+          name="directory"
+          [(ngModel)]="directory"
+          required
+          placeholder="/path/to/campaign"
+          [disabled]="!ready()"
+      /></label>
+      <button
+        matButton="filled"
+        type="submit"
+        [disabled]="!ready() || !name.trim() || !directory.trim()"
+      >
+        Register campaign
+      </button>
+    </form>
+  </details>
+  @if (editingRules) {
+    <form class="rules" (ngSubmit)="state.configure(includes, excludes)">
+      <p>
+        Relative paths: * and ? match within a directory; ** spans directories. Exclusions win. One
+        pattern per line.
+      </p>
+      <label
+        >Include patterns<textarea
+          name="includes"
+          [(ngModel)]="includes"
+          rows="4"
+          [disabled]="!ready()"
+        ></textarea>
+      </label>
+      <label
+        >Exclude patterns<textarea
+          name="excludes"
+          [(ngModel)]="excludes"
+          rows="7"
+          [disabled]="!ready()"
+        ></textarea>
+      </label>
+      <div class="actions">
+        <button matButton="filled" type="submit" [disabled]="!ready()">Save source rules</button
+        ><button matButton type="button" (click)="editingRules = false">Close rules</button>
+      </div>
+    </form>
+  }
+</section>

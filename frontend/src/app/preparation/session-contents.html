@@ -1,0 +1,80 @@
+<nav aria-label="Session outline">
+  <header>
+    <h3>
+      Session contents <span>{{ items().length }}</span>
+    </h3>
+    <label
+      ><span class="sr-only">Find in session</span
+      ><input
+        type="search"
+        placeholder="Find in session…"
+        [ngModel]="query()"
+        (ngModelChange)="query.set($event)"
+    /></label>
+    <div class="actions">
+      @if (!reading()) {
+        <button matButton (click)="addSource.emit()" [disabled]="disabled()">
+          Add source material
+        </button>
+      }
+      <button matButton (click)="sessionNotes.emit()">Session notes</button>
+    </div>
+    @if (query()) {
+      <p>{{ visible().length }} of {{ items().length }} items · original order</p>
+    }
+  </header>
+  <div class="list" #list>
+    <ol>
+      @for (entry of visible(); track entry.item.id) {
+        @let item = entry.item;
+        <li [value]="entry.number">
+          <span class="number">{{ entry.number }}</span>
+          <button
+            class="item-select"
+            [title]="item.title + ' · ' + context(item)"
+            [attr.aria-label]="item.title"
+            [attr.aria-description]="context(item)"
+            [attr.aria-current]="selected() === item.id ? 'page' : null"
+            [disabled]="disabled()"
+            (click)="selectItem.emit(item.id)"
+          >
+            <strong>{{ item.title }}</strong
+            ><small>{{ context(item) }}</small>
+          </button>
+          @if (!reading() && selected() === item.id) {
+            <div class="order-tools">
+              <button
+                [disabled]="disabled() || entry.number === 1"
+                [attr.aria-label]="'Move up: ' + item.title"
+                (click)="moveItem.emit({ id: item.id, delta: -1 })"
+              >
+                ↑</button
+              ><button
+                [disabled]="disabled() || entry.number === items().length"
+                [attr.aria-label]="'Move down: ' + item.title"
+                (click)="moveItem.emit({ id: item.id, delta: 1 })"
+              >
+                ↓</button
+              ><button
+                [disabled]="disabled()"
+                [attr.aria-label]="'Remove: ' + item.title"
+                (click)="removeItem.emit(item.id)"
+              >
+                Remove
+              </button>
+            </div>
+          }
+        </li>
+      } @empty {
+        <li class="empty">
+          @if (items().length) {
+            <p>No matching prepared material.</p>
+            <button matButton (click)="query.set('')">Show all session items</button>
+          } @else {
+            <p>Add a document or heading from the source library.</p>
+          }
+        </li>
+      }
+    </ol>
+  </div>
+</nav>
