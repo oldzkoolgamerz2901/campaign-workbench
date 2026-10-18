@@ -1,78 +1,140 @@
 <div class="campaign-desk">
-  <aside class="campaign-rail" aria-label="Campaign navigation">
-    <p class="eyebrow">THE CAMPAIGN DESK</p>
-    <h2>{{ library.selected()?.name ?? 'Your campaigns' }}</h2>
-    <button
-      matButton
-      (click)="navigate(undefined, 'library')"
-      [attr.aria-current]="showingLibrary() ? 'page' : null"
+  <header class="workspace-header">
+    <label class="campaign-picker"
+      >Campaign<select
+        aria-label="Campaign"
+        [disabled]="!campaignReady() || busy()"
+        [ngModel]="library.selected()?.id ?? ''"
+        (ngModelChange)="selectCampaign($event)"
+      >
+        <option value="" disabled>Select a campaign</option>
+        @for (campaign of library.campaigns(); track campaign.id) {
+          <option [value]="campaign.id">{{ campaign.name }}</option>
+        }
+      </select></label
     >
-      Source library
-    </button>
-    @if (state.current()) {
+    <div class="session-heading">
+      <p class="eyebrow">{{ reading() ? 'SESSION FOLIO' : 'SESSION PREPARATION' }}</p>
+      <h2>
+        {{
+          !campaignReady()
+            ? 'Opening campaign…'
+            : (state.current()?.title ?? 'Your campaign workspace')
+        }}
+      </h2>
+      @if (state.current(); as session) {
+        <p class="objective">{{ session.objective }}</p>
+      }
+    </div>
+    <div class="header-actions">
       <button
         matButton
-        (click)="navigate(undefined, 'prepare')"
-        [attr.aria-current]="!showingLibrary() ? 'page' : null"
+        (click)="managementOpen.set(!managementOpen()); sessionsOpen.set(false)"
+        [attr.aria-expanded]="managementOpen()"
+        aria-controls="campaign-management"
       >
-        Current session
+        Manage campaign</button
+      ><button
+        matButton
+        [disabled]="!campaignReady() || busy()"
+        (click)="sessionsOpen.set(!sessionsOpen()); managementOpen.set(false)"
+        [attr.aria-expanded]="sessionsOpen()"
+        aria-controls="session-picker"
+      >
+        Sessions / New session
       </button>
-    }
-    <h3>Sessions</h3>
-    <ul class="session-list">
-      @for (session of state.sessions(); track session.id) {
-        <li>
-          <button
-            (click)="navigate(session.id, 'prepare', 'prepare')"
-            [attr.aria-current]="state.current()?.id === session.id ? 'page' : null"
-          >
-            {{ session.title }}
-          </button>
-          <input
-            type="checkbox"
-            [attr.aria-label]="'Select for export: ' + session.title"
-            [checked]="exportIds.includes(session.id)"
-            (change)="toggleExport(session.id, $any($event.target).checked)"
-          />
-        </li>
-      } @empty {
-        <li class="muted">No sessions yet.</li>
-      }
-    </ul>
-    @if (library.selected(); as campaign) {
-      <details>
-        <summary>New session</summary>
+    </div>
+  </header>
+  <div class="campaign-panel" id="campaign-management" [hidden]="!managementOpen()">
+    <campaign-controls [ready]="campaignReady() && !busy()" (close)="managementOpen.set(false)" />
+  </div>
+  <section
+    class="session-picker"
+    id="session-picker"
+    [hidden]="!sessionsOpen()"
+    aria-label="Campaign sessions"
+  >
+    <header>
+      <h3>{{ library.selected()?.name ?? 'Select a campaign' }} · Sessions</h3>
+      <button matButton (click)="sessionsOpen.set(false)" aria-label="Close session chooser">
+        Close
+      </button>
+    </header>
+    <div class="picker-columns">
+      <div>
+        <ul class="session-list">
+          @for (session of state.sessions(); track session.id) {
+            <li>
+              <button
+                (click)="openSession(session.id)"
+                [disabled]="!campaignReady() || busy()"
+                [attr.aria-current]="state.current()?.id === session.id ? 'page' : null"
+              >
+                {{ session.title }}</button
+              ><input
+                type="checkbox"
+                [attr.aria-label]="'Select for export: ' + session.title"
+                [checked]="exportIds.includes(session.id)"
+                (change)="toggleExport(session.id, $any($event.target).checked)"
+              />
+            </li>
+          } @empty {
+            <li class="muted">No sessions yet.</li>
+          }
+        </ul>
+        @if (library.selected(); as campaign) {
+          <div class="archive-tools">
+            <button
+              matButton
+              (click)="state.export(campaign.id, exportIds)"
+              [disabled]="!campaignReady() || busy() || !exportIds.length"
+            >
+              Export selected sessions</button
+            ><label
+              >Import sessions into {{ campaign.name
+              }}<input
+                type="file"
+                accept="application/json,.json"
+                [disabled]="!campaignReady() || busy()"
+                (change)="importFile($event)"
+            /></label>
+          </div>
+        }
+      </div>
+      @if (library.selected()) {
         <form (ngSubmit)="create()">
+          <h3>New session</h3>
           <label
-            >New session title <input name="title" [(ngModel)]="title" required maxlength="200"
-          /></label>
-          <label
-            >New session objective
-            <textarea name="objective" [(ngModel)]="objective" rows="3"></textarea>
-          </label>
-          <button matButton="filled" type="submit" [disabled]="!title.trim()">
+            >New session title<input
+              name="title"
+              [(ngModel)]="title"
+              required
+              maxlength="200"
+              [disabled]="!campaignReady() || busy()" /></label
+          ><label
+            >New session objective<textarea
+              name="objective"
+              [(ngModel)]="objective"
+              rows="3"
+              [disabled]="!campaignReady() || busy()"
+            ></textarea></label
+          ><button
+            matButton="filled"
+            type="submit"
+            [disabled]="!campaignReady() || busy() || !title.trim()"
+          >
             Create session
           </button>
         </form>
-      </details>
-      <div class="archive-tools">
-        <button
-          matButton
-          (click)="state.export(campaign.id, exportIds)"
-          [disabled]="!exportIds.length"
-        >
-          Export selected sessions
-        </button>
-        <label class="file-label"
-          >Import sessions into {{ campaign.name
-          }}<input type="file" accept="application/json,.json" [disabled]="!campaignReady()" (change)="importFile($event)"
-        /></label>
-      </div>
-    }
-  </aside>
-  <section class="desk-main">
+      }
+    </div>
+  </section>
+  <div class="workspace-messages">
     @if (state.error()) {
       <div role="alert" class="error">{{ state.error() }}</div>
+    }
+    @if (library.error()) {
+      <div role="alert" class="error">{{ library.error() }}</div>
     }
     @if (state.status() === 'failed') {
       <div class="recovery">
@@ -82,169 +144,255 @@
       </div>
     }
     @if (state.notice()) {
-      <p role="status" class="notice">{{ state.notice() }}</p>
+      <p role="status">{{ state.notice() }}</p>
     }
-    <div [hidden]="!showingLibrary()"><campaign-library [ready]="campaignReady()" (addSource)="add($event)" /></div>
-    @if (!showingLibrary()) {
-      @if (state.current(); as session) {
-        <header class="session-header">
-          <div>
-            <p class="eyebrow">{{ reading() ? 'SESSION FOLIO' : 'PREPARATION · WRITING DESK' }}</p>
-            <h2>{{ session.title }}</h2>
-          </div>
-          <div class="session-actions">
-            <span role="status" aria-label="Session save status">{{
-              state.status() === 'saved'
-                ? 'Saved'
-                : state.status() === 'failed'
-                  ? 'Save failed'
-                  : state.status() === 'saving'
-                    ? 'Saving…'
-                    : 'Unsaved changes'
-            }}</span>
-            <button
-              matButton="filled"
-              (click)="navigate(undefined, 'prepare', reading() ? 'prepare' : 'read')"
-            >
-              {{ reading() ? 'Return to Prepare' : 'Read session' }}
-            </button>
-            <button matButton (click)="state.export(session.campaign, [session.id])">
-              Export session
-            </button>
-          </div>
-        </header>
+    <p role="status" aria-label="Source library status">
+      {{ library.notice() }}
+      @if (library.library()?.needsRefresh) {
+        Source rules need refresh.
+      }
+      @if (library.loading()) {
+        Opening campaign…
+      }
+    </p>
+  </div>
+  @if (adventure(); as document) {
+    <adventure-assembly [document]="document" (close)="adventure.set(null)" />
+  }
+  <div class="desk-tools">
+    <div class="save-info">
+      @if (state.current()) {
+        <span role="status" aria-label="Session save status">{{
+          state.status() === 'saved'
+            ? 'Saved'
+            : state.status() === 'failed'
+              ? 'Save failed'
+              : state.status() === 'saving'
+                ? 'Saving…'
+                : 'Unsaved changes'
+        }}</span
+        ><span>{{ state.current()?.items?.length }} prepared items</span>
+      }
+    </div>
+    <div class="actions">
+      @if (state.current()) {
+        <button matButton (click)="toggleSourceFocus()" [attr.aria-pressed]="focusSource">
+          {{ focusSource ? 'Restore panels' : 'Focus source' }}
+        </button>
+        <button
+          matButton
+          (click)="contentsOpen.set(!contentsOpen())"
+          [attr.aria-expanded]="contentsOpen()"
+        >
+          {{ contentsOpen() ? 'Hide' : 'Show' }} session contents
+        </button>
         @if (!reading()) {
-          <div class="session-fields">
+          <button
+            matButton
+            (click)="libraryOpen.set(!libraryOpen())"
+            [attr.aria-expanded]="libraryOpen()"
+          >
+            {{ libraryOpen() ? 'Hide' : 'Show' }} library
+          </button>
+        }
+        <button matButton (click)="notesOpen.set(!notesOpen())" [attr.aria-expanded]="notesOpen()">
+          {{ notesOpen() ? 'Hide' : 'Show' }} notes
+        </button>
+        <button
+          matButton
+          (click)="state.export(state.current()!.campaign, [state.current()!.id])"
+          [disabled]="!campaignReady() || busy()"
+        >
+          Export session
+        </button>
+        @if (reading()) {
+          <button matButton="outlined" (click)="navigate(undefined, 'prepare', 'prepare')">
+            Return to Prepare
+          </button>
+        } @else {
+          <button
+            matButton="outlined"
+            (click)="navigate(undefined, 'prepare', 'read')"
+            [disabled]="!campaignReady() || busy()"
+          >
+            Read session
+          </button>
+        }
+      }
+    </div>
+  </div>
+  <div
+    class="working-area"
+    [class.library-hidden]="!libraryVisible()"
+    [class.contents-hidden]="!contentsOpen() || !state.current()"
+    [class.notes-hidden]="!notesOpen() || !state.current()"
+    [hidden]="!campaignReady() || !library.selected()"
+  >
+    <campaign-library
+      [hidden]="reading() || (!libraryVisible() && !showingLibrary())"
+      [shelfVisible]="libraryVisible()"
+      [ready]="campaignReady() && !busy()"
+      [canAdd]="!!state.current() && state.current()?.campaign === library.selected()?.id"
+      [readerVisible]="showingLibrary()"
+      (assemble)="adventure.set($event)"
+      (addSource)="add($event)"
+      (openSource)="browse()"
+      (requestSession)="sessionsOpen.set(true)"
+    />
+    <session-contents
+      class="contents"
+      [hidden]="!contentsOpen() || !state.current()"
+      [expanded]="contentsOpen()"
+      [items]="state.current()?.items ?? []"
+      [selected]="state.selectedItem()"
+      [sessionId]="state.current()?.id ?? null"
+      [reading]="reading()"
+      [disabled]="!campaignReady() || busy()"
+      (selectItem)="selectPrepared($event)"
+      (moveItem)="state.move($event.id, $event.delta)"
+      (removeItem)="state.remove($event)"
+      (addSource)="browse()"
+      (sessionNotes)="sessionNotes()"
+    />
+    <article class="source-page" [hidden]="showingLibrary()" aria-label="Prepared source">
+      @if (item(); as prepared) {
+        <p class="eyebrow">PREPARED COPY / THIS SESSION</p>
+        <h3>{{ prepared.title }}</h3>
+        <details class="provenance">
+          <summary>{{ prepared.provenance.path }}</summary>
+          <p>Capture: {{ prepared.provenance.capture }}</p>
+          <p>Section: {{ prepared.provenance.section ?? 'Whole document' }}</p>
+          <p>Content SHA-256: {{ prepared.provenance.contentHash }}</p>
+        </details>
+        @if (prepared.capturedSource?.classification; as classification) {
+          @if (classification.metadata; as metadata) {
+            <p>
+              {{ metadata.type }} · {{ metadata.purpose }} · {{ metadata.status }} ·
+              {{ metadata.tags?.join(' · ') }}
+            </p>
+            @if (metadata.summary; as summary) {
+              <p>{{ summary }}</p>
+            }
+          }
+          @for (issue of classification.issues ?? []; track $index) {
+            <p>{{ issue.message }}</p>
+          }
+        }
+        <prepared-markdown
+          #sourceReader
+          [content]="source()"
+          [readingTools]="true"
+          [typed]="!!prepared.capturedSource?.classification?.metadata"
+          [identity]="prepared.id"
+          (capturedTarget)="followCaptured($event)"
+        />
+        @if (prepared.capturedSource?.relationships?.length) {
+          <aside aria-label="Captured relationships">
+            <h4>Captured relationships</h4>
+            @for (
+              relationship of prepared.capturedSource?.relationships ?? [];
+              track $index;
+              let index = $index
+            ) {
+              <button
+                matButton
+                (click)="capturedRelated(index)"
+                [disabled]="!capturedAvailable(index)"
+              >
+                {{ relationship.classification?.metadata?.title ?? relationship.destination }}
+                {{ capturedAvailable(index) ? '' : '(outside captured material)' }}
+              </button>
+            }
+          </aside>
+        }
+      } @else {
+        <h3>Your session</h3>
+        <p class="muted">
+          Choose prepared material from Session contents, or browse the source library.
+        </p>
+        @if (!reading()) {
+          <button matButton (click)="browse()">Browse source library</button>
+        }
+      }
+    </article>
+    <article
+      class="notes-page"
+      [class.session-notes]="notesScope() === 'session' || !item()"
+      [hidden]="!notesOpen() || !state.current()"
+      aria-label="Working notes"
+    >
+      @if (state.current(); as session) {
+        <p class="eyebrow">YOUR PREPARATION</p>
+        <div class="note-tabs">
+          <button
+            matButton
+            [attr.aria-pressed]="notesScope() === 'session'"
+            (click)="sessionNotes()"
+          >
+            Session</button
+          ><button
+            matButton
+            [attr.aria-pressed]="notesScope() === 'item'"
+            [disabled]="!item()"
+            (click)="notesScope.set('item'); state.selectItem(state.selectedItem())"
+          >
+            Selected item
+          </button>
+        </div>
+        @if (notesScope() === 'item' && item(); as prepared) {
+          <h3>Item notes</h3>
+          <p class="note-context">{{ prepared.title }}</p>
+          @if (!reading()) {
             <label
-              >Session title
-              <input
+              >Item Markdown notes<textarea
+                rows="9"
+                [ngModel]="prepared.notes"
+                (ngModelChange)="state.editItemNotes(prepared.id, $event)"
+              ></textarea>
+            </label>
+            <h4>Preview</h4>
+          }
+          <prepared-markdown [content]="state.previews()[prepared.id] ?? null" />
+          @if (!prepared.notes) {
+            <p class="muted">No notes for this item.</p>
+          }
+        } @else {
+          <h3>Session notes</h3>
+          @if (!reading()) {
+            <label
+              >Session Markdown notes<textarea
+                rows="9"
+                [ngModel]="session.notes"
+                (ngModelChange)="state.edit({ notes: $event })"
+              ></textarea>
+            </label>
+            <h4>Preview</h4>
+          }
+          <prepared-markdown [content]="state.previews()['session'] ?? null" />
+        }
+        @if (!reading()) {
+          <details class="session-details" [open]="!session.items.length">
+            <summary>Session details</summary>
+            <label
+              >Session title<input
                 [ngModel]="session.title"
                 (ngModelChange)="state.edit({ title: $event })"
-                maxlength="200"
-            /></label>
-            <label
-              >Session objective
-              <textarea
-                rows="2"
+                maxlength="200" /></label
+            ><label
+              >Session objective<textarea
+                rows="3"
                 [ngModel]="session.objective"
                 (ngModelChange)="state.edit({ objective: $event })"
               ></textarea>
             </label>
-          </div>
-        } @else {
-          <p class="objective">{{ session.objective }}</p>
+          </details>
         }
-        <div class="session-layout" [class.folio]="reading()">
-          <nav class="outline" aria-label="Session outline">
-            <h3>{{ reading() ? 'In this session' : 'Prepared material' }}</h3>
-            <button
-              matButton
-              (click)="state.selectedItem.set(null)"
-              [attr.aria-current]="!state.selectedItem() ? 'page' : null"
-            >
-              Session notes
-            </button>
-            <ol>
-              @for (prepared of session.items; track prepared.id; let index = $index) {
-                <li>
-                  <button
-                    class="item-select"
-                    (click)="state.selectedItem.set(prepared.id)"
-                    [attr.aria-current]="state.selectedItem() === prepared.id ? 'page' : null"
-                  >
-                    {{ prepared.title }}
-                  </button>
-                  @if (!reading()) {
-                    <div class="order-tools">
-                      <button
-                        (click)="state.move(prepared.id, -1)"
-                        [disabled]="index === 0"
-                        [attr.aria-label]="'Move up: ' + prepared.title"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        (click)="state.move(prepared.id, 1)"
-                        [disabled]="index === session.items.length - 1"
-                        [attr.aria-label]="'Move down: ' + prepared.title"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        (click)="state.remove(prepared.id)"
-                        [attr.aria-label]="'Remove: ' + prepared.title"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  }
-                </li>
-              } @empty {
-                <li class="muted">Add a document or heading from the source library.</li>
-              }
-            </ol>
-            @if (!reading()) {
-              <button matButton="filled" (click)="navigate(undefined, 'library')">
-                Add source material
-              </button>
-            }
-          </nav>
-          <div class="pages">
-            @if (item(); as prepared) {
-              <article class="source-page">
-                <p class="eyebrow">CAPTURED SOURCE</p>
-                <h3>{{ prepared.title }}</h3>
-                <details class="provenance">
-                  <summary>{{ prepared.provenance.path }}</summary>
-                  <p>Capture: {{ prepared.provenance.capture }}</p>
-                  <p>Section: {{ prepared.provenance.section ?? 'Whole document' }}</p>
-                  <p>Content SHA-256: {{ prepared.provenance.contentHash }}</p>
-                </details>
-                <prepared-markdown [content]="source()" (capturedTarget)="followCaptured($event)" />
-              </article>
-              <article class="notes-page">
-                <p class="eyebrow">YOUR PREPARATION</p>
-                <h3>Item notes</h3>
-                @if (!reading()) {
-                  <label
-                    >Item Markdown notes<textarea
-                      rows="12"
-                      [ngModel]="prepared.notes"
-                      (ngModelChange)="state.editItemNotes(prepared.id, $event)"
-                    ></textarea>
-                  </label>
-                  <h4>Preview</h4>
-                }
-                <prepared-markdown [content]="state.previews()[prepared.id] ?? null" />
-                @if (!prepared.notes) {
-                  <p class="muted">No notes for this item.</p>
-                }
-              </article>
-            } @else {
-              <article class="notes-page session-notes">
-                <p class="eyebrow">THE SESSION AT A GLANCE</p>
-                <h3>Session notes</h3>
-                @if (!reading()) {
-                  <label
-                    >Session Markdown notes<textarea
-                      rows="14"
-                      [ngModel]="session.notes"
-                      (ngModelChange)="state.edit({ notes: $event })"
-                    ></textarea>
-                  </label>
-                  <h4>Preview</h4>
-                }
-                <prepared-markdown [content]="state.previews()['session'] ?? null" />
-                @if (!session.notes) {
-                  <p class="muted">Your reminders, opening scene, and threads to follow.</p>
-                }
-              </article>
-            }
-          </div>
-        </div>
-      } @else {
-        <p>{{ state.loading() ? 'Opening session…' : 'Create or open a session to prepare.' }}</p>
       }
-    }
-  </section>
+    </article>
+  </div>
+  @if (!library.selected() && campaignReady()) {
+    <p class="empty-campaign">
+      Register a campaign folder to begin browsing and preparing sessions.
+    </p>
+  }
 </div>

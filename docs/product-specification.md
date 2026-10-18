@@ -250,7 +250,7 @@ AI, play journals, player output, full session lifecycle, automatic source updat
 
 ## Increment 3 — Typed cards, campaign organization, and reading
 
-Status: Requirements approved by the owner on 2026-10-17 after the increment 3 interview. The owner subsequently accepted the architecture recorded in the implementation plan. The 3A plan, detailed metadata contract, and 3B plan were accepted on 2026-10-18; other implementation plans remain proposed. Application implementation and campaign-file edits require separate authorization. The separate Sea Witch migration has its own scope and approval boundary.
+Status: Requirements approved by the owner on 2026-10-17 after the increment 3 interview. The owner subsequently accepted the architecture recorded in the implementation plan. The 3A plan, detailed metadata contract, and 3B plan were accepted on 2026-10-18. After reviewing the extended disposable study, the owner selected B, authorized production planning and accepted the 3C.1 plan; its implementation/developer evidence is recorded in the implementation plan. The 3C.2 plan is also accepted and implemented, with developer evidence in the implementation plan. The 3C.3 plan is accepted and implemented with integrated developer evidence in the implementation plan. Owner implementation review, formal verification and campaign-file edits retain separate authorization boundaries. The separate Sea Witch migration has its own scope and approval boundary.
 
 ### Classification and conventions
 
@@ -273,6 +273,17 @@ Status: Requirements approved by the owner on 2026-10-17 after the increment 3 i
 - Captured session material retains its text, labels, and quick-reference content after source changes. Existing sessions remain readable without source migration. Replacing material requires an explicit action; automatic replacement is excluded. Whether a replacement command is delivered in this increment remains an architecture/scope decision.
 - A Handout label does not publish content or establish player knowledge. A guidance label does not itself grant AI execution authority.
 
+### Accepted B layout refinement
+
+The owner's selection of B after the library-control and large-session review establishes the increment 3 visual direction. It supersedes the study's recommendation to combine A for assembly with B for reading. Prepare and Read remain views of the same saved session; the earlier increment 2 decision is retained above as historical context.
+
+- Use B's shared campaign/session header, a library toolbar with grouped search/categories and optional filters, and its horizontal results shelf while browsing. Reading hides the library toolbar and shelf and retains the source/notes folio. The session contents and notes can collapse for focused reading. Production has no A/B study switcher.
+- Keep the current session's ordered contents accessible while browsing. Successful document/section additions retain library selection and reading position rather than forcing a return to a different screen. Creating or opening a session establishes an explicit destination for subsequent additions; there is no separate compilation or publication step.
+- Support a typical session of 30–50 prepared items with a compact, independently scrolling numbered list and a find-in-session control separate from library search. Finding an entry preserves its full-session number, order, selection and notes. Section entries prioritize their section title with frozen source context; reorder/remove controls are available on the selected entry in Prepare.
+- Preserve established saves, navigation protection, Markdown notes/previews, frozen-source/link semantics, archive compatibility, campaign management, and legacy reading behavior. The prototype's in-memory copies, simplified rendering and mutation shortcuts do not replace those contracts.
+
+The production plan is recorded under **Increment 3C — B production implementation plan** in `docs/implementation-plan.md`. Layout acceptance does not authorize implementation or change the accepted module boundaries.
+
 ### Separate Sea Witch content refactor
 
 - Review a representative conversion before considering a repository-wide migration: Thomas's two profiles, Arrival Hall, Agelus Trail, and one guidance document. Selection of that guidance document remains open.
@@ -280,6 +291,19 @@ Status: Requirements approved by the owner on 2026-10-17 after the increment 3 i
 - Preserve read-aloud passages, dialogue, and in-world handouts verbatim unless the owner separately approves editing them.
 - Keep a manual owner review queue. Uncertain classifications, deletions, reconciliations, authority assignments, summaries, and editorial cuts enter that queue rather than being assumed. Uncertainty blocks only the affected edit within an otherwise authorized migration.
 - The initial queue is [sea-witch-manual-review.md](sea-witch-manual-review.md). It is not an exhaustive migration audit. Application implementation never implicitly authorizes campaign changes.
+
+#### Expanded Sea Witch migration and editorial review — accepted 2026-10-18
+
+The owner approved requirements for a repository-wide migration and editorial review of the 85 existing Sea Witch Markdown files, ahead of production increment 3C. This expands the small pilot's content scope; file organization, exclusion design, detailed planning, and implementation retain their separate approval boundaries. The disposable A/B review is not production approval.
+
+- Perform campaign edits on `refactor/typed-campaign-content` in the independent Sea Witch repository, preserving existing untracked files and historical versions. No work on its main branch is included.
+- Review each file for classification, mixed responsibilities, repeated information, unnecessary verbosity, and inconsistent structure. Use the accepted Workbench metadata where classification is clear; do not infer canon approval or authoritative versions from filenames.
+- Improve ordinary explanatory prose while retaining every distinct fact, mechanic, exception, clue, and knowledge boundary. Keep dialogue, read-aloud passages, and in-world handouts verbatim. Do not use a target word count to justify cuts.
+- Split independently reusable scenes and consolidate overlapping references where the intended relationship is clear; repair affected links and anchors. Preserve recoverable originals and historical material.
+- Leave uncertain passages unchanged and provide an owner review list containing file, concern, proposed manual action, and decision needed. Uncertainty blocks only the affected edit.
+- Identify campaign-consistency rules and design material separately from session content. Such documents remain available to the agent as refactor guidance but must be excluded from session-library reading. Their labels or presence do not settle conflicting versions or grant authority. Retain essential scene-running instructions with their scenes.
+- Provide a file inventory, classification/exclusion list, split/merge mapping, protected-text comparisons, link checks, and unresolved review items. Mechanical checks do not prove semantic preservation.
+- Application code changes, database changes, production increment 3C, commits, merges, and deployment are outside this migration scope. An existing source-rule configuration step must be distinguished from campaign-file edits and separately identified before execution.
 
 ### Acceptance and exclusions
 

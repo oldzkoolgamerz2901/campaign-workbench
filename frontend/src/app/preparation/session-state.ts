@@ -10,6 +10,15 @@ import {
   Archive,
 } from '../../api/generated';
 
+export interface SourceSelection {
+  path: string;
+  section: string | null;
+  title?: string;
+}
+export interface AdditionProgress extends SourceSelection {
+  status: 'pending' | 'completed' | 'failed';
+}
+
 @Injectable({ providedIn: 'root' })
 export class SessionState {
   private readonly api = inject(PreparationControllerService);
@@ -22,6 +31,9 @@ export class SessionState {
   readonly rendered = signal<SessionView | null>(null);
   readonly previews = signal<Record<string, RenderedMarkdown>>({});
   readonly mutating = signal(false);
+  readonly queueRunning = signal(false);
+  readonly additions = signal<AdditionProgress[]>([]);
+  private queueIdentity?: { campaign: string; session: string; capture: string };
   readonly loading = signal(false);
   private activeCampaign: string | null = null;
   private generation = 0;
@@ -30,12 +42,14 @@ export class SessionState {
   private timer?: ReturnType<typeof setTimeout>;
   private previewTimer?: ReturnType<typeof setTimeout>;
   private previewEpoch = 0;
+  private readonly previewTexts = new Map<string, string>();
+  private readonly pendingPreviews = new Set<string>();
   private dirty = false;
   private saving?: Promise<boolean>;
   private mutation?: Promise<void>;
 
   hasUnsaved() {
-    return this.dirty || !!this.saving || this.mutating();
+    return this.dirty || !!this.saving || this.mutating() || this.queueRunning();
   }
   bindCampaign(campaign: string) {
     if (this.activeCampaign === campaign) return;
@@ -82,6 +96,8 @@ export class SessionState {
     this.current.set(null);
     this.rendered.set(null);
     this.previews.set({});
+    this.previewTexts.clear();
+    this.pendingPreviews.clear();
     this.dirty = false;
     this.error.set('');
     this.status.set('saved');
@@ -102,6 +118,8 @@ export class SessionState {
     }
   }
   clear() {
+    this.additions.set([]);
+    this.queueIdentity = undefined;
     this.epoch++;
     this.listEpoch++;
     this.previewEpoch++;
@@ -111,6 +129,8 @@ export class SessionState {
     this.sessions.set([]);
     this.rendered.set(null);
     this.previews.set({});
+    this.previewTexts.clear();
+    this.pendingPreviews.clear();
     clearTimeout(this.timer);
     clearTimeout(this.previewTimer);
     this.dirty = false;
@@ -120,6 +140,7 @@ export class SessionState {
   }
   edit(change: Partial<Pick<SessionData, 'title' | 'objective' | 'notes' | 'items'>>) {
     if (!this.current()) return;
+    const previous = this.current()!;
     this.current.update((s) => (s ? { ...s, ...change } : s));
     this.generation++;
     this.dirty = true;
@@ -129,12 +150,35 @@ export class SessionState {
       clearTimeout(this.timer);
       this.timer = setTimeout(() => void this.flush(), 500);
     }
-    this.queuePreview();
+    const changed: string[] = [];
+    if (change.notes !== undefined && change.notes !== previous.notes) changed.push('session');
+    if (change.items) {
+      const oldNotes = new Map(previous.items.map((item) => [item.id, item.notes]));
+      for (const item of change.items)
+        if (oldNotes.get(item.id) !== item.notes) changed.push(item.id);
+      const retained = new Set(change.items.map((item) => item.id));
+      for (const id of this.previewTexts.keys())
+        if (id !== 'session' && !retained.has(id)) {
+          this.previewTexts.delete(id);
+          this.pendingPreviews.delete(id);
+        }
+      this.previews.update((values) =>
+        Object.fromEntries(
+          Object.entries(values).filter(([id]) => id === 'session' || retained.has(id)),
+        ),
+      );
+    }
+    if (changed.length) this.queuePreview(changed);
+  }
+  selectItem(id: string | null) {
+    this.selectedItem.set(id);
+    this.queuePreview(id ? [id] : ['session']);
   }
   editItemNotes(id: string, notes: string) {
     this.edit({ items: this.current()!.items.map((i) => (i.id === id ? { ...i, notes } : i)) });
   }
   move(id: string, delta: number) {
+    if (this.queueRunning()) return;
     const items = [...(this.current()?.items ?? [])],
       from = items.findIndex((i) => i.id === id),
       to = from + delta;
@@ -143,9 +187,10 @@ export class SessionState {
     this.edit({ items });
   }
   remove(id: string) {
+    if (this.queueRunning()) return;
     const items = this.current()!.items.filter((i) => i.id !== id);
     this.edit({ items });
-    if (this.selectedItem() === id) this.selectedItem.set(items[0]?.id ?? null);
+    if (this.selectedItem() === id) this.selectItem(items[0]?.id ?? null);
   }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
@@ -216,17 +261,65 @@ export class SessionState {
     const ok = await this.saving;
     return ok && this.dirty ? this.flush() : ok;
   }
+  async startAdditions(capture: string, selections: SourceSelection[]) {
+    const current = this.current();
+    if (!current || this.queueRunning() || this.mutating() || !selections.length) return;
+    this.queueIdentity = { campaign: current.campaign, session: current.id, capture };
+    this.additions.set([
+      ...new Map(
+        selections.map((s) => [
+          JSON.stringify([s.path, s.section]),
+          { ...s, status: 'pending' as const },
+        ]),
+      ).values(),
+    ]);
+    await this.retryAdditions();
+  }
+  async retryAdditions() {
+    const pin = this.queueIdentity,
+      current = this.current();
+    if (
+      !pin ||
+      !current ||
+      this.queueRunning() ||
+      this.mutating() ||
+      current.campaign !== pin.campaign ||
+      current.id !== pin.session
+    )
+      return;
+    this.queueRunning.set(true);
+    try {
+      for (let index = 0; index < this.additions().length; index++) {
+        const selection = this.additions()[index];
+        if (selection.status === 'completed') continue;
+        const ok = await this.addOne(pin.capture, selection.path, selection.section);
+        this.additions.update((items) =>
+          items.map((item, i) =>
+            i === index ? { ...item, status: ok ? 'completed' : 'failed' } : item,
+          ),
+        );
+        if (!ok) break;
+      }
+    } finally {
+      this.queueRunning.set(false);
+    }
+  }
   async add(capture: string, path: string, section: string | null) {
-    if (this.mutating() || !(await this.flush())) return;
-    if (this.mutating()) return;
+    if (this.queueRunning()) return false;
+    return this.addOne(capture, path, section);
+  }
+  private async addOne(capture: string, path: string, section: string | null): Promise<boolean> {
+    if (this.mutating() || !(await this.flush())) return false;
+    if (this.mutating()) return false;
     const snapshot = this.current();
     if (!snapshot) {
       this.error.set('Create or open a session before adding source material.');
-      return;
+      return false;
     }
     const epoch = this.epoch;
     this.mutating.set(true);
     this.error.set('');
+    let completed = false;
     this.mutation = (async () => {
       try {
         const saved = await firstValueFrom(
@@ -244,10 +337,13 @@ export class SessionState {
         this.current.update((s) =>
           s ? { ...s, revision: saved.revision, items: [...s.items, ...added] } : s,
         );
-        this.selectedItem.set(added[0]?.id ?? null);
+        this.selectItem(added[0]?.id ?? null);
+        completed = true;
         this.status.set(this.dirty ? 'pending' : 'saved');
         await this.renderSources();
-        this.notice.set('Captured source added. Its text is preserved with this session.');
+        this.notice.set(
+          `Captured source added to ${this.current()?.title}. Its text is preserved with this session.`,
+        );
       } catch (e) {
         if (epoch === this.epoch) this.fail(e);
       } finally {
@@ -255,9 +351,10 @@ export class SessionState {
       }
     })();
     await this.mutation;
+    return completed;
   }
   async allowLeave(): Promise<boolean> {
-    if (this.mutating()) {
+    if (this.mutating() || this.queueRunning()) {
       this.error.set('Wait for the source capture to finish before leaving.');
       return false;
     }
@@ -275,6 +372,7 @@ export class SessionState {
     return false;
   }
   async reload() {
+    if (this.queueRunning() || this.mutating()) return;
     const s = this.current();
     if (!s) return;
     if (this.hasUnsaved() && !window.confirm('Discard local edits and reload the saved session?'))
@@ -347,7 +445,17 @@ export class SessionState {
       if (epoch === this.epoch) this.fail(e);
     }
   }
-  private queuePreview() {
+  private noteText(id: string): string | undefined {
+    return id === 'session'
+      ? this.current()?.notes
+      : this.current()?.items.find((item) => item.id === id)?.notes;
+  }
+  private queuePreview(ids = ['session', ...(this.selectedItem() ? [this.selectedItem()!] : [])]) {
+    for (const id of ids) {
+      const text = this.noteText(id);
+      if (text !== undefined && this.previewTexts.get(id) !== text) this.pendingPreviews.add(id);
+    }
+    if (!this.pendingPreviews.size) return;
     clearTimeout(this.previewTimer);
     const epoch = ++this.previewEpoch;
     this.previewTimer = setTimeout(() => void this.preview(epoch), 350);
@@ -355,23 +463,40 @@ export class SessionState {
   private async preview(epoch: number) {
     const s = this.current();
     if (!s) return;
-    const fields = [['session', s.notes], ...s.items.map((i) => [i.id, i.notes])];
+    const fields = [...this.pendingPreviews].flatMap((id) => {
+      const text = this.noteText(id);
+      if (text === undefined || this.previewTexts.get(id) === text) {
+        this.pendingPreviews.delete(id);
+        return [];
+      }
+      return [[id, text] as const];
+    });
     try {
       const entries = await Promise.all(
-        fields.map(
-          async ([id, text]) =>
-            [
-              id,
-              await firstValueFrom(
-                this.api.previewMarkdown(s.campaign, { markdown: text }, 'body', false, {
-                  httpHeaderAccept: 'application/json',
-                }),
-              ),
-            ] as const,
-        ),
+        fields.map(async ([id, text]) => ({
+          id,
+          text,
+          rendered: await firstValueFrom(
+            this.api.previewMarkdown(s.campaign, { markdown: text }, 'body', false, {
+              httpHeaderAccept: 'application/json',
+            }),
+          ),
+        })),
       );
-      if (epoch === this.previewEpoch && s.id === this.current()?.id)
-        this.previews.set(Object.fromEntries(entries));
+      if (
+        epoch !== this.previewEpoch ||
+        s.id !== this.current()?.id ||
+        s.campaign !== this.current()?.campaign
+      )
+        return;
+      const updates: Record<string, RenderedMarkdown> = {};
+      for (const { id, text, rendered } of entries) {
+        if (this.noteText(id) !== text) continue;
+        this.previewTexts.set(id, text);
+        this.pendingPreviews.delete(id);
+        updates[id] = rendered;
+      }
+      this.previews.update((values) => ({ ...values, ...updates }));
     } catch (e) {
       if (epoch === this.previewEpoch) this.fail(e);
     }

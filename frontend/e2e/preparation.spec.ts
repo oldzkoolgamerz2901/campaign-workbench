@@ -41,7 +41,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await expect(page.getByRole('combobox', { name: 'Campaign', exact: true })).toHaveValue(
       first.id,
     );
-    await page.getByText('New session', { exact: true }).click();
+    await page.getByRole('button', { name: 'Sessions / New session', exact: true }).click();
     await page.getByLabel('New session title', { exact: true }).fill('Night at the observatory');
     await page
       .getByLabel('New session objective', { exact: true })
@@ -62,6 +62,10 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
     await page.getByRole('button', { name: 'Add source material', exact: true }).click();
     await page.getByRole('button', { name: 'Add section: Lower chamber', exact: true }).click();
+    await page
+      .getByLabel('Session outline')
+      .getByRole('button', { name: 'Lower chamber', exact: true })
+      .click();
     await expect(page.locator('.source-page')).toContainText('Ancient words.');
     await expect(page.locator('.source-page')).not.toContainText('Return safely.');
     const reorderedSave = page.waitForResponse(
@@ -138,13 +142,17 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     expect(archive.sessions).toHaveLength(1);
     expect(archive.sessions[0].items[0].title).toBe('Lower chamber');
     expect(archive.sessions[0].items[0].capturedSource.classification.metadata).toMatchObject({
-      type: 'location', tags: ['observatory'], summary: 'A telescope and its hidden chamber.',
+      type: 'location',
+      tags: ['observatory'],
+      summary: 'A telescope and its hidden chamber.',
     });
     expect(archive.sessions[0].items[0].capturedSource.bodyStart).toBe(0);
     expect(archive.sessions[0].items[1].capturedSource.bodyStart).toBeGreaterThan(0);
     // Keep campaign initialization pending to exercise the import-readiness race deterministically.
     let finishRefresh!: () => void;
-    const refreshGate = new Promise<void>((resolve) => { finishRefresh = resolve; });
+    const refreshGate = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
     const refreshUrl = `**/api/campaigns/${second.id}/sources/refresh`;
     await page.route(refreshUrl, async (route) => {
       await refreshGate;
@@ -163,6 +171,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     finishRefresh();
     await expect(importInput).toBeEnabled();
     await page.unroute(refreshUrl);
+    await page.getByRole('button', { name: 'Sessions / New session', exact: true }).click();
     await importInput.setInputFiles(downloaded!);
     await expect(
       page.getByText('Imported 1 new session(s). Existing sessions are preserved.'),
@@ -181,6 +190,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     ).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('preparation-1440.png') });
     // A malformed upload never creates a partial session.
+    await page.getByRole('button', { name: 'Sessions / New session', exact: true }).click();
     await page.getByLabel('Import sessions into Import destination').setInputFiles({
       name: 'bad.json',
       mimeType: 'application/json',
@@ -228,6 +238,7 @@ test('failed saves retain edits across modes and guard session navigation', asyn
     await expect(page.getByLabel('Session save status')).toHaveText('Save failed');
     await page.getByRole('button', { name: 'Read session', exact: true }).click();
     await expect(page.locator('.session-notes')).toContainText('Keep these local notes');
+    await page.getByRole('button', { name: 'Sessions / New session', exact: true }).click();
     page.once('dialog', (dialog) => dialog.dismiss());
     await page.getByRole('button', { name: 'Session B', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Session A', exact: true })).toBeVisible();
@@ -236,6 +247,7 @@ test('failed saves retain edits across modes and guard session navigation', asyn
     await page.unroute(`**/api/campaigns/${campaign.id}/sessions/${a.id}`);
     await page.getByRole('button', { name: 'Retry save', exact: true }).click();
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
+    await page.getByRole('button', { name: 'Sessions / New session', exact: true }).click();
     await page.getByRole('button', { name: 'Session B', exact: true }).click();
     await expect(page.getByLabel('Session title', { exact: true })).toHaveValue(b.title);
   } finally {

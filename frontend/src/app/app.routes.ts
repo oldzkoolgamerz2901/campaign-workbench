@@ -5,6 +5,7 @@ import { SessionState } from './preparation/session-state';
 const protectWorkingSession: CanActivateFn = (route) => {
   const state = inject(SessionState),
     current = state.current();
+  if (state.queueRunning()) return state.allowLeave();
   if (
     !current ||
     (route.queryParamMap.get('session') === current.id &&

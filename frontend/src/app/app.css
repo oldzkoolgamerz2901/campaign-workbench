@@ -1,29 +1,29 @@
 .app-header {
+  height: 48px;
+  box-sizing: border-box;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.2rem 2rem;
+  padding: 0 1.3rem;
   border-bottom: 1px solid var(--line);
   background: #13231c;
 }
 h1 {
   font:
-    1.35rem Georgia,
+    1.05rem Georgia,
     serif;
-  letter-spacing: 0.02em;
   margin: 0;
-}
-p {
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin: 0.3rem 0 0;
+  letter-spacing: 0.02em;
 }
 .connection {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--muted);
+}
+.connection button {
+  font-size: 0.72rem;
 }
 main {
   max-width: 1900px;

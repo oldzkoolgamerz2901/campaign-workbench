@@ -1,23 +1,205 @@
-select,input,textarea { font: inherit; padding: .55rem; border: 1px solid #888; border-radius: .3rem; max-width: 100%; box-sizing: border-box; }
-label { display: grid; gap: .35rem; min-width: 0; }
-.toolbar,form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin: 1rem 0; }
-.toolbar label,form label { flex: 1; min-width: 12rem; }
-details,.rules { border: 1px solid var(--line); padding: 1rem; border-radius: .5rem; }
-summary { cursor: pointer; }
-.rules { align-items: start; }
-.rules p { flex-basis: 100%; }
-.workspace { display: grid; grid-template-columns: minmax(16rem, 28%) minmax(0,1fr); border-top: 1px solid var(--line); }
-nav { padding: 1rem 1rem 1rem 0; border-right: 1px solid var(--line); }
-article { padding: 1rem 2rem; min-width: 0; overflow-wrap: anywhere; }
-h2 { font-size: 1.2rem; }
-ul { list-style: none; padding: 0; }
-li button { display: block; width: 100%; padding: .7rem; border: 0; border-radius: .3rem; text-align: left; background: transparent; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
-li button:hover,li button[aria-current] { background: #344d3d; }
-li button span,li button small { display: block; color: var(--muted); margin-top: .3rem; }
-[role=alert] { color: #ffe0d6; background: #492d27; padding: .8rem; }
-.directory { color: var(--muted); overflow-wrap: anywhere; }
-article ::ng-deep pre { overflow: auto; background: #102017; padding: 1rem; }
-article ::ng-deep table { border-collapse: collapse; display: block; overflow: auto; }
-article ::ng-deep th,article ::ng-deep td { border: 1px solid #aaa; padding: .5rem; }
-article ::ng-deep :focus { outline: 2px solid #3974ad; outline-offset: 3px; }
-@media(max-width: 800px) { .workspace { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid var(--line); } article { padding: 1rem 0; } }
+:host,
+section[aria-label='Campaign library'] {
+  display: contents;
+}
+.library-toolbar {
+  grid-column: 1/-1;
+  grid-row: 1;
+  background: #243b2e;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.7rem 1.2rem;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  min-width: 0;
+}
+.library-toolbar h3 {
+  font:
+    1.25rem Georgia,
+    serif;
+  margin: 0 0 0.2rem;
+}
+.library-toolbar span {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+label {
+  flex: 1;
+}
+input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  background: #15291f;
+}
+form button {
+  flex-shrink: 0;
+}
+.source-shelf {
+  grid-column: 1/-1;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  background: #20372a;
+  border: 1px solid var(--line);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+ul {
+  display: flex;
+  list-style: none;
+  padding: 0.4rem;
+  margin: 0;
+  gap: 0.4rem;
+  height: 100%;
+  box-sizing: border-box;
+}
+li {
+  flex: 0 0 235px;
+  min-width: 0;
+}
+li button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0.8rem;
+  text-align: left;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+li button:hover,
+li button[aria-current] {
+  border-left-color: var(--accent);
+  background: #324d3b;
+}
+li strong {
+  font:
+    1.05rem/1.3 Georgia,
+    serif;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+li span,
+li small {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+li small {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.empty {
+  font-size: 0.8rem;
+  padding: 1rem;
+}
+.library-reader {
+  grid-column: 2;
+  grid-row: var(--reader-row, 3);
+  padding: 1.6rem 2rem;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #eee8d7;
+  color: #302f27;
+  border: 1px solid #b9b79e;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+.library-reader h2 {
+  font:
+    1.8rem/1.2 Georgia,
+    serif;
+  margin: 0.5rem 0 1rem;
+}
+.library-reader .reader-section {
+  border-top: 1px solid #b9b79e;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+}
+.library-reader .eyebrow {
+  font: 0.65rem system-ui;
+  letter-spacing: 0.1em;
+  color: #5a654e;
+}
+.library-reader ::ng-deep :is(h1, h2, h3, h4, h5, h6) {
+  font-family: Georgia, serif;
+}
+.library-reader ::ng-deep pre {
+  overflow: auto;
+  background: #ddd7c4;
+  padding: 1rem;
+}
+.library-reader ::ng-deep table {
+  display: block;
+  overflow: auto;
+  border-collapse: collapse;
+}
+.library-reader ::ng-deep :is(td, th) {
+  border: 1px solid #aaa;
+  padding: 0.5rem;
+}
+.library-reader ::ng-deep a {
+  color: #425b37;
+}
+.library-reader ::ng-deep :focus {
+  outline: 2px solid #87722f;
+  outline-offset: 3px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.library-reader {
+  --mat-button-text-label-text-color: #435b38;
+  --mat-button-outlined-label-text-color: #435b38;
+  --mat-button-filled-container-color: #435b38;
+  --mat-button-filled-label-text-color: #f5efde;
+  --mat-sys-primary: #435b38;
+  --mat-sys-on-primary: #f5efde;
+  --mat-sys-outline: #8c967f;
+}
+.library-reader > header,
+.library-reader .reader-section,
+.library-reader > aside {
+  max-width: 72ch;
+  margin-inline: auto;
+}
+
+.results li {
+  overflow: auto;
+  padding: 0.4rem;
+}
+.results li button {
+  height: auto;
+}
+.library-toolbar {
+  gap: 0.7rem;
+  padding: 0.4rem 0.8rem;
+}

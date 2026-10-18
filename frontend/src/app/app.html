@@ -1,6 +1,14 @@
 @if (showingPrototype) {
-  @if (prototypeType(); as prototype) { <ng-container [ngComponentOutlet]="prototype" /> }
+  @if (prototypeType(); as prototype) {
+    <ng-container [ngComponentOutlet]="prototype" />
+  }
 } @else {
-<header class="app-header"><div><h1>Campaign Workbench</h1><p>A place for the world you are building.</p></div><div class="connection"><button matButton (click)="checkConnection()" [disabled]="checking()">Check connection</button><span role="status" aria-label="Connection status">{{ connection() }}</span></div></header>
-<main><router-outlet /></main>
+  <header class="app-header">
+    <div><h1>Campaign Workbench</h1></div>
+    <div class="connection">
+      <button matButton (click)="checkConnection()" [disabled]="checking()">Check connection</button
+      ><span role="status" aria-label="Connection status">{{ connection() }}</span>
+    </div>
+  </header>
+  <main><router-outlet /></main>
 }

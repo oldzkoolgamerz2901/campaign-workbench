@@ -1,22 +1,50 @@
 import { Component, inject, input, output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { SourceClassification, SourceDocument, SourceRelationship } from '../../api/generated';
+import { LibraryFiltersControl } from './library-filters';
+import { ReaderPresentation } from '../shared/reader/reader-presentation';
+import { ReaderControls } from '../shared/reader/reader-controls';
 import { LibraryState } from './library-state';
 
 @Component({
-  selector: 'campaign-library', imports: [FormsModule, MatButtonModule],
-  templateUrl: './library.html', styleUrl: './library.css',
+  selector: 'campaign-library',
+  imports: [MatButtonModule, LibraryFiltersControl, ReaderPresentation, ReaderControls],
+  templateUrl: './library.html',
+  styleUrl: './library.css',
 })
 export class CampaignLibrary {
   readonly state = inject(LibraryState);
   readonly ready = input(true);
-  readonly addSource = output<{path: string; section: string | null}>();
-  name = ''; directory = ''; query = '';
-  includes = ''; excludes = ''; editingRules = false;
-  constructor() { void this.state.initialize(); }
-  editRules() {
-    const campaign = this.state.selected(); if (!campaign) return;
-    this.includes = campaign.includes.join('\n'); this.excludes = campaign.excludes.join('\n'); this.editingRules = true;
+  readonly shelfVisible = input(true);
+  readonly readerVisible = input(true);
+  readonly canAdd = input(false);
+  readonly addSource = output<{ path: string; section: string | null }>();
+  readonly requestSession = output<void>();
+  readonly openSource = output<void>();
+  get query() {
+    return this.state.query();
   }
-  select(id: string) { if (!this.ready()) return; this.editingRules = false; this.query = ''; void this.state.select(id); }
+  knownNonSession(classification?: SourceClassification) {
+    return ['guidance', 'tooling'].includes(classification?.metadata?.purpose ?? '');
+  }
+  eligible(document: SourceDocument) {
+    return !this.knownNonSession(document.classification);
+  }
+  related(link: SourceRelationship) {
+    const target = link.target;
+    if (this.ready() && target?.external && !target.missing)
+      window.open(target.external, '_blank', 'noopener,noreferrer');
+    else if (this.ready() && target?.document && !target.missing)
+      this.open(target.document, target.section);
+  }
+  follow(event: MouseEvent) {
+    if (this.ready()) this.state.follow(event);
+    else if (event.target instanceof Element && event.target.closest('a')) event.preventDefault();
+  }
+  open(path: string, section?: string | null, block?: string | null) {
+    if (!this.ready()) return;
+    this.openSource.emit();
+    void this.state.open(path, section, block);
+  }
+  readonly assemble = output<SourceDocument>();
 }

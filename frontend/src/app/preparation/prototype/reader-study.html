@@ -1,15 +1,110 @@
-<div class="study" [class.layout-b]="variant()==='B'" [class.library-hidden]="!library()" [class.notes-hidden]="!notesOpen()" [class.outline-hidden]="!outline()">
-<header class="study-banner"><span>DISPOSABLE A/B STUDY · read-only campaign copies + invented fixtures · memory only</span><a href="/">Return to application</a></header>
-<header class="mast"><div><small>CAMPAIGN WORKBENCH / {{campaignExamples()?'SEA WITCH REVIEW':'THE HOLLOW MARCHES'}}</small><h1>{{variant()==='B' ? 'Session folio' : 'Source library'}}</h1></div><div class="controls"><button (click)="library.set(!library())" [attr.aria-expanded]="library()">{{library()?'Hide':'Show'}} library</button><button (click)="outline.set(!outline())" [attr.aria-expanded]="outline()">{{outline()?'Hide':'Show'}} outline</button><button (click)="notesOpen.set(!notesOpen())" [attr.aria-expanded]="notesOpen()">{{notesOpen()?'Hide':'Show'}} notes</button></div></header>
-<div class="workspace">
-<aside class="library" [hidden]="!library()" aria-label="Sample library"><label>Review content<select [ngModel]="campaignExamples()" (ngModelChange)="switchExamples($event)"><option [ngValue]="true">Existing Sea Witch Markdown</option><option [ngValue]="false">Invented stress fixtures</option></select></label><nav aria-label="Categories">@for(cat of categories;track cat){<button [attr.aria-pressed]="category()===cat" (click)="category.set(cat)">{{cat}}</button>}</nav><label>Search full content<input [ngModel]="query()" (ngModelChange)="query.set($event)" placeholder="Try silver heron"></label><label>Tag<select [ngModel]="tag()" (ngModelChange)="tag.set($event)"><option value="">All tags</option><option>investigation</option><option>ally</option><option>ruins</option></select></label><button (click)="searchAll()">Search all content</button><p class="muted">{{category()}} · {{results().length}} results</p><div class="results">@for(card of results();track card.id){<button class="result" [attr.aria-current]="selected().id===card.id?'page':null" (click)="choose(card)"><small>{{card.type}} · {{card.tags.join(' / ')}}</small><strong>{{card.title}}</strong><span>{{card.summary}}</span></button>}@empty{<p>No matching cards. Clear the tag or search all content.</p>}</div></aside>
-<nav class="outline" aria-label="Reader outline" [hidden]="!outline()"><small>ON THIS PAGE</small><h2>{{selected().title}}</h2>@for(s of selected().sections;track s.title){<button (click)="jump(s.title)">{{s.title}} {{opened(s)?'':'＋'}}</button>}<hr><small>RELATED CARDS</small>@for(id of selected().related??[];track id){<button (click)="choose(related(id))">{{related(id).title}} ↗</button>}<p class="muted">Opening a related card never adds it.</p></nav>
-<main class="reader" aria-label="Source reader"><div class="reader-head"><small>{{variant()==='B'?'FROZEN SAMPLE / SESSION MATERIAL':'CAPTURED LIBRARY / SAMPLE'}} · {{selected().type}}</small><h2 id="reader-title">{{selected().title}}</h2><p>{{selected().summary}}</p>@if(selected().rawOriginal){<details class="review-source"><summary>Review original and proposed Markdown</summary><p>{{selected().reviewNote}}</p><p>Proposed section treatment is explicit study data, not automatic heading classification.</p><h3>Original Markdown — complete file</h3><pre tabindex="0">{{selected().rawOriginal}}</pre><h3>Proposed Markdown — review copy only</h3><pre tabindex="0">{{selected().rawProposed}}</pre></details>}<details><summary>Provenance</summary><p>{{selected().sourcePath??("samples/"+selected().id+".md")}}</p><p>{{selected().sourceHash}}</p></details>@if(selected().issue){<p class="issue" role="status">{{selected().issue}}</p>}<div class="controls"><button (click)="full.set(!full());focused.set(null)">{{full()?'Quick reference view':'Expand all / full text'}}</button><button (click)="revealMatch()" [disabled]="!query().trim()">Reveal search match</button><button (click)="focused.set(null)" [disabled]="!focused()">Show all sections</button>@if(selected().purpose!=='guidance'){<button (click)="addDocument()">Add {{selected().type==='Adventure'?'adventure…':'document'}}</button>}</div><p class="muted">{{wordCount()}} words · {{full()?'All text expanded':'Background collapsed; other content visible'}}</p>
-@if(sceneChooser()){<fieldset><legend>Choose scenes explicitly</legend><p>Overview is included. Choose linked scenes explicitly; unselected content is not added.</p>@for(scene of sceneOptions();track scene.id){<label><input type="checkbox" [checked]="selectedScenes().includes(scene.id)" (change)="toggleScene(scene.id)"> {{scene.title}}</label>}<button (click)="captureAdventure()">Add overview + selected scenes</button><button (click)="sceneChooser.set(false)">Cancel</button></fieldset>}
-</div>
-@for(s of selected().sections;track s.title;let i=$index){<section [id]="'section-'+i" tabindex="-1" [hidden]="focused()!==null&&focused()!==s.title" [class.read-aloud]="s.kind==='Read aloud'" [class.mechanics]="s.kind==='Mechanics'" [class.background]="s.background"><div class="section-head"><small>{{s.kind}}</small><div><button (click)="focused.set(focused()===s.title?null:s.title)">{{focused()===s.title?'Leave section focus':'Focus section'}}</button>@if(selected().purpose!=='guidance'){<button (click)="add(selected().title+' / '+s.title)">Add section</button>}</div></div>@if(s.background){<h3><button class="disclosure" [attr.aria-expanded]="opened(s)" (click)="toggle(s)">{{opened(s)?'−':'＋'}} {{s.title}}</button></h3>}@else{<h3>{{s.title}}</h3>}@if(opened(s)){@if(s.title==='Reference table and long tokens'){<div class="table-scroll"><table><caption>Routes to the tower</caption><thead><tr><th>Route</th><th>Condition</th><th>Consequence</th></tr></thead><tbody><tr><td>Sluice</td><td>Token and held lever</td><td>Watcher alerted; evidence remains accessible</td></tr><tr><td>Dry stair</td><td>Always accessible</td><td>Quiet arrival; no roll required</td></tr></tbody></table></div><pre aria-label="Sample long code line">{{s.paragraphs[1]}}</pre>}@if(s.html){<div class="campaign-prose" [class.match]="query().trim() && s.paragraphs.join(' ').toLowerCase().includes(query().trim().toLowerCase())" [innerHTML]="s.html"></div>}@else{@for(paragraph of s.paragraphs;track $index){<p [class.match]="query().trim() && paragraph.toLowerCase().includes(query().trim().toLowerCase())">{{paragraph}}</p>}}}</section>}
-</main>
-<aside class="notes" [hidden]="!notesOpen()" aria-label="Working notes"><small>{{variant()==='B'?'FACING PAGE':'WRITING DESK'}}</small><h2>In the margins</h2><p class="muted">Notes follow the selected card across layouts. Refresh resets this study.</p><label>Item notes<textarea rows="12" [ngModel]="notes()[selected().id]??''" (ngModelChange)="editNote($event)"></textarea></label><p>Memory only · {{prepared().length}} sample additions</p>@for(item of prepared();track $index){<p class="muted">＋ {{item}}</p>}</aside>
-</div>
-<footer class="study-tools"><div class="state" role="status">{{notice() || (selected().title+' · '+(full()?'full text':'quick view')+' · '+prepared().length+' additions · notes '+(notesOpen()?'shown':'hidden'))}}</div><nav class="switcher" aria-label="Reader study variants"><button (click)="cycle(-1)" aria-label="Previous reader layout">←</button><div><small>LAYOUT {{variant()}} / 2</small><strong>{{names[variant()]}}</strong></div><button (click)="cycle(1)" aria-label="Next reader layout">→</button></nav></footer>
+<div class="study" [class.layout-b]="variant()==='B'" [class.library-hidden]="!library()" [class.notes-hidden]="!notesOpen()" [class.contents-hidden]="!contentsOpen()">
+  <header class="study-banner"><span>DISPOSABLE A/B STUDY · migrated campaign copies + invented fixtures · edits reset on refresh</span><a href="/">Return to application</a></header>
+  <header class="mast">
+    <label class="campaign-picker">Campaign<select [ngModel]="campaign()" (ngModelChange)="switchCampaign($event)">@for(c of campaigns;track c.id){<option [value]="c.id">{{c.title}}</option>}</select></label>
+    <div class="session-heading"><small>{{mode()==='read'?'READING FOLIO':'SESSION PREPARATION'}}</small><h1>{{current().title}}</h1><p>{{current().objective || 'No objective set'}}</p></div>
+    <div class="controls"><button (click)="sessionsOpen.set(!sessionsOpen())" [attr.aria-expanded]="sessionsOpen()" aria-controls="study-sessions">Sessions / New session</button>
+      @if(mode()==='prepare'){<button class="primary" (click)="setMode('read')" [disabled]="!current().items.length">Read session →</button>}
+      @else{<button class="primary" (click)="setMode('prepare')">← Return to Prepare</button>}
+    </div>
+  </header>
+  @if(sessionsOpen()){
+    <section class="session-picker" id="study-sessions" aria-label="Campaign sessions">
+      <div><small>{{campaign()==='sea-witch'?'SEA WITCH':'THE HOLLOW MARCHES'}} / SESSIONS</small><h2>Open a session</h2>
+        @for(s of campaignSessions();track s.id){<button class="session-choice" (click)="openSession(s.id)" [attr.aria-current]="current().id===s.id?'page':null"><strong>{{s.title}}</strong><span>{{s.items.length}} items · {{s.objective || 'No objective'}}</span></button>}
+      </div>
+      <form (ngSubmit)="createSession()"><h2>New session</h2><label>Session title<input name="title" [(ngModel)]="draftTitle" maxlength="200" required placeholder="e.g. Greenbank and the map"></label><label>Objective (optional)<textarea name="objective" [(ngModel)]="draftObjective" rows="2"></textarea></label><button type="submit" class="primary" [disabled]="!draftTitle.trim()">Create session</button></form>
+      <button class="close-picker" (click)="sessionsOpen.set(false)" aria-label="Close session chooser">×</button>
+    </section>
+  }
+  <div class="desk-tools">
+    <span>{{current().items.length}} items · memory only</span><div class="controls">
+      <button (click)="contentsOpen.set(!contentsOpen())" [attr.aria-expanded]="contentsOpen()">{{contentsOpen()?'Hide':'Show'}} session contents</button>
+      @if(mode()==='prepare'){
+        <button (click)="library.set(!library())" [attr.aria-expanded]="library()">{{library()?'Hide':'Show'}} library</button>
+        @if(frozen()){<button (click)="browse()">Browse source library</button>}
+      }
+      <button (click)="notesOpen.set(!notesOpen())" [attr.aria-expanded]="notesOpen()">{{notesOpen()?'Hide':'Show'}} notes</button>
+    </div>
+  </div>
+  <div class="workspace">
+    <aside class="session-contents" [hidden]="!contentsOpen()" aria-label="Session contents">
+      <div class="contents-heading"><h2>Session contents <span>{{current().items.length}}</span></h2>
+        <label><span class="sr-only">Find in session</span><input type="search" placeholder="Find in session…" [ngModel]="preparedQuery()" (ngModelChange)="filterPrepared($event)"></label>
+        @if(mode()==='prepare'){<button (click)="browse()">＋ Add source material</button>}
+        @if(preparedQuery()){<p class="muted">{{visibleItems().length}} of {{current().items.length}} items · original order</p>}
+      </div>
+      <div class="contents-list">
+        @if(!current().items.length){<p class="muted">Your session is empty. Browse the library and add a document or section.</p>}
+        <ol>@for(entry of visibleItems();track entry.item.id){@let item=entry.item;<li [value]="entry.number"><span class="item-number">{{entry.number}}</span>
+          <button class="item-choice" [title]="item.card.title" [attr.aria-label]="item.card.title" [attr.aria-current]="current().selectedId===item.id?'true':null" (click)="selectItem(item)"><strong>{{item.section || item.card.title}}</strong><small>{{item.section?related(item.sourceId).title:item.card.type+' · document'}}</small></button>
+          @if(mode()==='prepare' && current().selectedId===item.id){<div class="item-actions"><button (click)="move(item,-1)" [disabled]="entry.number===1" [attr.aria-label]="'Move up '+item.card.title">↑</button><button (click)="move(item,1)" [disabled]="entry.number===current().items.length" [attr.aria-label]="'Move down '+item.card.title">↓</button><button (click)="remove(item)" [attr.aria-label]="'Remove '+item.card.title">Remove</button></div>}
+        </li>}@empty{@if(current().items.length){<p class="muted">No matching prepared items.</p><button (click)="filterPrepared('')">Show all session items</button>}} </ol>
+      </div>
+    </aside>
+    <section class="library-tools" [hidden]="!library() || mode()==='read'" aria-label="Library controls">
+      <div class="library-search-row">
+        <div class="library-heading"><h2>Source library</h2><span>{{results().length}} results</span></div>
+        <label class="search-field"><span class="sr-only">Search full content</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input type="search" [ngModel]="query()" (ngModelChange)="query.set($event)" placeholder="Search this campaign…"></label>
+        <button class="filter-toggle" (click)="filtersOpen.set(!filtersOpen())" [attr.aria-expanded]="filtersOpen()" aria-controls="library-filters"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M9 4v6M15 14v6"/></svg>Filters{{tag()?' · 1':''}}</button>
+      </div>
+      <div class="library-browse-row"><nav aria-label="Categories">@for(cat of categories;track cat){<button [attr.aria-pressed]="category()===cat" (click)="category.set(cat)">{{cat}}</button>}</nav><button class="search-all" (click)="searchAll()" [attr.aria-pressed]="category()==='All content'&&!tag()">Search all content</button></div>
+      @if(tag()){<button class="tag-chip" (click)="tag.set('')" [attr.aria-label]="'Remove tag filter '+tag()">{{tag()}} ×</button>}
+      @if(filtersOpen()){
+        <div class="library-filters" id="library-filters"><label>Tag<select [ngModel]="tag()" (ngModelChange)="tag.set($event)"><option value="">All tags</option><option>sea-witch</option><option>investigation</option><option>ally</option><option>ruins</option></select></label><p>Combine a tag with the selected category and search.</p></div>
+      }
+    </section>
+    <aside class="library" [hidden]="!library() || mode()==='read'" aria-label="Source library">
+      <div class="results">@for(card of results();track card.id){<button class="result" [attr.aria-current]="!frozen()&&selected().id===card.id?'page':null" (click)="choose(card)"><small>{{card.type}}</small><strong>{{card.title}}</strong><span>{{card.summary}}</span></button>}@empty{<div class="empty-results"><h3>No matches</h3><p>Try another search or clear your filters.</p><button (click)="query.set('');searchAll()">Show all content</button></div>}</div>
+    </aside>
+    <main class="reader" aria-label="Source reader">
+      <div class="reader-head">
+        <small>{{frozen()?'PREPARED COPY / THIS SESSION':'SOURCE LIBRARY / NOT ADDED BY OPENING'}} · {{selected().type}}</small><h2 id="reader-title">{{selected().title}}</h2><p>{{selected().summary}}</p>
+        @if(selected().rawOriginal){<details class="review-source"><summary>Inspect migrated Markdown</summary><p>{{selected().reviewNote}}</p><pre tabindex="0">{{selected().rawOriginal}}</pre></details>}
+        <details><summary>Provenance</summary><p>{{selected().sourcePath??('samples/'+selected().id+'.md')}}</p><p>Original document SHA-256: {{selected().sourceHash??'invented fixture'}}</p><p>{{frozen()?'In-memory snapshot taken when this item was added.':'Static study fixture; the live campaign repository is not read by this page.'}}</p></details>
+        @if(selected().issue){<p class="issue" role="status">{{selected().issue}}</p>}
+        <div class="controls reader-controls">
+          <button (click)="outline.set(!outline())" [attr.aria-expanded]="outline()">{{outline()?'Hide':'Show'}} document outline</button>
+          <button (click)="full.set(!full());focused.set(null)">{{full()?'Quick reference view':'Expand all / full text'}}</button>
+          @if(query().trim()){<button (click)="revealMatch()">Reveal search match</button>}
+          @if(focused()){<button (click)="focused.set(null)">Show all sections</button>}
+          @if(!frozen() && selected().purpose!=='guidance'){<button class="primary" (click)="addDocument()">Add {{selected().type==='Adventure'?'adventure…':'document'}}</button>}
+        </div>
+        <p class="muted">{{wordCount()}} words · {{full()?'All text expanded':'Only explicitly marked background is collapsed'}}</p>
+        @if(outline()){
+          <nav class="document-outline" aria-label="Document outline"><small>HEADINGS IN THIS DOCUMENT</small>@for(s of selected().sections;track s.title){<button (click)="jump(s.title)">{{s.title}} {{opened(s)?'':'＋'}}</button>}</nav>
+        }
+        @if(sceneChooser()){
+          <fieldset class="scene-chooser"><legend>Choose scenes explicitly</legend><p>The overview is included. Choose the scenes to add; other linked material stays in the library.</p>
+            @for(scene of sceneOptions();track scene.id){<label><input type="checkbox" [checked]="selectedScenes().includes(scene.id)" (change)="toggleScene(scene.id)"> {{scene.title}}</label>}
+            <div class="controls"><button (click)="captureAdventure()">Add overview + selected scenes</button><button (click)="sceneChooser.set(false)">Cancel</button></div>
+          </fieldset>
+        }
+      </div>
+      @for(s of selected().sections;track s.title;let i=$index){
+        <section [id]="'section-'+i" tabindex="-1" [hidden]="focused()!==null&&focused()!==s.title" [class.read-aloud]="s.kind==='Read aloud'" [class.mechanics]="s.kind==='Mechanics'" [class.background]="s.background">
+          <div class="section-head"><small>{{s.kind}}</small><div><button (click)="focused.set(focused()===s.title?null:s.title)">{{focused()===s.title?'Leave section focus':'Focus section'}}</button>
+            @if(!frozen() && selected().purpose!=='guidance'){<button (click)="addCard(selected(),s)">Add section</button>}
+          </div></div>
+          @if(s.background){<h3><button class="disclosure" [attr.aria-expanded]="opened(s)" (click)="toggle(s)">{{opened(s)?'−':'＋'}} {{s.title}}</button></h3>}@else{<h3>{{s.title}}</h3>}
+          @if(opened(s)){
+            @if(s.title==='Reference table and long tokens'){<div class="table-scroll"><table><caption>Routes to the tower</caption><thead><tr><th>Route</th><th>Condition</th><th>Consequence</th></tr></thead><tbody><tr><td>Sluice</td><td>Token and held lever</td><td>Watcher alerted; evidence remains accessible</td></tr><tr><td>Dry stair</td><td>Always accessible</td><td>Quiet arrival; no roll required</td></tr></tbody></table></div><pre>{{s.paragraphs[1]}}</pre>}
+            @if(s.html){<div class="campaign-prose" [class.match]="query().trim() && s.paragraphs.join(' ').toLowerCase().includes(query().trim().toLowerCase())" [innerHTML]="s.html"></div>}
+            @else{@for(paragraph of s.paragraphs;track $index){<p [class.match]="query().trim() && paragraph.toLowerCase().includes(query().trim().toLowerCase())">{{paragraph}}</p>}}
+          }
+        </section>
+      }
+      @if(selected().related?.length){<nav class="related-cards" aria-label="Related cards"><small>{{frozen()?'RELATED MATERIAL / SESSION COPIES ONLY':'RELATED CARDS / OPENING DOES NOT ADD'}}</small>
+        @for(id of selected().related??[];track id){<button (click)="followRelated(id)">{{related(id).title}} · {{frozen()?(capturedRelated(id)?'Open prepared copy':'Not captured'):'Open source'}}</button>}
+      </nav>}
+    </main>
+    <aside class="notes" [hidden]="!notesOpen()" aria-label="Working notes"><small>{{variant()==='B'?'FACING PAGE':'WRITING DESK'}}</small><h2>Working notes</h2>
+      @if(frozen()){<p class="muted">{{currentItem()!.card.title}}</p><label>Item notes<textarea rows="7" [ngModel]="currentItem()!.notes" (ngModelChange)="editNote($event)"></textarea></label>}
+      @else{<p class="muted">Select an entry in Session contents to write notes on its captured copy. Session notes are always available here.</p>}
+      <label>Session notes<textarea rows="6" [ngModel]="current().notes" (ngModelChange)="updateSession({notes:$event})"></textarea></label>
+      @if(mode()==='prepare'){<details><summary>Session title and objective</summary><label>Title<input [ngModel]="current().title" (ngModelChange)="updateSession({title:$event})"></label><label>Objective<textarea rows="3" [ngModel]="current().objective" (ngModelChange)="updateSession({objective:$event})"></textarea></label></details>}
+      <p class="muted">Changes stay in this browser’s memory until refresh.</p>
+    </aside>
+  </div>
+  <footer class="study-tools"><div class="state" role="status"><span>{{campaign()}} · {{current().title}} · {{mode()}} · {{current().items.length}} items · {{frozen()?'prepared copy':'library source'}} · {{selected().title}}</span>@if(notice()){<span>{{notice()}}</span>}</div><nav class="switcher" aria-label="Reader study variants"><button (click)="cycle(-1)" aria-label="Previous reader layout">←</button><div><small>LAYOUT {{variant()}} / 2</small><strong>{{names[variant()]}}</strong></div><button (click)="cycle(1)" aria-label="Next reader layout">→</button></nav></footer>
 </div>

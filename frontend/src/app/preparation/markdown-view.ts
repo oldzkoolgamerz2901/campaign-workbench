@@ -1,9 +1,21 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, viewChild } from '@angular/core';
+import { ReaderPresentation } from '../shared/reader/reader-presentation';
+import { ReaderControls } from '../shared/reader/reader-controls';
 import { RenderedMarkdown } from '../../api/generated';
 
 @Component({
   selector: 'prepared-markdown',
-  template: `<div
+  imports: [ReaderPresentation, ReaderControls],
+  template: `@if (readingTools()) {
+      <reader-controls [reader]="presentation" />
+    }
+    <div
+      [readerPresentation]="identity()"
+      [content]="content()"
+      [anchors]="content()?.anchors ?? []"
+      [typed]="typed()"
+      [enabled]="readingTools()"
+      #presentation="readerPresentation"
       class="markdown"
       (click)="follow($event)"
       [innerHTML]="content()?.html ?? ''"
@@ -52,6 +64,14 @@ import { RenderedMarkdown } from '../../api/generated';
 })
 export class MarkdownView {
   readonly content = input<RenderedMarkdown | null>(null);
+  readonly readingTools = input(false);
+  readonly typed = input(false);
+  readonly identity = input('');
+  readonly presentation = viewChild(ReaderPresentation);
+  revealAnchor(anchor: string) {
+    const index = this.content()?.anchors.indexOf(anchor) ?? -1;
+    if (index >= 0) this.presentation()?.go(index);
+  }
   readonly notice = signal('');
   readonly capturedTarget = output<string>();
   follow(event: MouseEvent) {
@@ -76,6 +96,7 @@ export class MarkdownView {
     const index = this.content()?.anchors.indexOf(link.target ?? '') ?? -1;
     const target = (event.currentTarget as Element).querySelectorAll('h1,h2,h3,h4,h5,h6')[index];
     if (target) {
+      this.presentation()?.revealElement(target as HTMLElement);
       target.setAttribute('tabindex', '-1');
       target.scrollIntoView({ block: 'center' });
       (target as HTMLElement).focus({ preventScroll: true });

@@ -193,7 +193,9 @@ describe('Session working state', () => {
   it('does not send an import if the campaign changes while reading the file', async () => {
     state.bindCampaign('campaign-a');
     let finishRead!: (text: string) => void;
-    const text = new Promise<string>((resolve) => { finishRead = resolve; });
+    const text = new Promise<string>((resolve) => {
+      finishRead = resolve;
+    });
     const imported = state.import('campaign-a', { size: 2, text: () => text } as File);
     state.bindCampaign('campaign-b');
     finishRead('{"version":1,"sessions":[]}');
@@ -207,7 +209,8 @@ describe('Session working state', () => {
     const list = new Subject<{ sessions: [] }>();
     api.listSessions.mockReturnValue(list);
     const imported = state.import('campaign-a', {
-      size: 2, text: async () => '{"version":1,"sessions":[]}',
+      size: 2,
+      text: async () => '{"version":1,"sessions":[]}',
     } as File);
     await Promise.resolve();
     await Promise.resolve();
@@ -218,5 +221,143 @@ describe('Session working state', () => {
     await imported;
     expect(state.sessions()).toEqual([]);
     expect(state.notice()).toBe('');
+  });
+  it('previews only selected or changed note fields in a 50-item session', async () => {
+    const large: SessionData = {
+      ...session(),
+      notes: 'Session reminder',
+      items: Array.from({ length: 50 }, (_, i) => ({
+        id: `item-${i}`,
+        title: `Entry ${i + 1}`,
+        markdown: '# Material',
+        notes: `Note ${i + 1}`,
+        provenance: {
+          campaign: 'campaign-a',
+          capture: 'capture-a',
+          path: 'source.md',
+          section: null,
+          documentHash: 'hash',
+          contentHash: 'hash',
+        },
+        anchors: {},
+      })),
+    };
+    api.openSession.mockReturnValue(of(large));
+    await state.open('campaign-a', 'session-a');
+    await vi.advanceTimersByTimeAsync(350);
+    expect(api.previewMarkdown).toHaveBeenCalledTimes(2);
+    expect(api.previewMarkdown.mock.calls.map((call) => call[1].markdown).sort()).toEqual([
+      'Note 1',
+      'Session reminder',
+    ]);
+    api.previewMarkdown.mockClear();
+    state.editItemNotes('item-0', 'Changed visible note');
+    await vi.advanceTimersByTimeAsync(350);
+    expect(api.previewMarkdown).toHaveBeenCalledTimes(1);
+    expect(api.previewMarkdown.mock.calls[0][1]).toEqual({ markdown: 'Changed visible note' });
+    api.previewMarkdown.mockClear();
+    state.edit({ title: 'Updated title' });
+    state.move('item-0', 1);
+    await vi.advanceTimersByTimeAsync(350);
+    expect(api.previewMarkdown).not.toHaveBeenCalled();
+    state.selectItem('item-49');
+    await vi.advanceTimersByTimeAsync(350);
+    expect(api.previewMarkdown).toHaveBeenCalledTimes(1);
+    expect(api.previewMarkdown.mock.calls[0][1]).toEqual({ markdown: 'Note 50' });
+    state.selectItem('item-0');
+    await vi.advanceTimersByTimeAsync(350);
+    expect(api.previewMarkdown).toHaveBeenCalledTimes(1);
+  });
+  it('keeps previews of other fields and rejects a late preview from the previous session', async () => {
+    const late = new Subject<{ html: string; anchors: string[]; links: [] }>();
+    api.previewMarkdown.mockReturnValueOnce(late);
+    await state.open('campaign-a', 'session-a');
+    await vi.advanceTimersByTimeAsync(350);
+    api.openSession.mockReturnValue(
+      of({ ...session(), id: 'session-b', campaign: 'campaign-b', notes: 'New campaign' }),
+    );
+    api.previewMarkdown.mockReturnValue(
+      of({ html: '<p>New campaign</p>', anchors: [], links: [] }),
+    );
+    await state.open('campaign-b', 'session-b');
+    await vi.advanceTimersByTimeAsync(350);
+    late.next({ html: '<p>Stale</p>', anchors: [], links: [] });
+    late.complete();
+    await Promise.resolve();
+    expect(state.previews()['session'].html).toBe('<p>New campaign</p>');
+    expect(Object.keys(state.previews())).toEqual(['session']);
+  });
+  it('stops a partial addition queue and retries only unfinished selections at the latest revision', async () => {
+    await state.open('campaign-a', 'session-a');
+    const firstItem = {
+      id: 'overview',
+      title: 'Overview',
+      markdown: '# Overview',
+      notes: '',
+      anchors: {},
+      provenance: {
+        campaign: 'campaign-a',
+        capture: 'pinned',
+        path: 'adventure.md',
+        section: null,
+        documentHash: 'h',
+        contentHash: 'h',
+      },
+    };
+    const sceneItem = {
+      ...firstItem,
+      id: 'scene',
+      title: 'Scene',
+      provenance: { ...firstItem.provenance, path: 'scene.md', section: 'nested' },
+    };
+    api.addSessionSource
+      .mockReturnValueOnce(of({ ...session(), revision: 2, items: [firstItem] }))
+      .mockReturnValueOnce(
+        throwError(
+          () => new HttpErrorResponse({ status: 503, error: { detail: 'Temporary failure' } }),
+        ),
+      )
+      .mockReturnValueOnce(of({ ...session(), revision: 3, items: [firstItem, sceneItem] }));
+    await state.startAdditions('pinned', [
+      { path: 'adventure.md', section: null },
+      { path: 'scene.md', section: 'nested' },
+    ]);
+    expect(state.additions().map((a) => a.status)).toEqual(['completed', 'failed']);
+    expect(state.current()?.items).toHaveLength(1);
+    expect(state.queueRunning()).toBe(false);
+    await state.retryAdditions();
+    expect(api.addSessionSource.mock.calls.map((c) => c[2])).toEqual([
+      { revision: 1, capture: 'pinned', path: 'adventure.md', section: null },
+      { revision: 2, capture: 'pinned', path: 'scene.md', section: 'nested' },
+      { revision: 2, capture: 'pinned', path: 'scene.md', section: 'nested' },
+    ]);
+    expect(state.current()?.items.map((i) => i.id)).toEqual(['overview', 'scene']);
+    expect(state.additions().map((a) => a.status)).toEqual(['completed', 'completed']);
+  });
+  it('guards a running queue and preserves notes typed during sequential captures', async () => {
+    await state.open('campaign-a', 'session-a');
+    const late = new Subject<SessionData>();
+    api.addSessionSource
+      .mockReturnValueOnce(late)
+      .mockReturnValueOnce(of({ ...session(), revision: 4, notes: 'Keep edits' }));
+    api.saveSession.mockReturnValue(of({ ...session(), revision: 3, notes: 'Keep edits' }));
+    const running = state.startAdditions('capture', [
+      { path: 'a.md', section: null },
+      { path: 'b.md', section: 'subtree' },
+    ]);
+    await Promise.resolve();
+    expect(await state.allowLeave()).toBe(false);
+    expect(await state.add('other', 'unselected.md', null)).toBe(false);
+    state.edit({ notes: 'Keep edits' });
+    late.next({ ...session(), revision: 2 });
+    await running;
+    expect(api.saveSession.mock.calls[0][2]).toMatchObject({ revision: 2, notes: 'Keep edits' });
+    expect(api.addSessionSource.mock.calls[1][2]).toMatchObject({
+      revision: 3,
+      path: 'b.md',
+      section: 'subtree',
+    });
+    expect(state.current()?.notes).toBe('Keep edits');
+    expect(state.queueRunning()).toBe(false);
   });
 });
