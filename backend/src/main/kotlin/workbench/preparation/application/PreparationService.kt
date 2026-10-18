@@ -16,7 +16,8 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
     private fun valid(s: SessionData): Boolean = s.title.isNotBlank() && s.title.length <= 200 && text(s.objective) && text(s.notes) && s.revision >= 0 &&
         s.items.map { it.id }.distinct().size == s.items.size && s.items.all { i ->
             i.title.length <= 4096 && text(i.markdown) && text(i.notes) && i.provenance.path.isNotBlank() && i.provenance.path.length <= 4096 &&
-                i.provenance.documentHash.matches(Regex("[a-f0-9]{64}")) && i.provenance.contentHash == hash(i.markdown) && (i.provenance.section != null || i.provenance.documentHash == i.provenance.contentHash)
+                i.provenance.documentHash.matches(Regex("[a-f0-9]{64}")) && i.provenance.contentHash == hash(i.markdown) && (i.provenance.section != null || i.provenance.documentHash == i.provenance.contentHash) &&
+                i.anchors.all { (original, local) -> text(original) && text(local) } && validCapture(i)
         }
     private fun hash(text: String) = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     fun list(campaign: UUID): Either<Failure, SessionList> = tx.run { either {
@@ -44,7 +45,7 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
     fun add(campaign: UUID, id: UUID, request: AddSource): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
         val selected = sources.select(campaign, request.capture, request.path, request.section).bind()
         s.copy(items = s.items + PreparedItem(UUID.randomUUID(), selected.title, selected.markdown,
-            Provenance(selected.campaign, selected.capture, selected.path, selected.section, selected.documentHash, selected.contentHash), selected.anchors, ""))
+            Provenance(selected.campaign, selected.capture, selected.path, selected.section, selected.documentHash, selected.contentHash), selected.anchors, "", selected.freeze()))
     } }
     private fun mutate(campaign: UUID, id: UUID, revision: Long, change: (Session) -> Either<Failure, Session>): Either<Failure, SessionData> = tx.run { either {
         // Campaign's public configuration operation locks the campaign row across this transaction.
@@ -58,14 +59,15 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
     fun export(campaign: UUID, request: ExportSessions): Either<Failure, Archive> = tx.run { either {
         campaigns.configuration(campaign).bind()
         ensure(request.sessions.isNotEmpty() && request.sessions.size <= 100 && request.sessions.distinct().size == request.sessions.size) { invalid("Select between 1 and 100 distinct sessions.") }
-        val archive = Archive(1, request.sessions.map { data(load(campaign, it).bind()) })
+        val archive = Archive(2, request.sessions.map { data(load(campaign, it).bind()) })
         ensure(archive.sessions.sumOf { it.items.size } <= 1000) { invalid("An archive may contain at most 1,000 items.") }
         archive
     } }
     fun import(campaign: UUID, archive: Archive): Either<Failure, SessionList> = tx.run { either {
         campaigns.configuration(campaign).bind()
-        ensure(archive.version == 1 && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
-            archive.sessions.map { it.id }.distinct().size == archive.sessions.size && archive.sessions.all(::valid)) { invalid("Invalid or unsupported session archive. No sessions imported.") }
+        ensure(archive.version in setOf(1, 2) && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
+            archive.sessions.map { it.id }.distinct().size == archive.sessions.size && archive.sessions.all(::valid) &&
+            (archive.version != 1 || archive.sessions.all { s -> s.items.all { it.capturedSource == null } })) { invalid("Invalid or unsupported session archive. No sessions imported.") }
         val sessions = archive.sessions.map { source -> model(source).copy(id = UUID.randomUUID(), campaign = campaign, revision = 0,
             items = model(source).items.map { it.copy(id = UUID.randomUUID()) }) }
         sessions.forEach(store::put)
@@ -79,6 +81,6 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
         val captured = markdown.captured(model(s).items)
         SessionView(markdown.render(s.notes), s.items.map { RenderedItem(it.id, captured.getValue(it.id), markdown.render(it.notes)) })
     }
-    private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash), i.anchors, i.notes) })
-    private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash), i.anchors, i.notes) })
+    private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash), i.anchors, i.notes, i.capturedSource?.data()) })
+    private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash), i.anchors, i.notes, i.capturedSource?.model()) })
 }

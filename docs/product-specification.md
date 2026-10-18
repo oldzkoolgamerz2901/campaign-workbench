@@ -248,6 +248,49 @@ Status: Requirements accepted by the owner on 2026-10-17. The accepted productio
 
 AI, play journals, player output, full session lifecycle, automatic source updates, assets, and full database/campaign backup remain outside this increment. Session export/import protects session preparation only; it is not full-system backup. The accepted architecture is recorded in `docs/implementation-plan.md`; the accepted increment plan and developer evidence are recorded there. Metadata conventions, typed Markdown cards, tags/filtering, and dedicated type-specific UI sections are deferred to [increment 3](increment-3-typed-markdown-cards.md).
 
+## Increment 3 — Typed cards, campaign organization, and reading
+
+Status: Requirements approved by the owner on 2026-10-17 after the increment 3 interview. The owner subsequently accepted the architecture recorded in the implementation plan. The 3A plan, detailed metadata contract, and 3B plan were accepted on 2026-10-18; other implementation plans remain proposed. Application implementation and campaign-file edits require separate authorization. The separate Sea Witch migration has its own scope and approval boundary.
+
+### Classification and conventions
+
+- Initially support NPC, Location, Faction, Item, Scene, Adventure, Handout, and Reference. Each card has one primary type and optional cross-cutting tags. Combat is a Scene tag/subtype initially. An in-world Item is distinct from a prepared session item.
+- Distinguish document purpose independently of type: session content, campaign guidance, and application/tooling documentation. Campaign bibles and campaign design decisions guide future AI authoring and remain outside session preparation. Application/tooling documents govern software work and are not campaign-authoring authority.
+- Distinguish revision/approval status from purpose and type. Only explicitly approved, current guidance may be authoritative for future AI. Filenames, version numbers, document detail, and guidance labels alone do not establish authority. Preserve drafts and historical material outside the default play library, with explicit access to them.
+- Migrated cards have a stable ID, title, type, purpose, and revision status; tags and a short authored summary are optional. Metadata syntax and identity semantics require architecture approval.
+- A reusable card normally corresponds to a whole Markdown file. Split independently reusable scenes/references into linked files rather than treating every heading as a card. Preserve existing section selection for preparation.
+- Recommend type-specific structures while allowing irrelevant sections to be omitted. Future in-app authoring should supply metadata and the appropriate structure automatically, without inventing missing facts. Building that editor is outside increment 3.
+- Support other campaigns and ordinary legacy Markdown without requiring Sea Witch paths or templates. Unclassified, unknown-type, and invalid-metadata documents remain readable/searchable with visible classification issues. Do not guess their intended labels.
+
+### Browsing, reading, and composition
+
+- Provide category navigation and combined type/tag filters. Search full content within active filters, with an obvious way to search all content and a separate guidance browsing area.
+- Browse through compact entries showing title, type, optional summary, and useful tags; open full content in a dedicated reader.
+- Prioritize reference during play while preserving full preparation background. Show quick-reference/actionable material first, expandable background/design commentary, Expand all, and heading navigation. Search matches reveal and focus collapsed content.
+- Clearly distinguish read-aloud passages, mechanics, and DM guidance. Provide comfortable reading width and a source-focused option that can collapse notes and the campaign rail while retaining the accepted writing-desk/folio modes.
+- Quick references primarily arrange existing information; optional summaries must not duplicate complete factual accounts or reveal information ambiguously. Uncertain summaries enter the owner review queue.
+- Show explicit relationships to locations, NPCs, items, and other scenes. Following a link does not automatically capture its target. Adding an Adventure offers its scenes for explicit selection.
+- Captured session material retains its text, labels, and quick-reference content after source changes. Existing sessions remain readable without source migration. Replacing material requires an explicit action; automatic replacement is excluded. Whether a replacement command is delivered in this increment remains an architecture/scope decision.
+- A Handout label does not publish content or establish player knowledge. A guidance label does not itself grant AI execution authority.
+
+### Separate Sea Witch content refactor
+
+- Review a representative conversion before considering a repository-wide migration: Thomas's two profiles, Arrival Hall, Agelus Trail, and one guidance document. Selection of that guidance document remains open.
+- Preserve each distinct fact, mechanic, condition, exception, clue, and narrative/knowledge constraint. Consolidate repetition and fragmented prose, split reusable content, and retain recoverable originals. Do not impose an arbitrary maximum word count.
+- Preserve read-aloud passages, dialogue, and in-world handouts verbatim unless the owner separately approves editing them.
+- Keep a manual owner review queue. Uncertain classifications, deletions, reconciliations, authority assignments, summaries, and editorial cuts enter that queue rather than being assumed. Uncertainty blocks only the affected edit within an otherwise authorized migration.
+- The initial queue is [sea-witch-manual-review.md](sea-witch-manual-review.md). It is not an exhaustive migration audit. Application implementation never implicitly authorizes campaign changes.
+
+### Acceptance and exclusions
+
+- Demonstrate finding an NPC's motivation, running a scene without reading its design commentary, following investigation clues, and opening full background when needed.
+- Confirm combined filters/search, legacy and invalid metadata access, separation of guidance from preparation, related-card navigation, explicit adventure scene selection, and unchanged frozen sessions after source refactoring.
+- Confirm preserved information, working links/anchors, keyboard-accessible reading controls, and usable layouts at 1280×800 and 1440×900. Review representative long content in the proposed layout before production implementation; any disposable prototype requires separate authorization.
+- Preserve session archive compatibility through an explicitly designed versioning strategy; imported sessions must remain readable without original campaign files.
+- Campaign authoring, AI execution, player publication, play journals, automated source replacement, and a repository-wide Sea Witch migration are not implicitly included. Broader existing product requirements remain future work where not selected here.
+
+The [increment 3 record](increment-3-typed-markdown-cards.md) links this accepted scope to the architecture discussion. It does not authorize later phases.
+
 ## Development startup automation
 
 Status: Requirements accepted by the owner on 2026-10-17. This concerns developer operation; it does not establish session-use distribution or authorize implementation.

@@ -10,6 +10,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
   const root = await mkdtemp(join(tmpdir(), 'workbench-preparation-browser-'));
   const other = await mkdtemp(join(tmpdir(), 'workbench-preparation-import-'));
   const original =
+    "---\nworkbench:\n  schema: 1\n  id: '87b085da-326b-4cc4-933e-c908648ee712'\n  title: observatory.md\n  type: location\n  purpose: session\n  status: current\n  tags: [observatory]\n  summary: A telescope and its hidden chamber.\n---\n" +
     '# Observatory\nOriginal telescope clue.\n\n![remote](https://example.invalid/image.png)\n\n<script>window.preparedInjected = true</script>\n\n[To chamber](#lower-chamber)\n\n## Lower chamber\nNested brass key. [Back to observatory](observatory.md#observatory)\n\n### Inscription\nAncient words.\n\n# Road home\nReturn safely.' +
     Array.from(
       { length: 100 },
@@ -56,6 +57,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await page.getByRole('button', { name: 'observatory.md', exact: true }).click();
     await page.getByRole('button', { name: 'Add document to session', exact: true }).click();
     await expect(page.getByLabel('Item Markdown notes')).toBeVisible();
+    await expect(page.locator('.source-page')).not.toContainText('workbench:');
     await page.getByLabel('Item Markdown notes').fill('Ask about the **brass key**.');
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
     await page.getByRole('button', { name: 'Add source material', exact: true }).click();
@@ -132,14 +134,36 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     const download = await downloadPromise;
     const downloaded = await download.path();
     const archive = JSON.parse(await readFile(downloaded!, 'utf8'));
-    expect(archive.version).toBe(1);
+    expect(archive.version).toBe(2);
     expect(archive.sessions).toHaveLength(1);
     expect(archive.sessions[0].items[0].title).toBe('Lower chamber');
+    expect(archive.sessions[0].items[0].capturedSource.classification.metadata).toMatchObject({
+      type: 'location', tags: ['observatory'], summary: 'A telescope and its hidden chamber.',
+    });
+    expect(archive.sessions[0].items[0].capturedSource.bodyStart).toBe(0);
+    expect(archive.sessions[0].items[1].capturedSource.bodyStart).toBeGreaterThan(0);
+    // Keep campaign initialization pending to exercise the import-readiness race deterministically.
+    let finishRefresh!: () => void;
+    const refreshGate = new Promise<void>((resolve) => { finishRefresh = resolve; });
+    const refreshUrl = `**/api/campaigns/${second.id}/sources/refresh`;
+    await page.route(refreshUrl, async (route) => {
+      await refreshGate;
+      await route.continue();
+    });
+    const refreshStarted = page.waitForRequest((request) =>
+      request.url().endsWith(`/api/campaigns/${second.id}/sources/refresh`),
+    );
     await page.goto(`/?campaign=${second.id}&view=library`);
+    await refreshStarted;
     await expect(page.getByRole('combobox', { name: 'Campaign', exact: true })).toHaveValue(
       second.id,
     );
-    await page.getByLabel('Import sessions into Import destination').setInputFiles(downloaded!);
+    const importInput = page.getByLabel('Import sessions into Import destination');
+    await expect(importInput).toBeDisabled();
+    finishRefresh();
+    await expect(importInput).toBeEnabled();
+    await page.unroute(refreshUrl);
+    await importInput.setInputFiles(downloaded!);
     await expect(
       page.getByText('Imported 1 new session(s). Existing sessions are preserved.'),
     ).toBeVisible();

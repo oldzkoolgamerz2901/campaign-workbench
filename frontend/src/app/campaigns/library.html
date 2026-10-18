@@ -1,7 +1,7 @@
 <section aria-label="Campaign library">
   <div class="toolbar">
     <label>Campaign
-      <select aria-label="Campaign" [ngModel]="state.selected()?.id ?? ''" (ngModelChange)="select($event)">
+      <select aria-label="Campaign" [disabled]="!ready()" [ngModel]="state.selected()?.id ?? ''" (ngModelChange)="select($event)">
         <option value="" disabled>Select a campaign</option>
         @for (campaign of state.campaigns(); track campaign.id) { <option [value]="campaign.id">{{ campaign.name }}</option> }
       </select>

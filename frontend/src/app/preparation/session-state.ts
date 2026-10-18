@@ -307,6 +307,7 @@ export class SessionState {
     }
   }
   async import(campaign: string, file: File) {
+    if (campaign !== this.activeCampaign) return;
     const epoch = this.epoch;
     if (file.size > 20 * 1024 * 1024) {
       this.error.set('Archive exceeds 20 MiB.');
@@ -314,6 +315,7 @@ export class SessionState {
     }
     try {
       const archive = JSON.parse(await file.text()) as Archive;
+      if (epoch !== this.epoch || campaign !== this.activeCampaign) return;
       // Generated API binding is used after the file adapter reads the archive.
       const result = await firstValueFrom(
         this.api.importSessions(campaign, archive, 'body', false, {
@@ -322,6 +324,7 @@ export class SessionState {
       );
       if (epoch !== this.epoch || campaign !== this.activeCampaign) return;
       await this.list(campaign);
+      if (epoch !== this.epoch || campaign !== this.activeCampaign) return;
       this.notice.set(
         `Imported ${result.sessions.length} new session(s). Existing sessions are preserved.`,
       );

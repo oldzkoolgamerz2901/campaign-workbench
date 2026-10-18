@@ -16,11 +16,14 @@ class ArchitectureTest : StringSpec({
         noClasses().that().resideInAPackage("..domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
                 "org.springframework..", "jakarta.persistence..", "java.nio.file..", "java.net..",
-                "org.commonmark..",
+                "org.commonmark..", "org.snakeyaml..",
                 "..adapter..", "..application..")
             .allowEmptyShould(true).check(classes)
         noClasses().that().resideInAPackage("..application..")
             .should().dependOnClassesThat().resideInAPackage("..adapter..")
+            .allowEmptyShould(true).check(classes)
+        noClasses().that().resideOutsideOfPackage("workbench.sources.adapter.markdown..")
+            .should().dependOnClassesThat().resideInAPackage("org.snakeyaml..")
             .allowEmptyShould(true).check(classes)
     }
 })

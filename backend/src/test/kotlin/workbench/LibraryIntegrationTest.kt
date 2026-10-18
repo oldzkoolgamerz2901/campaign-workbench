@@ -15,6 +15,9 @@ import workbench.platform.api.*
 import workbench.sources.application.SourceService
 import workbench.sources.application.CaptureStore
 import workbench.sources.domain.Capture
+import workbench.preparation.application.PreparationService
+import workbench.preparation.api.CreateSession
+import workbench.preparation.api.AddSource
 import java.nio.file.Files
 import java.net.URI
 import java.net.http.*
@@ -32,7 +35,11 @@ class LibraryIntegrationTest : StringSpec({
     afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively(); other.toFile().deleteRecursively() }
     "real migrations, API schemas, isolation, persistence and rollback preserve the library" {
         Files.writeString(root.resolve("source.md"), "# Original\nUnique needle")
-        Files.createDirectories(other.resolve("different")); Files.writeString(other.resolve("different/else.md"), "# Else\nOther campaign")
+        Files.createDirectories(other.resolve("different"))
+        val typed = "---\nworkbench:\n  schema: 1\n  id: '87b085da-326b-4cc4-933e-c908648ee712'\n  title: Other metadata\n  type: scene\n  purpose: session\n  status: current\n  tags: [Reef, combat]\n---\n# Else\nOther campaign"
+        Files.writeString(other.resolve("different/else.md"), typed)
+        Files.writeString(other.resolve("guidance.md"), typed.replace("87b085da-326b-4cc4-933e-c908648ee712", "87b085da-326b-4cc4-933e-c908648ee713").replace("purpose: session", "purpose: guidance"))
+        Files.writeString(other.resolve("invalid.md"), "---\nworkbench: [invalid\n---\n# Readable\nMalformed metadata remains readable")
         val app = context!!
         val campaigns = app.getBean(CampaignService::class.java)
         val sources = app.getBean(SourceService::class.java)
@@ -69,6 +76,24 @@ class LibraryIntegrationTest : StringSpec({
         fun get(path: String) = client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path")).GET().build(), HttpResponse.BodyHandlers.ofString())
         get("/v3/api-docs").body().let { it shouldContain "SourceDocument"; it shouldContain "CampaignList"; it shouldContain "ProblemResponse" }
         get("/api/campaigns/${first.id}/sources/document?capture=$initial&path=source.md").statusCode() shouldBe 200
+        val filtered = get("/api/campaigns/${second.id}/sources?types=npc&types=scene&tags=reef&tags=combat&purposes=session&statuses=current")
+        filtered.statusCode() shouldBe 200
+        filtered.body() shouldContain "different/else.md"
+        filtered.body().contains("guidance.md") shouldBe false
+        val issues = get("/api/campaigns/${second.id}/sources?issues=true&unclassified=true")
+        issues.statusCode() shouldBe 200
+        issues.body() shouldContain "invalid.md"
+        issues.body().contains("different/else.md") shouldBe false
+        get("/api/campaigns/${second.id}/sources/search?capture=$secondCapture&query=Other&types=scene&purposes=session").let {
+            it.statusCode() shouldBe 200; it.body() shouldContain "different/else.md"; it.body().contains("guidance.md") shouldBe false
+        }
+        get("/api/campaigns/${second.id}/sources/document?capture=$secondCapture&path=invalid.md").let {
+            it.statusCode() shouldBe 200; it.body() shouldContain "metadata.yaml"; it.body() shouldContain "Readable"
+        }
+        val preparation = app.getBean(PreparationService::class.java)
+        val session = preparation.create(second.id, CreateSession("Restriction check", "")).getOrNull()!!
+        preparation.add(second.id, session.id, AddSource(session.revision, secondCapture, "guidance.md", null)).leftOrNull()!!.code shouldBe "sources.not-session-material"
+        preparation.open(second.id, session.id).getOrNull() shouldBe session
         val refreshed = sources.refresh(first.id).getOrNull()!!.capture!!
         get("/api/campaigns/${first.id}/sources/document?capture=$initial&path=source.md").let { it.statusCode() shouldBe 409; it.body() shouldContain "sources.capture-replaced" }
         campaigns.configure(first.id, ConfigureCampaign(first.includes, first.excludes + "source.md", first.revision)).isRight() shouldBe true
@@ -79,6 +104,7 @@ class LibraryIntegrationTest : StringSpec({
         restartedCampaigns.list().getOrNull()!!.let { it.selected shouldBe first.id; it.campaigns.size shouldBe 2 }
         restartedSources.library(first.id).getOrNull()!!.capture shouldBe refreshed
         restartedSources.document(first.id, refreshed, "source.md").getOrNull()!!.sections.first().heading shouldBe "Changed"
+        restartedSources.document(second.id, secondCapture, "different/else.md").getOrNull()!!.classification.metadata!!.tags shouldBe listOf("reef", "combat")
         restartedSources.refresh(first.id).getOrNull()!!.documents.size shouldBe 0
         Files.readString(root.resolve("source.md")) shouldBe "# Changed\nNew words"
     }

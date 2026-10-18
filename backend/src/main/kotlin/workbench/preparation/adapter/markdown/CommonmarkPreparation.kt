@@ -17,7 +17,7 @@ class CommonmarkPreparation : PreparationMarkdown {
     private val extensions = listOf(TablesExtension.create())
     private val parser = Parser.builder().extensions(extensions).build()
     override fun render(text: String) = renderWith(text, null, emptyList())
-    override fun captured(items: List<PreparedItem>) = items.associate { it.id to renderWith(it.markdown, it, items) }
+    override fun captured(items: List<PreparedItem>) = items.associate { it.id to renderWith(it.markdown.substring(it.capturedSource?.bodyStart ?: 0), it, items) }
     private fun renderWith(text: String, origin: PreparedItem?, items: List<PreparedItem>): RenderedMarkdown {
         val root = parser.parse(text)
         val anchors = mutableSetOf<String>()

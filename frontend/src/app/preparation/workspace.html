@@ -65,7 +65,7 @@
         </button>
         <label class="file-label"
           >Import sessions into {{ campaign.name
-          }}<input type="file" accept="application/json,.json" (change)="importFile($event)"
+          }}<input type="file" accept="application/json,.json" [disabled]="!campaignReady()" (change)="importFile($event)"
         /></label>
       </div>
     }
@@ -84,7 +84,7 @@
     @if (state.notice()) {
       <p role="status" class="notice">{{ state.notice() }}</p>
     }
-    <div [hidden]="!showingLibrary()"><campaign-library (addSource)="add($event)" /></div>
+    <div [hidden]="!showingLibrary()"><campaign-library [ready]="campaignReady()" (addSource)="add($event)" /></div>
     @if (!showingLibrary()) {
       @if (state.current(); as session) {
         <header class="session-header">

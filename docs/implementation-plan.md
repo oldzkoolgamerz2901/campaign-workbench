@@ -224,6 +224,190 @@ Implementation of the accepted increment is complete. This is developer-check ev
 
 Remaining limits match the approved scope: no forced-termination recovery before a successful save; session archives are not full-system backups; journals/lifecycle/AI/assets and increment 3 metadata/type/filtering features remain deferred. Formal verification requires separate authorization. No commit or deployment was made. Isolated check servers/containers were stopped; the existing development database remains separate.
 
+## Increment 3 — Accepted typed-card architecture
+
+Status: Architecture accepted by the owner on 2026-10-17 after approval of the increment 3 requirements. The 3A plan, contract/parser detail, and 3B plan were subsequently accepted on 2026-10-18; other implementation increments below remain proposed. Persisted approval is not execution authorization. Campaign-file edits have a separate boundary. See [approved requirements](product-specification.md#increment-3--typed-cards-campaign-organization-and-reading) and [increment 3 overview](increment-3-typed-markdown-cards.md).
+
+### Metadata, identity, and authority
+
+- Store versioned YAML front matter under a `workbench` mapping in authoritative campaign Markdown. Version 1 carries `schema`, `id`, `title`, `type`, `purpose`, and `status`; `tags` and `summary` are optional. Purpose values are `session`, `guidance`, and `tooling`; revision status values are `draft`, `current`, and `superseded`. Initial types are `npc`, `location`, `faction`, `item`, `scene`, `adventure`, `handout`, and `reference`.
+- A stable ID identifies one document/card within a campaign, not the in-world entity described by several documents. Rename preserves the ID; independently reusable cards created by a split receive distinct IDs. Duplicate IDs produce classification issues and never merge records silently. Existing campaign/capture/path/section provenance remains intact.
+- Retain relative Markdown links as the portable relationship convention; do not introduce a custom link language. Resolve relationships against the applicable capture and preserve their source context when preparing material. A relationship is not permission to capture or publish its target.
+- Purpose and current status do not establish approved AI authority. Future AI approval must identify the exact approved content version. Increment 3 displays classifications and does not implement AI execution or that approval workflow. Do not reinterpret existing self-described canon labels or filenames as owner approval.
+- Recommend ordinary Markdown with one H1 title, substantive H2 topics, H3 subsections, and recognizable sections such as Quick reference, Read aloud, Background, and Design notes. Unknown sections remain visible. Legacy files need not follow these structures to remain readable.
+
+Example convention, not a classification of an existing campaign file:
+
+```yaml
+---
+workbench:
+  schema: 1
+  id: "87b085da-326b-4cc4-933e-c908648ee712"
+  title: Arrival Hall
+  type: scene
+  purpose: session
+  status: current
+  tags: [whispering-reef, chapter-2]
+  summary: First entry into the Sea Guardian sanctuary.
+---
+```
+
+Use a maintained YAML parser with a restricted schema, rather than a custom parser. JSON front matter was considered: it reduces the need for a YAML dependency but is less comfortable for campaign authors. On 2026-10-18 the owner accepted SnakeYAML Engine 3.1.1 and the [version 1 validation contract](increment-3-typed-markdown-cards.md#accepted-version-1-metadata-contract--2026-10-18). Restrict metadata to data values; validate supported schema/types, duplicate keys/IDs, and resource limits. Unknown unrelated front-matter keys must not be treated as Workbench instructions.
+
+### Module responsibilities and capture behavior
+
+| Component | Accepted responsibility |
+| --- | --- |
+| Campaigns | Registered campaign identity, directory, and include/exclude rules |
+| Sources | Metadata extraction/validation, classification issues, captured relationships, browsing/filtering/search, and exact source selection |
+| Preparation | Immutable captured text and metadata, order, notes, and self-contained archives |
+| Angular features | Navigation, compact results, filters, selected reader, and local expansion/focus state |
+
+No new domain module, graph database, generic extension framework, or campaign writer is selected. Preserve raw source text in the current capture and derive classification from it; additional persisted source indexes need a demonstrated requirement.
+
+Metadata extraction must preserve mapping to original character offsets, since current section IDs, subtree selection, and anchor mapping rely on them. Metadata is separate from rendered body text and ordinary body search. Titles/tags are explicit searchable metadata. Malformed metadata creates a document-level issue while readable campaign content remains available; actual scan/read failures retain the existing previous-capture and atomic-publication behavior.
+
+For new prepared items, retain exact selected source Markdown and separate captured metadata. Rendering suppresses a recognized metadata envelope without rewriting the frozen text. Hashes continue to identify exact raw document/selection content. For section selections, retain document classification/provenance but do not import unrelated Quick reference text from outside the selected subtree. Raw legacy prepared text remains unchanged and uses legacy rendering behavior.
+
+Session preparation excludes explicitly classified guidance/tooling documents, including direct add requests, not merely hidden navigation entries. Legacy or invalid classification remains accessible through an issues/unclassified path without guessing a purpose. Detailed validation behavior belongs in the reviewed contract before implementation.
+
+### Reading and archive compatibility
+
+- Use category/filter navigation, compact results, and a selected reader. Provide a heading outline, accessible collapsible background/design sections, Expand all, read-aloud/mechanics distinctions, and automatic reveal/focus for search matches. Unknown content is visible by default.
+- Retain the writing desk and folio while allowing surrounding panels/notes to collapse for focused source reading. Review representative long content at 1280×800 and 1440×900 before production reader implementation. A disposable prototype is a separately authorized experiment, not production code.
+- Extend prepared records with optional captured classification/relationship metadata through a new Preparation-owned migration. Existing records remain legacy material without looking up current sources or modifying old text, hashes, or provenance.
+- Export archive version 2 with captured metadata. Continue to import version 1 as legacy material. Validate versions through explicit version-specific field/type/size checks before atomic import; retain existing fresh destination identities and campaign scoping. Existing applications reject version 2 rather than silently losing metadata. No version 1 downgrade export is selected.
+- Captured relationships may identify unavailable material, but prepared links resolve only to material actually captured in the session. Never follow a captured relationship into newer live library content automatically.
+- A replace-with-latest command is excluded from increment 3. Explicit removal/addition remains available; source refresh never updates prepared material.
+
+### Separate Sea Witch pilot architecture
+
+The accepted approach is a separately reviewed pilot of Thomas's two profiles, Arrival Hall, Agelus Trail, and a guidance document. Campaign Bible v0.6 is the recommended guidance example, conditional on owner resolution of its title/authority issue; acceptance of this approach does not resolve that content question.
+
+Preserve recoverable originals and protected prose. Produce a source-to-result information mapping, link/anchor checks, and an owner review queue. Mechanical evidence establishes protected-text preservation and link integrity; it cannot establish semantic equivalence by itself. Any uncertain consolidation, edit, classification, or authority decision blocks that edit and enters [the review queue](sea-witch-manual-review.md). Broad migration, deletion of historical versions, automatic canon reconciliation, and application tooling changes are excluded.
+
+## Increment 3 — Proposed bounded implementation increments
+
+Status: Planning deliverable proposed on 2026-10-17; the owner accepted the 3A plan, its contract/parser review, and the 3B plan on 2026-10-18. Other increments remain proposed. Each row below is a separate approval scope, not one blanket implementation authorization. Formal verification remains separately authorized after implementation. No commits, deployment, production data changes, or Sea Witch edits are implicit.
+
+### Prerequisites and sequencing
+
+Before dependency/code changes in 3A, finish the contract and parser assessment described below and present any consequential unresolved choice. This prerequisite was satisfied by the separately accepted 2026-10-18 review; the plan alone did not select a library. Sources, prepared snapshots, and production reading form the sequence 3A → 3B → 3C. The disposable layout study may run before or alongside those only with separate authorization; its owner review must finish before 3C. Sea Witch pilot work has its own approval scope and is not a dependency for shipping generic application support.
+
+| Increment | Expected scope | Completion criteria and focused developer evidence |
+| --- | --- | --- |
+| 3A — Typed source foundation | `backend/src/main/kotlin/workbench/sources/{api,domain,application,adapter}/`, focused Sources/architecture tests; parser dependency in `backend/build.gradle.kts` and `docs/versions.toml` only after selection; convention reference in the increment 3 document | Parse/validate metadata while preserving raw text and source offsets. Return metadata, issues, heading levels, and captured Markdown relationships through Sources APIs. Support type/tag/purpose/status filtering and full-content search with originating capture identity. Read legacy/unknown/invalid documents; identify duplicate IDs without merging. Enforce session-purpose selection restrictions. Verify metadata/body separation, whole-file/subtree hashes, repeated/nested headings, CRLF and Unicode offsets, anchors, stale captures, atomic refresh, duplicate IDs scoped by campaign, safe parsing limits, and differently structured campaigns. Existing frontend still compiles against generated contracts. |
+| 3B — Frozen typed preparation and archives | `backend/src/main/kotlin/workbench/preparation/{api,domain,application,adapter}/`, Sources public selection contract, new Preparation-owned migration, focused persistence/import tests; generated-client consumers where needed | Snapshot classification, summary, relationship context, and interpretation version when adding source material. Keep existing sessions/text/hashes unchanged. Export v2 and import v1/v2 atomically with exact field/version validation. Demonstrate persistence/restart, source rename/split/deletion and label changes without snapshot changes, section-only captures without extra background, unavailable relationship handling, fresh identity remapping, cross-campaign isolation, rejected malformed imports without partial writes, and archives readable with no campaign files. Preserve save-conflict and note behavior. |
+| 3C — Production browsing and reader | `frontend/src/app/campaigns/`, `frontend/src/app/preparation/`, necessary `app.*`/shared styles, generated-client wrappers, focused component/state/Chromium fixtures | Implement the reviewed category/results/reader arrangement, guidance/tooling and issues access, combined filters with Search all, explicit related-card navigation, and explicit adventure scene selection. Provide reader outline, recognizable section treatment, disclosure/focus, contextual section-add actions, and source-focused desk/folio views. Preserve working notes, selection, provenance, save states, and captured-link semantics. Review real long-content behavior, keyboard flow, hidden-search-match reveal, empty/error/legacy/invalid states, and no overflow at both accepted laptop sizes. No production use of prototype state/data. |
+
+Each increment updates relevant README/convention documentation and records developer evidence here. Regenerate the real Spring OpenAPI client whenever the contract changes. Use backend domain/integration/Modulith checks for changed backend behavior and frontend checks for affected consumers. Use the isolated full-stack check at the integrated handover; repeat broader startup checks only for relevant changes or failures. No tests against the owner's live campaign/database are required.
+
+### Increment 3A — Implementation and developer-check evidence — 2026-10-18
+
+The approved Sources implementation and the bounded archive-import readiness correction are complete; the integrated developer check is now green. The initial failure and subsequent correction are recorded below. This is developer evidence, not formal verification or owner acceptance.
+
+Changes:
+
+- Added the accepted restricted SnakeYAML Engine 3.1.1 dependency and offset-preserving envelope extraction in the Sources Markdown adapter. Classification, diagnostics, duplicate IDs within a campaign capture, normalized tags, and metadata/body separation are derived from captured raw text; no database index or migration was added.
+- Added classification to source summaries/documents/search hits, heading levels, and direct captured Markdown relationships with source section, destination, target classification, and explicit scene-candidate flags. Whole-file/subtree selections retain raw text/hashes and expose metadata/relationship context for 3B.
+- Added combined type/tag/purpose/status and issues/unclassified filters to library/search APIs. New parameters and response additions are optional in generated OpenAPI consumers; the existing frontend compiles without hand-maintained contract changes.
+- Enforced the guidance/tooling restriction in the public Sources selection operation, including otherwise invalid classifications with an independently valid purpose. Preparation integration confirms a rejected add leaves the session unchanged.
+- Recorded the approved metadata contract, parser assessment, and type-specific recommended Markdown structures in the increment 3 convention document; updated README and accepted-plan status while preserving earlier uncommitted documentation.
+
+Developer checks:
+
+- `cd backend && ./gradlew test --tests workbench.TypedSourcesTest --tests workbench.LibraryBehaviorTest --tests workbench.ArchitectureTest`: 15 checks passed.
+- `cd backend && ./gradlew test --tests workbench.LibraryIntegrationTest bootJar`: passed after starting Docker Desktop. The initial attempt could not start Testcontainers because Docker was stopped; this was an environment prerequisite, not an application assertion failure.
+- The first `./scripts/check-setup.sh` run passed all 20 backend checks, real Spring OpenAPI client generation, version checks, all 15 frontend tests, and the production build. The second invocation retained the unchanged backend checks as up-to-date and repeated generation/frontend checks successfully.
+- Both full-stack runs passed 3 of 4 Chromium flows (connectivity, source-library operations, and failed-save recovery). Both failed `frontend/e2e/preparation.spec.ts:145`, awaiting the archive-import success notice. The error snapshot shows the new session in the destination campaign, with no success notice. The existing `Workspace.initialize` sets library selection before awaiting source refresh and binding SessionState; `SessionState.import` ignores completion after an epoch/campaign change. This is evidence for an initialization/import-readiness race; no baseline checkout reproduction or frontend correction was performed in 3A. No frontend application or E2E source was changed.
+- The script's final PostgreSQL restart comparison was not reached because Chromium failed. The backend integration checks separately passed capture/classification persistence across application restart, transaction rollback, and frozen legacy session/archive behavior.
+- `git diff --check`: clean. Production build retains the existing prototype CSS size warnings; those files were not changed.
+
+The focused checks cover malformed/unknown/legacy metadata, duplicate keys/IDs, parser bounds/aliases/tags, metadata-only and body search, combined filters, BOM/CRLF/non-BMP offsets, exact UTF-8 hashes, repeated/nested headings, anchor remapping, subtree-only relationships, stale capture rejection, atomic refresh behavior, different campaign structures, HTTP filter binding, and cross-campaign isolation. Module checks confine YAML dependencies to the Sources adapter and preserve API boundaries.
+
+Remaining work/limits: the archive-import readiness failure was corrected and the complete integrated check passed as recorded below. Formal verification is not performed. At the 3A handover, typed metadata persistence, metadata-aware prepared rendering, and archive v2 were deferred to 3B; the subsequent 3B evidence is recorded below. Production typed browsing/reader controls remain 3C. No campaign files, owner development database, commits, or deployments were changed. The isolated check servers/containers were stopped by the check script; Docker Desktop remains running.
+
+### Archive-import readiness correction — 2026-10-18
+
+The correction preserves the existing Angular Workspace/SessionState responsibilities, API contracts, persistence model, and dependency set. Scope: `frontend/src/app/preparation/workspace.ts`, its template, `session-state.ts`, focused SessionState tests, and the existing preparation Chromium flow.
+
+The campaign selector and upload control became visible while route initialization was still awaiting source refresh, before SessionState was bound to the destination. A fast upload could successfully import on the backend while its completion was discarded by the existing epoch/campaign guard. Workspace now keeps import disabled until route initialization, campaign binding, and session listing complete; its handler checks the same readiness. A route epoch check prevents an obsolete callback from marking a newer route ready. SessionState rejects imports for an inactive campaign and rechecks identity after file reading and list reload so navigation cannot send a stale upload or display an old completion notice.
+
+Added three state regressions for unbound destinations, navigation during file reading, and navigation during post-import listing. The Chromium flow deliberately delays the destination source refresh, asserts that import is disabled, releases initialization, and verifies the import notice, reopened content/notes, and malformed-archive rejection. This tests the actual timing condition without arbitrary sleeps or removing the original success assertion.
+
+Developer evidence: `cd frontend && npm test` passed all 18 tests. The subsequent complete `./scripts/check-setup.sh` passed: unchanged backend suite/build retained as up-to-date (20 backend checks previously passed), real Spring OpenAPI generation, version alignment, all 18 frontend tests, production build, all 4 Chromium flows, and PostgreSQL installation-state preservation across database restart. The script stopped its isolated servers/containers. Existing prototype CSS budget warnings remain. `git diff --check` is clean. No architecture change, dependency addition, campaign-file edit, commit, deployment, or formal verification is part of this correction.
+
+### Increment 3B — Implementation and developer-check evidence — 2026-10-18
+
+The accepted 3B implementation is complete. This is developer-check evidence, not formal verification or owner acceptance. Requirements and module boundaries are unchanged.
+
+Implementation:
+
+- Added Preparation-owned immutable captured classification, authored summary, diagnostic issues, direct relationship context, interpretation version, and saved body offset. The application maps the Sources public selection contract into these frozen values when adding material; save/reorder/notes operations retain them.
+- Added `V6__captured_source_metadata.sql`, a nullable JSON-encoded text column on `preparation.item`. Serialization stays in the persistence adapter. There is no source-index migration, backfill, new module, dependency, or campaign writer. Existing rows remain legacy/null with original text, notes, hashes, provenance, and anchors.
+- Prepared rendering suppresses only the envelope identified by the saved body offset for new captures. It never reparses live metadata. Legacy items and v1 imports retain prior rendering. Section captures keep only selected raw prose, with document classification held separately.
+- Exports now use archive v2; imports accept v1/v2 through version-specific field/type/size checks before binding and transactional writes. V1 items reject typed fields and import as legacy; v2 requires nullable captured metadata. Nested metadata, supported interpretations, offsets, hashes, enums, canonical identifiers, duplicate JSON keys, trailing data, and scalar coercion are validated. Destination session/item identities are fresh; descriptive provenance and stable card IDs remain unchanged.
+- Frozen links still resolve only within the prepared session and original campaign/capture. A newer card at the same old path cannot satisfy an older relationship. Uncaptured targets remain unavailable after import, with their captured descriptive context retained.
+- Updated the typed browser fixture and v2 export assertion. Regenerated the Angular client from the real Spring OpenAPI contract. Production typed browsing/reader controls remain 3C.
+
+Developer evidence:
+
+- `cd backend && ./gradlew test --tests workbench.PreparationIntegrationTest --tests workbench.ArchitectureTest` passed the existing preparation and module checks.
+- The focused `TypedPreparationIntegrationTest` passed a real Flyway V5-to-V6 upgrade seeded with legacy rows, legacy rendering/v1 HTTP import, new snapshots and authored summary, CRLF/BOM selections, section-only captures, repeated-anchor links, label/type changes, rename/split/deletion, saves/notes, persistence across application restart, self-contained v2 HTTP import, fresh identities, cross-campaign isolation, and unavailable links across captures.
+- Malformed archive HTTP cases reject unknown/missing fields, unsupported versions/interpretations, scalar coercion, noncanonical IDs, incorrect enums/offsets/fingerprints, oversized fields/archives, duplicate keys, trailing JSON, duplicate sessions, and a valid first session followed by an invalid second session. Destination session counts remain unchanged. Invalid classification diagnostics and normalized Unicode tags also round-trip. Unicode lowercasing can expand a valid 64-unit authored tag; frozen validation accepts its normalized representation without changing authoring limits.
+- `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` completed successfully: all 24 backend tests (subsequently reused as up-to-date), real Spring client generation, version checks, all 18 frontend tests, production build, all 4 Chromium flows, and PostgreSQL installation-state preservation across restart. The typed browser flow checks hidden envelope display, frozen content/notes, captured metadata and summary in the v2 download, import, and malformed-archive rejection.
+- `git diff --check` passed. Existing prototype CSS budget warnings remain; no prototype files were changed.
+
+Check-driven corrections and operational deviations:
+
+- The first integrated attempt found port 4200 occupied and stopped before browser tests. Added a validated optional `WORKBENCH_CHECK_FRONTEND_PORT` in the existing Playwright configuration (default still 4200), then used 4201. The existing frontend was neither reused nor terminated. A Docker-access sandbox denial was retried with the required environment approval.
+- The next browser run passed typed preparation but exposed a campaign-selector startup race: saved captured documents could be visible before initial route setup completed, and a user switch during that interval could be overwritten when the URL was applied. The existing Workspace readiness signal now gates the CampaignLibrary selector as well as imports; no-selection startup can become ready normally. A deterministic browser regression delays initial refresh, checks that switching is disabled, then releases startup and confirms switching succeeds. This correction remains within existing UI/router responsibilities and adds no architecture or dependency.
+
+The isolated check servers/containers were stopped. Tests used temporary campaign fixtures and isolated databases; no Sea Witch files or owner development data were edited. The owner's running development backend has not been restarted or migrated by these checks. Restarting the development stack is needed to load the new backend/migration locally. Formal verification, 3C, the disposable reader study, commits, and deployment remain separate.
+
+### Pre-implementation contract review for 3A
+
+Status: Completed and accepted on 2026-10-18; the resulting [contract and parser decision](increment-3-typed-markdown-cards.md#accepted-version-1-metadata-contract--2026-10-18) supersede the open selection prerequisite below.
+
+Produce the field constraints and validation table, YAML parser assessment, and type-specific Markdown conventions as reviewable documentation before code/dependency changes. Resolve these implementation details against accepted behavior:
+
+- Required fields, ID format, tag normalization, supported schema versions, and defaults for legacy versus explicitly invalid metadata. Missing labels are never inferred from folder names.
+- Safe parser limits and behavior for malformed envelopes, unknown fields/types, duplicate keys, and duplicate IDs; readable body and diagnostic retention. Assess dependencies against the existing Kotlin/JDK/Boot baseline using primary documentation before selecting one.
+- Offset-preserving envelope/body extraction and frozen interpretation version so adding metadata never shifts a selected range incorrectly or changes historical prepared rendering.
+- Relationships use ordinary links. The explicit Adventure scene chooser must distinguish scene targets from other links and never recursively capture a graph or silently include non-session material.
+- Guidance authority remains outside this contract's execution scope; invalid/unreviewed labels do not become approval evidence.
+
+If those details expose a consequential departure from accepted architecture, return to architecture approval before implementing it.
+
+### Proposed disposable reader study
+
+Question: can the category/results/reader layout and source-focused folio make long content usable without concealing essential scene information?
+
+Scope: extend the existing isolated preparation study under `frontend/src/app/preparation/prototype/` and its development-only loader as needed, with in-memory fixtures representing a short NPC, a long scene, a multi-scene adventure, a guidance document, and legacy/invalid metadata. Use sample or read-only copied excerpts; no campaign edits, application API/database writes, new framework, or production integration. Follow the prototype skill if/when this experiment is explicitly authorized.
+
+Deliverable: a reviewable preview at 1280×800 and 1440×900 demonstrating outline/disclosure navigation, search reveal, panel collapse, and quick/full-text access. Keep fixtures and study behavior excluded from production output. Owner review of the layout is a prerequisite for 3C; prototype approval does not authorize 3C implementation.
+
+### Proposed separate Sea Witch pilot — SW-P1
+
+Files/content in scope:
+
+- `npcs/thomas_haggerty.md` and `the_ship/crew/thomas_haggerty.md`; related crew index/inbound links only where necessary to preserve navigation.
+- `chapter_2_the_broken_atoll/Whispering_Reef_Sanctuary_v1/03 - arrival_hall.md`.
+- `chapter_3/agelus/agelus_trail_playable_scenes.md` and new sibling scene files created from it.
+- `campaign_bible/The_Sea_Witch_Campaign_Bible_v0.6.md` only after the owner confirms this guidance example and its status/title.
+- Necessary direct Markdown link/anchor repairs caused by those changes; enumerate affected paths in a pre-edit inventory before writing. Broader prose edits remain excluded.
+- Application-owned convention/preservation evidence in `docs/increment-3-typed-markdown-cards.md` and the manual review queue. No new campaign workflow/instruction files are included.
+
+Entry conditions: owner authorizes SW-P1 implementation independently; the metadata/convention contract is approved; initial Git status and recoverable baseline are recorded without altering existing work. Resolve or defer SW-01, SW-04, SW-08, and SW-10 as relevant before their affected edits. Resolve the guidance selection/status explicitly. Edits outside workspace writable roots also require the environment's filesystem approval, independently of development-phase approval.
+
+Tasks: inventory distinct source information and protected passages; propose target file/link mapping; add metadata only where owner decisions support it; consolidate Thomas without dropping detail; normalize Arrival Hall without rewriting protected prose; extract Agelus scenes with an overview retaining investigation safety nets/timeline/design context; label the selected guidance document without recasting authority. Queue uncertainties and continue unaffected work only.
+
+Completion: show exact changed/new files and word/heading counts, source-to-result information mapping, verbatim checks for read-aloud/dialogue/handouts, and relative-link/anchor checks. Explicitly report uncertain/unmapped passages; do not claim automated proof of semantic preservation. Owner reviews editorial preservation and usability before any broader migration. Historical versions, unrelated campaign files, assets, tooling, Git history, and application code remain outside SW-P1.
+
+### Planning exit
+
+The original recommendation was the 3A contract/parser assessment and a separately authorized disposable layout study. The 3A review and 3B plan were subsequently accepted, and their implementation evidence is recorded above; the layout study, 3C, and SW-P1 remain separately selectable. Do not infer permission for every row from approval of one increment. Open owner content questions remain in the review queue and do not block generic application work.
+
 ## Version baseline proposal — 2026-10-17
 
 Status: The owner accepted the proposed baseline, compatibility exceptions, and Boot-managed dependency policy, and requested TOML version storage. [versions.toml](versions.toml) is the machine-readable version reference, using Gradle version-catalog syntax. The table below records the dated rationale and sources. Flyway remains a candidate override pending validation, not an established compatible selection.

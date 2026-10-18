@@ -37,9 +37,23 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await page.getByRole('button', { name: 'Close rules' }).click();
     await page.getByLabel('Display name').fill(name + ' Other'); await page.getByLabel('Folder path').fill(second); await page.getByRole('button', { name: 'Register campaign', exact: true }).click();
     await expect(page.getByRole('button', { name: 'different/else.md', exact: true })).toBeVisible(); await expect(page.getByRole('button', { name: 'nested/next page.md', exact: true })).toHaveCount(0);
-    await page.reload(); await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(name + ' Other');
+    // Captured documents can appear before the saved campaign has finished opening.
+    const selector = page.getByLabel('Campaign', { exact: true });
+    const otherId = await selector.inputValue();
+    let finishOpening!: () => void;
+    const openingGate = new Promise<void>((resolve) => { finishOpening = resolve; });
+    const openingUrl = `**/api/campaigns/${otherId}/sources/refresh`;
+    await page.route(openingUrl, async (route) => { await openingGate; await route.continue(); });
+    const openingStarted = page.waitForRequest((request) => request.url().endsWith(`/api/campaigns/${otherId}/sources/refresh`));
+    await page.reload();
+    await openingStarted;
+    await expect(selector.locator('option:checked')).toHaveText(name + ' Other');
+    await expect(selector).toBeDisabled();
     await expect(page.getByRole('button', { name: 'different/else.md', exact: true })).toBeVisible();
-    await page.getByLabel('Campaign', { exact: true }).selectOption({ label: name }); await expect(page.getByRole('button', { name: 'nested/next page.md', exact: true })).toBeVisible();
+    finishOpening();
+    await expect(selector).toBeEnabled();
+    await page.unroute(openingUrl);
+    await selector.selectOption({ label: name }); await expect(page.getByRole('button', { name: 'nested/next page.md', exact: true })).toBeVisible();
     expect(await readFile(join(first, 'source.md'), 'utf8')).toBe('# Updated\nNew passage');
   } finally { await rm(root, { recursive: true, force: true }); }
 });

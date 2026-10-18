@@ -4,7 +4,8 @@ import java.util.UUID
 import io.swagger.v3.oas.annotations.media.Schema
 
 data class DocumentSummary(
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val path: String
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val path: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED) val classification: SourceClassification = SourceClassification()
 )
 
 data class Library(
@@ -23,7 +24,8 @@ data class SourceBlock(
 data class SourceSection(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val id: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val heading: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val blocks: List<SourceBlock>
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val blocks: List<SourceBlock>,
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val level: Int? = null
 )
 
 data class SourceLink(
@@ -39,7 +41,9 @@ data class SourceDocument(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val capture: UUID,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val path: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val sections: List<SourceSection>,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val links: List<SourceLink>
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val links: List<SourceLink>,
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED) val classification: SourceClassification = SourceClassification(),
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED) val relationships: List<SourceRelationship> = emptyList()
 )
 
 data class SearchHit(
@@ -47,7 +51,8 @@ data class SearchHit(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val section: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val heading: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val block: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val excerpt: String
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val excerpt: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED) val classification: SourceClassification = SourceClassification()
 )
 
 data class SearchResults(

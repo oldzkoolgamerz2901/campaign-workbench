@@ -14,20 +14,23 @@ import java.util.Locale
 
 @Component
 class CommonmarkMarkdown : Markdown {
+    private val frontMatter = WorkbenchFrontMatter()
     private val extensions = listOf(TablesExtension.create())
     private val parser = Parser.builder().extensions(extensions).includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build()
     override fun parse(text: String): ParsedDocument {
-        val root = parser.parse(text)
+        val envelope = frontMatter.extract(text)
+        val root = parser.parse(text.substring(envelope.bodyStart))
         val links = mutableListOf<ParsedLink>()
+        var sectionId = "start"
         val renderer = HtmlRenderer.builder().extensions(extensions).escapeHtml(true).sanitizeUrls(true)
-            .nodeRendererFactory { context -> SafeLinks(context, links) }.build()
+            .nodeRendererFactory { context -> SafeLinks(context, links) { sectionId } }.build()
         val sections = mutableListOf<SourceSection>()
         val anchors = linkedMapOf<String, String>()
         val used = mutableSetOf<String>()
         var heading = "Document"
-        var sectionId = "start"
+        var level: Int? = null
         var blocks = mutableListOf<SourceBlock>()
-        fun finish() { if (blocks.isNotEmpty()) sections += SourceSection(sectionId, heading, blocks.toList()) }
+        fun finish() { if (blocks.isNotEmpty()) sections += SourceSection(sectionId, heading, blocks.toList(), level) }
         var blockIndex = 0
         var node = root.firstChild
         while (node != null) {
@@ -35,7 +38,8 @@ class CommonmarkMarkdown : Markdown {
             if (current is Heading) {
                 finish(); blocks = mutableListOf()
                 heading = plain(current)
-                sectionId = "s-${current.sourceSpans.firstOrNull()?.inputIndex ?: sections.size}"
+                level = current.level
+                sectionId = "s-${envelope.bodyStart + (current.sourceSpans.firstOrNull()?.inputIndex ?: 0)}"
                 val base = heading.lowercase(Locale.ROOT).replace(Regex("""[^\p{L}\p{N}_ -]"""), "").replace(' ', '-').ifBlank { "section" }
                 var slug = base; var suffix = 1
                 while (!used.add(slug)) { slug = "$base-${suffix++}" }
@@ -50,7 +54,7 @@ class CommonmarkMarkdown : Markdown {
         var cursor = root.firstChild
         while (cursor != null) {
             if (cursor is Heading) {
-                val offset = cursor.sourceSpans.first().inputIndex
+                val offset = envelope.bodyStart + cursor.sourceSpans.first().inputIndex
                 headings += Triple("s-$offset", offset, cursor.level)
             }
             cursor = cursor.next
@@ -58,8 +62,8 @@ class CommonmarkMarkdown : Markdown {
         val ranges = headings.mapIndexed { index, h ->
             h.first to SectionRange(h.second, headings.drop(index + 1).firstOrNull { it.third <= h.third }?.second ?: text.length)
         }.toMap().toMutableMap()
-        if (sections.any { it.id == "start" }) ranges["start"] = SectionRange(0, headings.firstOrNull()?.second ?: text.length)
-        return ParsedDocument(sections, anchors, links, ranges)
+        if (sections.any { it.id == "start" }) ranges["start"] = SectionRange(envelope.bodyStart, headings.firstOrNull()?.second ?: text.length)
+        return ParsedDocument(sections, anchors, links, ranges, envelope.classification, envelope.declaredPurpose, envelope.bodyStart, envelope.declaredId)
     }
     private fun plain(node: Node): String {
         val out = StringBuilder()
@@ -75,13 +79,13 @@ class CommonmarkMarkdown : Markdown {
         })
         return out.toString()
     }
-    private class SafeLinks(private val context: HtmlNodeRendererContext, private val links: MutableList<ParsedLink>) : NodeRenderer {
+    private class SafeLinks(private val context: HtmlNodeRendererContext, private val links: MutableList<ParsedLink>, private val section: () -> String) : NodeRenderer {
         override fun getNodeTypes(): Set<Class<out Node>> = setOf(Link::class.java, Image::class.java)
         override fun render(node: Node) {
             if (node is Image) { context.writer.text("[Image omitted]"); return }
             val link = node as Link
             val key = "source-link-${links.size}"
-            links += ParsedLink(key, link.destination)
+            links += ParsedLink(key, link.destination, section())
             context.writer.tag("a", mapOf("href" to "#$key"))
             var child = node.firstChild
             while (child != null) { context.render(child); child = child.next }

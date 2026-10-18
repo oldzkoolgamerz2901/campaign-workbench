@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.arrow.core)
     implementation(libs.commonmark.core)
     implementation(libs.commonmark.tables)
+    implementation(libs.snakeyaml.engine)
     implementation(libs.springdoc)
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -18,7 +18,8 @@ data class PreparedItemData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val markdown: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val provenance: ProvenanceData,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val anchors: Map<String, String>,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val capturedSource: CapturedSourceData? = null
 )
 
 data class SessionData(

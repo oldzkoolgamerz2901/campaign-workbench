@@ -21,6 +21,7 @@ export class Workspace implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   readonly reading = signal(false);
   readonly showingLibrary = signal(true);
+  readonly campaignReady = signal(false);
   readonly item = computed(
     () => this.state.current()?.items.find((i) => i.id === this.state.selectedItem()) ?? null,
   );
@@ -46,6 +47,7 @@ export class Workspace implements OnDestroy {
     this.applyingRoute = false;
     this.subscription = this.route.queryParamMap.subscribe((params) => {
       const epoch = ++this.routeEpoch;
+      this.campaignReady.set(false);
       void (async () => {
         const campaign = params.get('campaign') ?? this.library.selected()?.id;
         if (campaign && campaign !== this.library.selected()?.id) {
@@ -64,12 +66,15 @@ export class Workspace implements OnDestroy {
         else if (this.state.current()) this.state.clear();
         if (epoch !== this.routeEpoch) return;
         if (campaign) await this.state.list(campaign);
+        if (epoch !== this.routeEpoch) return;
         this.reading.set(params.get('mode') === 'read');
         this.showingLibrary.set(params.get('view') === 'library' || !id);
+        this.campaignReady.set(!campaign || campaign === this.library.selected()?.id);
       })();
     });
   }
   ngOnDestroy() {
+    this.routeEpoch++;
     this.subscription?.unsubscribe();
     this.library.beforeSelect = async () => true;
   }
@@ -135,7 +140,7 @@ export class Workspace implements OnDestroy {
     const input = event.target as HTMLInputElement,
       file = input.files?.[0],
       campaign = this.library.selected();
-    if (file && campaign) void this.state.import(campaign.id, file);
+    if (file && campaign && this.campaignReady()) void this.state.import(campaign.id, file);
     input.value = '';
   }
 }

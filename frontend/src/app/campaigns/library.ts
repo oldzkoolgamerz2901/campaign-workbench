@@ -1,4 +1,4 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { LibraryState } from './library-state';
@@ -9,6 +9,7 @@ import { LibraryState } from './library-state';
 })
 export class CampaignLibrary {
   readonly state = inject(LibraryState);
+  readonly ready = input(true);
   readonly addSource = output<{path: string; section: string | null}>();
   name = ''; directory = ''; query = '';
   includes = ''; excludes = ''; editingRules = false;
@@ -17,5 +18,5 @@ export class CampaignLibrary {
     const campaign = this.state.selected(); if (!campaign) return;
     this.includes = campaign.includes.join('\n'); this.excludes = campaign.excludes.join('\n'); this.editingRules = true;
   }
-  select(id: string) { this.editingRules = false; this.query = ''; void this.state.select(id); }
+  select(id: string) { if (!this.ready()) return; this.editingRules = false; this.query = ''; void this.state.select(id); }
 }

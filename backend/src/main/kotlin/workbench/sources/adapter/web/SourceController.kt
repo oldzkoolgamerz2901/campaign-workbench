@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import workbench.platform.api.ProblemResponse
 import workbench.sources.api.*
 import org.springframework.web.bind.annotation.*
+import org.springdoc.core.annotations.ParameterObject
 import workbench.sources.application.SourceService
 import workbench.platform.api.response
 import java.util.UUID
@@ -22,7 +23,7 @@ class SourceController(private val sources: SourceService) {
     @ApiResponse(responseCode = "409", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
     @ApiResponse(responseCode = "422", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
     @GetMapping
-    fun library(@PathVariable id: UUID) = sources.library(id).response()
+    fun library(@PathVariable id: UUID, @ParameterObject @ModelAttribute filter: SourceFilter = SourceFilter()) = sources.library(id, filter).response()
     @Operation(operationId = "refreshLibrary")
     @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = Library::class))])
     @ApiResponse(responseCode = "400", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
@@ -46,5 +47,6 @@ class SourceController(private val sources: SourceService) {
     @ApiResponse(responseCode = "409", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
     @ApiResponse(responseCode = "422", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
     @GetMapping("/search")
-    fun search(@PathVariable id: UUID, @RequestParam capture: UUID, @RequestParam query: String) = sources.search(id, capture, query).response()
+    fun search(@PathVariable id: UUID, @RequestParam capture: UUID, @RequestParam query: String,
+        @ParameterObject @ModelAttribute filter: SourceFilter = SourceFilter()) = sources.search(id, capture, query, filter).response()
 }

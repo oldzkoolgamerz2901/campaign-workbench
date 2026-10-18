@@ -28,8 +28,10 @@ playwright = "1.64.1"
 flyway = "13.10.3" # Aligned override; setup startup/migration checks passed. Boot uses 12.4.0.
 
 commonmark = "0.30.0"
+snakeyaml-engine = "3.1.1" # Increment 3A: restricted YAML 1.2 front matter.
 
 [libraries]
+snakeyaml-engine = { module = "org.snakeyaml:snakeyaml-engine", version.ref = "snakeyaml-engine" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 kotest-runner = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }

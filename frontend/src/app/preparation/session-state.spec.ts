@@ -184,4 +184,39 @@ describe('Session working state', () => {
     expect(state.sessions()).toEqual([]);
     expect(state.notice()).toBe('');
   });
+  it('rejects import before its destination campaign is bound', async () => {
+    const file = { size: 2, text: vi.fn() } as unknown as File;
+    await state.import('campaign-a', file);
+    expect(file.text).not.toHaveBeenCalled();
+    expect(api.importSessions).not.toHaveBeenCalled();
+  });
+  it('does not send an import if the campaign changes while reading the file', async () => {
+    state.bindCampaign('campaign-a');
+    let finishRead!: (text: string) => void;
+    const text = new Promise<string>((resolve) => { finishRead = resolve; });
+    const imported = state.import('campaign-a', { size: 2, text: () => text } as File);
+    state.bindCampaign('campaign-b');
+    finishRead('{"version":1,"sessions":[]}');
+    await imported;
+    expect(api.importSessions).not.toHaveBeenCalled();
+    expect(state.notice()).toBe('');
+  });
+  it('does not show an old import notice after switching during the list reload', async () => {
+    state.bindCampaign('campaign-a');
+    api.importSessions.mockReturnValue(of({ sessions: [] }));
+    const list = new Subject<{ sessions: [] }>();
+    api.listSessions.mockReturnValue(list);
+    const imported = state.import('campaign-a', {
+      size: 2, text: async () => '{"version":1,"sessions":[]}',
+    } as File);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(api.listSessions).toHaveBeenCalledTimes(1);
+    state.bindCampaign('campaign-b');
+    list.next({ sessions: [] });
+    list.complete();
+    await imported;
+    expect(state.sessions()).toEqual([]);
+    expect(state.notice()).toBe('');
+  });
 });

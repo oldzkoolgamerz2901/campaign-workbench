@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository
 import workbench.preparation.application.SessionStore
 import workbench.preparation.domain.*
 import java.util.UUID
+import tools.jackson.databind.ObjectMapper
 
 @Entity
 @Table(name = "session", schema = "preparation")
@@ -28,12 +29,13 @@ class ItemEntity(
     @ElementCollection
     @CollectionTable(name = "anchor", schema = "preparation", joinColumns = [JoinColumn(name = "item_id")])
     @MapKeyColumn(name = "original_anchor") @Column(name = "local_anchor")
-    var anchors: MutableMap<String, String> = mutableMapOf()
+    var anchors: MutableMap<String, String> = mutableMapOf(),
+    @Column(name = "captured_source") var capturedSource: String? = null
 )
 interface SessionRepository : JpaRepository<SessionEntity, UUID> { fun findByCampaignOrderByTitle(campaign: UUID): List<SessionEntity> }
 @Repository
-class JpaSessionStore(private val repository: SessionRepository, private val em: EntityManager) : SessionStore {
-    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash), it.anchors.toMap(), it.notes) })
+class JpaSessionStore(private val repository: SessionRepository, private val em: EntityManager, private val mapper: ObjectMapper) : SessionStore {
+    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash), it.anchors.toMap(), it.notes, it.capturedSource?.let { json -> mapper.readValue(json, CapturedSource::class.java) }) })
     override fun list(campaign: UUID) = repository.findByCampaignOrderByTitle(campaign).map(::model)
     override fun get(campaign: UUID, id: UUID) = repository.findById(id).orElse(null)?.takeIf { it.campaign == campaign }?.let(::model)
     override fun put(session: Session) {
@@ -43,7 +45,7 @@ class JpaSessionStore(private val repository: SessionRepository, private val em:
         val entity = repository.findById(session.id).orElseGet { SessionEntity(id = session.id, campaign = session.campaign) }
         entity.revision = session.revision; entity.title = session.title; entity.objective = session.objective; entity.notes = session.notes
         entity.items.clear()
-        entity.items.addAll(session.items.map { i -> ItemEntity(i.id, i.title, i.markdown, i.notes, i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.anchors.toMutableMap()) })
+        entity.items.addAll(session.items.map { i -> ItemEntity(i.id, i.title, i.markdown, i.notes, i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.anchors.toMutableMap(), i.capturedSource?.let(mapper::writeValueAsString)) })
         repository.saveAndFlush(entity)
     }
 }
