@@ -451,3 +451,39 @@ Ship accounting, interactive maps, and comprehensive automated consistency audit
 - Enter current playthrough state manually; repository prose is insufficient evidence for actual player discoveries.
 
 These items remain explicit rather than assumed. This document selects no technology stack, implementation increments, or deployment design.
+
+### Increment 5 — Read-session card table — accepted 2026-10-20
+
+This supersedes the earlier folio layout and shared-order reading behavior; both views still use the same saved session and frozen entries.
+
+Read presents existing 320px portrait cards with unchanged title/type, authored summary, tags, placeholder artwork and full-document action in a horizontally scrolling row above the full-text reader. Cards determine row height; short screens permit page scrolling. Drag handles and move-left/right buttons rearrange cards. Selection highlights the card and opens its frozen content with existing reader tools and notes.
+
+Prepare owns starting order; first Read initializes a separate persistent table arrangement. Read changes never reorder Prepare. New prepared entries appear at the front of the active row; removals disappear from either pile. Mark used moves a card into a persistent Used cards tray without deletion, retaining its selected text. Used cards remain readable; Return to table prepends them to the active row. Archives preserve table state; older archives start uninitialized with preparation order and all cards active. No journals or lifecycle transitions are introduced.
+
+#### Increment 5 interaction and Read-header adjustment — accepted 2026-10-20
+
+Supersedes external per-card control rows: click or keyboard-activate the card to select it, with a gold outline on the card itself. Drag the card directly to reorder it or drop it onto a persistent visible Used cards pile beside the horizontal row. Open the pile to read used cards and drag them back; restoration still prepends. On-card action menus retain keyboard move/used/return alternatives. Preserve card dimensions, authored text, summary scrolling, full-document access, saved state and selection retention after marking used.
+
+Read uses compact campaign/session chooser controls, save status, Return to Prepare and a More menu for Writing, campaign management, session details/objective and export. A second compact row provides card find, Notes and View controls. Panel/focus/session-note actions remain accessible through View. Reduce application branding/connection controls in Read and hide routine library/success notices there; keep failures and explicit recovery visible. Prepare retains its existing composition controls. No persistence or archive changes are needed.
+
+### Deferred increment — per-card images — owner direction 2026-10-20
+
+Status: The owner requested a separate later increment for per-card images and authorized documenting that deferral. It is outside the current UI cleanup and has no implementation authorization or assigned increment number.
+
+Goal: associate a selected image with a card and reuse it for that card's presentation in Write, Prepare and Play (formerly Read), including compact material-library thumbnails. Show the existing application placeholder when no image is selected. The owner identified the illustrated Prepare concept `exec-9d5145fc-95ac-4099-91e6-42d07ec7fa3d.png` as a desirable visual direction; that mockup does not establish an asset-storage or content-import contract.
+
+Before implementation, settle image selection/acquisition, ownership and identity, frozen prepared-copy behavior, replacement/removal, archive/recovery portability, supported formats and size limits, and missing-image behavior. Compact thumbnails and an optional text-only shelf are recommendations for that increment, not yet approved acceptance criteria. Existing source/reader image omission and placeholder behavior remain in effect until the later increment is designed and implemented.
+
+### Play naming and group lookup — owner direction 2026-10-20
+
+Accepted goals: rename the user-facing Read mode to **Play**, so mode navigation becomes **Write / Prepare / Play**. Add a group filter to the Play card table so the DM can quickly locate a particular kind of card. This naming supersedes Read in future UI work; earlier sections retain historical terminology. The rename does not itself introduce journals, lifecycle transitions or new play records. Application behavior/labels have not yet been changed by this documentation update.
+
+Existing vocabulary: groups are the primary content types NPC, Location, Faction, Item, Scene, Adventure, Handout and Reference, as defined for manual writing. They are distinct from tags and custom user-defined collections.
+
+Proposed filter behavior, pending approval: place a compact Group chooser beside Find cards, with All and the eight existing types; select one group at a time and default to All. Combine it with the existing text find, apply it to both the active table and opened Used cards tray, and show matching/total counts. All includes untyped legacy entries; filtering never invents a type, changes either saved order or moves entries between piles. Keep the selected full text open even when its card is filtered out. Clear filters to show the full arrangement again. Keep filter state local to the view. Reordering while filters are active needs an explicit interaction decision; the initial recommendation is to require clearing filters before rearranging, matching current text-find behavior. Filter details are requirements proposals, not an accepted implementation plan.
+
+### Shared mode UI and Prepare placeholders — accepted 2026-10-20
+
+The owner approved the proposed common two-row shell and per-mode cleanup, including previously proposed Play filter details. Use Write / Prepare / Play navigation, a shared campaign chooser/save-status/More header, consistent contextual tools and global dark menus. Automatically check backend availability at startup and foreground return; display failures with retry, without a permanent healthy indicator. Save confirmation remains independent. Retain all existing save/discard/conflict guards.
+
+Write exposes Markdown early, expandable card metadata, draft-title search combined with the existing type/tag filters, compact New draft choices and on-demand export inspection/history. Prepare uses compact multi-type/filter controls, full-document-first viewing and the same application-owned placeholder image on source result/document and draft tiles; image assignment remains deferred. Preserve source searches, diagnostics, capture/approval validation and explicit material assembly. Play uses All or one existing primary card type combined with text find across active/used cards, matching/total counts and local filter state. Filtering leaves selected text and saved arrangements intact; clear filters before reordering. Readers place metadata/provenance/summary behind details, preserving authored Markdown and access to all information. No source-owned image loading or new asset storage is included.

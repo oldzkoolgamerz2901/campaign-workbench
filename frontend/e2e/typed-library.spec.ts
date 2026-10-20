@@ -83,10 +83,12 @@ test('filters typed sources and explicitly assembles adventure selections with p
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=library`);
     const shelf = page.getByRole('navigation', { name: 'Sources', exact: true });
     await expect(shelf.locator('.documents li')).toHaveCount(8);
+    await expect(shelf.locator('.documents img[src="/card-placeholder.svg"]')).toHaveCount(8);
     const refreshes: string[] = [];
     page.on('request', (r) => {
       if (r.url().endsWith('/sources/refresh')) refreshes.push(r.url());
     });
+    await page.locator('.type-chooser > summary').click();
     for (const type of types) {
       const category = page.getByRole('button', {
         name: type === 'npc' ? 'NPC' : type,
@@ -98,6 +100,9 @@ test('filters typed sources and explicitly assembles adventure selections with p
       await category.click();
       await expect(shelf.locator('.documents li')).toHaveCount(8);
     }
+    await page
+      .locator('.type-chooser')
+      .evaluate((node) => ((node as HTMLDetailsElement).open = false));
     await page.getByText('Filters', { exact: true }).click();
     await page.getByLabel('Tags (all required, comma separated)').pressSequentially('reef, combat');
     await page.getByLabel('draft', { exact: true }).check();

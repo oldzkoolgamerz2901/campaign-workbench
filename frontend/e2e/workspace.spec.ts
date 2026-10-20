@@ -99,9 +99,9 @@ test('assembles and navigates 50 saved items without losing library position or 
       [1440, 900],
     ]) {
       await page.setViewportSize({ width, height });
-      await page.getByRole('button', { name: 'Read session', exact: true }).click();
+      await page.getByRole('button', { name: 'Play', exact: true }).click();
       await expect(page.getByRole('article', { name: 'Source reader', exact: true })).toBeHidden();
-      await expect(outline.locator('[aria-current=page]')).toBeInViewport();
+      await expect(page.locator('read-card-table .entry.selected')).toBeInViewport();
       await expect(page.locator('.notes-page strong')).toHaveText('fiftieth');
       expect(
         await page.evaluate(() => ({
@@ -110,13 +110,15 @@ test('assembles and navigates 50 saved items without losing library position or 
         })),
       ).toEqual({ width, scroll: width });
       await page.screenshot({ path: testInfo.outputPath(`fifty-items-${width}.png`) });
-      await page.getByRole('button', { name: 'Hide session contents', exact: true }).click();
+      await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Hide session contents', exact: true }).click();
       await page.getByRole('button', { name: 'Hide notes', exact: true }).click();
       await expect(outline).toBeHidden();
       await expect(page.locator('.notes-page')).toBeHidden();
-      await page.getByRole('button', { name: 'Show session contents', exact: true }).click();
+      await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'Show session contents', exact: true }).click();
       await page.getByRole('button', { name: 'Show notes', exact: true }).click();
-      await page.getByRole('button', { name: 'Return to Prepare', exact: true }).click();
+      await page.getByRole('button', { name: 'Prepare', exact: true }).click();
       await expect(page.getByLabel('Item Markdown notes')).toHaveValue('The **fiftieth** clue.');
     }
     await find.fill('not a prepared title');

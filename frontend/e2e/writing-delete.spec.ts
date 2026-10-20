@@ -66,7 +66,8 @@ test('deletes working drafts without losing prepared copies or retained history'
       expect(d.message()).toContain('no undo');
       await d.dismiss();
     });
-    await page.getByRole('button', { name: 'Delete draft', exact: true }).click();
+    await page.getByRole('button', { name: 'More writing actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Delete draft', exact: true }).click();
     expect((await request.get(`${base}/drafts/${draft.id}`)).ok()).toBe(true);
     const draftUrl = `**/api/campaigns/${campaign.id}/drafts/${draft.id}?revision=*`;
     await page.route(draftUrl, async (route) => {
@@ -84,7 +85,8 @@ test('deletes working drafts without losing prepared copies or retained history'
       .fill('# Unsaved\nKeep this local text.');
     const stale = page.waitForResponse((r) => r.request().method() === 'DELETE');
     page.once('dialog', (d) => d.accept());
-    await page.getByRole('button', { name: 'Delete draft', exact: true }).click();
+    await page.getByRole('button', { name: 'More writing actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Delete draft', exact: true }).click();
     expect((await stale).status()).toBe(409);
     await expect(page.getByLabel('Draft save status')).toHaveText('Deletion unresolved');
     await expect(page.getByLabel('Markdown body', { exact: true })).toHaveValue(
@@ -100,7 +102,8 @@ test('deletes working drafts without losing prepared copies or retained history'
     );
     const deletion = page.waitForResponse((r) => r.request().method() === 'DELETE');
     page.once('dialog', (d) => d.accept());
-    await page.getByRole('button', { name: 'Delete draft', exact: true }).click();
+    await page.getByRole('button', { name: 'More writing actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Delete draft', exact: true }).click();
     expect((await deletion).status()).toBe(204);
     await expect(
       page.getByRole('status').filter({ hasText: 'Deleted “Delete Captain”' }),

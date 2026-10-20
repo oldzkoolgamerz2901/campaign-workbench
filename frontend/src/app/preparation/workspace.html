@@ -1,53 +1,135 @@
-<div class="campaign-desk">
-  <header class="workspace-header">
-    <label class="campaign-picker"
-      >Campaign<select
-        aria-label="Campaign"
-        [disabled]="!campaignReady() || busy()"
-        [ngModel]="library.selected()?.id ?? ''"
-        (ngModelChange)="selectCampaign($event)"
-      >
-        <option value="" disabled>Select a campaign</option>
-        @for (campaign of library.campaigns(); track campaign.id) {
-          <option [value]="campaign.id">{{ campaign.name }}</option>
-        }
-      </select></label
+<div class="campaign-desk" [class.reading-desk]="reading()">
+  <workbench-header
+    [campaign]="library.selected()?.id ?? ''"
+    [campaigns]="library.campaigns()"
+    [mode]="reading() ? 'play' : 'prepare'"
+    [disabled]="!campaignReady() || busy()"
+    [status]="state.current() ? saveLabel() : ''"
+    statusLabel="Session save status"
+    (selectCampaign)="selectCampaign($event)"
+    (selectMode)="changeMode($event)"
+  >
+    <button
+      headerActions
+      matButton
+      aria-label="More session actions"
+      [matMenuTriggerFor]="workspaceActions"
     >
-    <div class="session-heading">
-      <p class="eyebrow">{{ reading() ? 'SESSION FOLIO' : 'SESSION PREPARATION' }}</p>
-      <h2>
-        {{
-          !campaignReady()
-            ? 'Opening campaign…'
-            : (state.current()?.title ?? 'Your campaign workspace')
-        }}
-      </h2>
-      @if (state.current(); as session) {
-        <p class="objective">{{ session.objective }}</p>
-      }
-    </div>
-    <div class="header-actions">
-      <button matButton [disabled]="!campaignReady() || busy()" (click)="openWriting()">
-        Writing
-      </button>
+      ⋯
+    </button>
+  </workbench-header>
+  <mat-menu #workspaceActions="matMenu">
+    <button mat-menu-item (click)="managementOpen.set(true); sessionsOpen.set(false)">
+      Manage campaign
+    </button>
+    <button mat-menu-item (click)="sessionsOpen.set(true); managementOpen.set(false)">
+      Sessions / New session
+    </button>
+    <button
+      mat-menu-item
+      [disabled]="!state.current()"
+      (click)="sessionDetailsOpen.set(!sessionDetailsOpen())"
+    >
+      Session details
+    </button>
+    <button
+      mat-menu-item
+      [disabled]="!state.current() || !campaignReady() || busy()"
+      (click)="state.export(state.current()!.campaign, [state.current()!.id])"
+    >
+      Export session
+    </button>
+  </mat-menu>
+  <div class="context-toolbar" [class.read-toolbar]="reading()">
+    <h2 [attr.aria-label]="state.current()?.title ?? 'Campaign workspace'">
       <button
         matButton
-        (click)="managementOpen.set(!managementOpen()); sessionsOpen.set(false)"
-        [attr.aria-expanded]="managementOpen()"
-        aria-controls="campaign-management"
-      >
-        Manage campaign</button
-      ><button
-        matButton
+        aria-label="Sessions / New session"
         [disabled]="!campaignReady() || busy()"
         (click)="sessionsOpen.set(!sessionsOpen()); managementOpen.set(false)"
         [attr.aria-expanded]="sessionsOpen()"
-        aria-controls="session-picker"
       >
-        Sessions / New session
+        {{ state.current()?.title ?? 'Choose or create a session' }} ▾
       </button>
-    </div>
-  </header>
+    </h2>
+    @if (reading()) {
+      <input
+        type="search"
+        aria-label="Find in session"
+        placeholder="Find cards…"
+        [ngModel]="cardQuery()"
+        (ngModelChange)="cardQuery.set($event)"
+      />
+      <select
+        aria-label="Card group"
+        [ngModel]="cardGroup()"
+        (ngModelChange)="cardGroup.set($event)"
+      >
+        <option value="">Group: All</option>
+        @for (type of cardTypes; track type) {
+          <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+        }
+      </select>
+      <small
+        >{{ activeCount() }} / {{ state.current()?.table?.active?.length ?? 0 }} on table</small
+      >
+    } @else {
+      <small>{{ state.current()?.items?.length ?? 0 }} prepared</small>
+    }
+    <span class="spacer"></span>
+    @if (!reading()) {
+      <button
+        matButton="filled"
+        [matMenuTriggerFor]="addMenu"
+        [disabled]="!campaignReady() || busy()"
+      >
+        Add material ▾
+      </button>
+      <mat-menu #addMenu="matMenu">
+        <button mat-menu-item (click)="browse()">Sources</button>
+        <button
+          mat-menu-item
+          (click)="
+            material.set('drafts'); libraryOpen.set(true); navigate(undefined, 'library', 'prepare')
+          "
+        >
+          Drafts
+        </button>
+      </mat-menu>
+    }
+    <button
+      matButton
+      [attr.aria-label]="(notesOpen() ? 'Hide' : 'Show') + ' notes'"
+      [attr.aria-expanded]="notesOpen()"
+      (click)="notesOpen.set(!notesOpen())"
+    >
+      Notes
+    </button>
+    <button matButton [matMenuTriggerFor]="viewMenu">View ▾</button>
+    <mat-menu #viewMenu="matMenu">
+      <button mat-menu-item (click)="toggleSourceFocus()">
+        {{ focusSource ? 'Restore panels' : 'Focus source' }}
+      </button>
+      <button mat-menu-item (click)="contentsOpen.set(!contentsOpen())">
+        {{ contentsOpen() ? 'Hide' : 'Show' }} session contents
+      </button>
+      @if (!reading()) {
+        <button mat-menu-item (click)="libraryOpen.set(!libraryOpen())">
+          {{ libraryOpen() ? 'Hide' : 'Show' }} library
+        </button>
+      }
+      <button mat-menu-item (click)="sessionNotes()">Session notes</button>
+    </mat-menu>
+  </div>
+  @if (sessionDetailsOpen() && state.current(); as session) {
+    <section class="read-details" aria-label="Session details">
+      <button matButton (click)="sessionDetailsOpen.set(false)" aria-label="Close session details">
+        Close
+      </button>
+      <h3>{{ session.title }}</h3>
+      <p>{{ session.objective || 'No session objective.' }}</p>
+    </section>
+  }
   <div class="campaign-panel" id="campaign-management" [hidden]="!managementOpen()">
     <campaign-controls [ready]="campaignReady() && !busy()" (close)="managementOpen.set(false)" />
   </div>
@@ -146,106 +228,28 @@
         ><button matButton (click)="state.reload()">Reload / discard local edits</button>
       </div>
     }
-    @if (state.notice()) {
+    @if (state.notice() && !reading()) {
       <p role="status">{{ state.notice() }}</p>
     }
-    <p role="status" aria-label="Source library status">
-      {{ library.notice() }}
-      @if (library.library()?.needsRefresh) {
-        Source rules need refresh.
-      }
-      @if (library.loading()) {
-        Opening campaign…
-      }
-    </p>
+    @if (library.loading() || library.library()?.needsRefresh || managementOpen()) {
+      <p role="status" aria-label="Source library status">
+        {{ library.notice() }}
+        @if (library.library()?.needsRefresh) {
+          Source rules need refresh.
+        }
+        @if (library.loading()) {
+          Opening campaign…
+        }
+      </p>
+    }
   </div>
   @if (adventure(); as document) {
     <adventure-assembly [document]="document" (close)="adventure.set(null)" />
   }
-  <div class="desk-tools">
-    <div class="save-info">
-      @if (state.current()) {
-        <span role="status" aria-label="Session save status">{{
-          state.status() === 'saved'
-            ? 'Saved'
-            : state.status() === 'failed'
-              ? 'Save failed'
-              : state.status() === 'saving'
-                ? 'Saving…'
-                : 'Unsaved changes'
-        }}</span
-        ><span>{{ state.current()?.items?.length }} prepared items</span>
-      }
-    </div>
-    @if (libraryVisible()) {
-      <nav aria-label="Available material">
-        <button
-          matButton
-          [disabled]="!campaignReady() || busy()"
-          (click)="browse()"
-          [attr.aria-pressed]="material() === 'sources'"
-        >
-          Sources
-        </button>
-        <button
-          matButton
-          [disabled]="!campaignReady() || busy()"
-          (click)="material.set('drafts'); navigate(undefined, 'library', 'prepare')"
-          [attr.aria-pressed]="material() === 'drafts'"
-        >
-          Drafts
-        </button>
-      </nav>
-    }
-    <div class="actions">
-      @if (state.current()) {
-        <button matButton (click)="toggleSourceFocus()" [attr.aria-pressed]="focusSource">
-          {{ focusSource ? 'Restore panels' : 'Focus source' }}
-        </button>
-        <button
-          matButton
-          (click)="contentsOpen.set(!contentsOpen())"
-          [attr.aria-expanded]="contentsOpen()"
-        >
-          {{ contentsOpen() ? 'Hide' : 'Show' }} session contents
-        </button>
-        @if (!reading()) {
-          <button
-            matButton
-            (click)="libraryOpen.set(!libraryOpen())"
-            [attr.aria-expanded]="libraryOpen()"
-          >
-            {{ libraryOpen() ? 'Hide' : 'Show' }} library
-          </button>
-        }
-        <button matButton (click)="notesOpen.set(!notesOpen())" [attr.aria-expanded]="notesOpen()">
-          {{ notesOpen() ? 'Hide' : 'Show' }} notes
-        </button>
-        <button
-          matButton
-          (click)="state.export(state.current()!.campaign, [state.current()!.id])"
-          [disabled]="!campaignReady() || busy()"
-        >
-          Export session
-        </button>
-        @if (reading()) {
-          <button matButton="outlined" (click)="navigate(undefined, 'prepare', 'prepare')">
-            Return to Prepare
-          </button>
-        } @else {
-          <button
-            matButton="outlined"
-            (click)="navigate(undefined, 'prepare', 'read')"
-            [disabled]="!campaignReady() || busy()"
-          >
-            Read session
-          </button>
-        }
-      }
-    </div>
-  </div>
   <div
     class="working-area"
+    [class.reading-table]="reading()"
+    [class.drafts-open]="libraryVisible() && material() === 'drafts'"
     [class.library-hidden]="!libraryVisible() || material() === 'drafts'"
     [class.contents-hidden]="!contentsOpen() || !state.current()"
     [class.notes-hidden]="!notesOpen() || !state.current()"
@@ -262,6 +266,20 @@
         (approve)="approveDraft($event)"
       />
     }
+    @if (libraryVisible()) {
+      <nav class="material-tabs" aria-label="Available material">
+        <button matButton [attr.aria-pressed]="material() === 'sources'" (click)="browse()">
+          Sources
+        </button>
+        <button
+          matButton
+          [attr.aria-pressed]="material() === 'drafts'"
+          (click)="material.set('drafts'); navigate(undefined, 'library', 'prepare')"
+        >
+          Drafts
+        </button>
+      </nav>
+    }
     <campaign-library
       [hidden]="reading() || material() !== 'sources' || (!libraryVisible() && !showingLibrary())"
       [shelfVisible]="libraryVisible()"
@@ -273,9 +291,23 @@
       (openSource)="browse()"
       (requestSession)="sessionsOpen.set(true)"
     />
+    @if (reading() && contentsOpen() && state.current(); as session) {
+      <read-card-table
+        [items]="session.items"
+        [table]="session.table ?? null"
+        [query]="cardQuery()"
+        [group]="cardGroup()"
+        [selected]="state.selectedItem()"
+        [disabled]="!campaignReady() || busy()"
+        (selectItem)="selectPrepared($event)"
+        (moveItem)="state.moveTable($event.id, $event.to)"
+        (useItem)="state.markUsed($event)"
+        (restoreItem)="state.returnToTable($event)"
+      />
+    }
     <session-contents
       class="contents"
-      [hidden]="!contentsOpen() || !state.current()"
+      [hidden]="reading() || !contentsOpen() || !state.current()"
       [expanded]="contentsOpen()"
       [items]="state.current()?.items ?? []"
       [selected]="state.selectedItem()"
@@ -290,8 +322,9 @@
     />
     <article class="source-page" [hidden]="showingLibrary()" aria-label="Prepared source">
       @if (item(); as prepared) {
-        <p class="eyebrow">PREPARED COPY / THIS SESSION</p>
-        <h3>{{ prepared.title }}</h3>
+        @if (!sourceHasTitle()) {
+          <h3>{{ prepared.title }}</h3>
+        }
         <details class="provenance">
           <summary>{{ prepared.provenance.path }}</summary>
           @if (prepared.provenance.authored; as authored) {
@@ -311,25 +344,30 @@
           }
           <p>Section: {{ prepared.provenance.section ?? 'Whole document' }}</p>
           <p>Content SHA-256: {{ prepared.provenance.contentHash }}</p>
-        </details>
-        @if (prepared.capturedSource?.classification; as classification) {
-          @if (classification.metadata; as metadata) {
-            <p>
-              {{ metadata.type }} · {{ metadata.purpose }} · {{ metadata.status }} ·
-              {{ metadata.tags?.join(' · ') }}
-            </p>
-            @if (metadata.summary; as summary) {
-              <p>{{ summary }}</p>
+          @if (prepared.capturedSource?.classification; as classification) {
+            @if (classification.metadata; as metadata) {
+              <p>
+                {{ metadata.type }} · {{ metadata.purpose }} · {{ metadata.status }} ·
+                {{ metadata.tags?.join(' · ') }}
+              </p>
+              @if (metadata.summary; as summary) {
+                <p>{{ summary }}</p>
+              }
+            }
+            @for (issue of classification.issues ?? []; track $index) {
+              <p>{{ issue.message }}</p>
             }
           }
-          @for (issue of classification.issues ?? []; track $index) {
-            <p>{{ issue.message }}</p>
-          }
-        }
-        @if (prepared.capturedSource?.classification?.metadata; as card) {
-          <button matButton (click)="cardOpen.set(!cardOpen())">
-            {{ cardOpen() ? 'Full document' : 'Card preview' }}
-          </button>
+        </details>
+        @if (!reading() && prepared.capturedSource?.classification?.metadata; as card) {
+          <nav class="document-tabs" aria-label="Prepared presentation">
+            <button matButton [attr.aria-pressed]="cardOpen()" (click)="cardOpen.set(true)">
+              Card
+            </button>
+            <button matButton [attr.aria-pressed]="!cardOpen()" (click)="cardOpen.set(false)">
+              Document
+            </button>
+          </nav>
           @if (cardOpen()) {
             <playing-card
               [title]="card.title ?? prepared.title"
@@ -342,6 +380,7 @@
         }
         <prepared-markdown
           #sourceReader
+          [hidden]="!reading() && cardOpen()"
           [content]="source()"
           [readingTools]="true"
           [typed]="!!prepared.capturedSource?.classification?.metadata"

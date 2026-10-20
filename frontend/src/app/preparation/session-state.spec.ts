@@ -42,6 +42,60 @@ describe('Session working state', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
+  it('initializes once, keeps Prepare order, moves used cards without changing selection and restores at front', async () => {
+    const initial = {
+      ...session(),
+      items: ['a', 'b', 'c'].map((id) => ({ id, notes: '' }) as never),
+    };
+    api.openSession.mockReturnValue(of(initial));
+    await state.open('campaign-a', 'session-a');
+    state.initializeTable();
+    state.selectItem('b');
+    state.moveTable('c', 0);
+    state.markUsed('b');
+    state.initializeTable();
+    expect(state.current()?.table).toEqual({ active: ['c', 'a'], used: ['b'] });
+    expect(state.current()?.items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    expect(state.selectedItem()).toBe('b');
+    state.returnToTable('b');
+    expect(state.current()?.table).toEqual({ active: ['b', 'c', 'a'], used: [] });
+    const pending = state.current()!;
+    api.saveSession.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 409 })));
+    expect(await state.flush()).toBe(false);
+    expect(state.current()).toEqual(pending);
+    expect(state.status()).toBe('failed');
+    api.saveSession.mockReturnValueOnce(of({ ...pending, revision: 2 }));
+    expect(await state.flush()).toBe(true);
+    expect(api.saveSession.mock.calls.at(-1)?.[2].table).toEqual(pending.table);
+    expect(state.status()).toBe('saved');
+    state.remove('c');
+    expect(state.current()?.table?.active).toEqual(['b', 'a']);
+  });
+  it('adopts the reconciled table when a source is added while retaining local note edits', async () => {
+    const initial = {
+      ...session(),
+      items: [{ id: 'a', notes: '' } as never],
+      table: { active: [], used: ['a'] },
+    };
+    api.openSession.mockReturnValue(of(initial));
+    await state.open('campaign-a', 'session-a');
+    const response = new Subject<SessionData>();
+    api.addSessionSource.mockReturnValue(response);
+    const adding = state.add('capture', 'new.md', null);
+    await Promise.resolve();
+    await Promise.resolve();
+    state.edit({ notes: 'Local note during capture' });
+    response.next({
+      ...initial,
+      revision: 2,
+      items: [...initial.items, { id: 'b', notes: '' } as never],
+      table: { active: ['b'], used: ['a'] },
+    });
+    response.complete();
+    expect(await adding).toBe(true);
+    expect(state.current()?.table).toEqual({ active: ['b'], used: ['a'] });
+    expect(state.current()?.notes).toBe('Local note during capture');
+  });
   it('flushes notes before approval and pins both revisions while preserving edits during capture', async () => {
     await state.open('campaign-a', 'session-a');
     api.saveSession.mockReturnValue(of({ ...session(), revision: 2, notes: 'Saved notes' }));

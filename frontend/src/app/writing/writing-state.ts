@@ -29,6 +29,7 @@ export class WritingState {
   readonly previewError = signal('');
   readonly group = signal('');
   readonly filterTag = signal('');
+  readonly draftQuery = signal('');
   readonly conflict = signal(false);
   readonly inspection = signal<ExportInspection | null>(null);
   readonly artifacts = signal<ExportSummary[]>([]);
@@ -41,6 +42,7 @@ export class WritingState {
     this.drafts().filter(
       (d) =>
         (!this.group() || d.fields.type === this.group()) &&
+        d.fields.title.toLowerCase().includes(this.draftQuery().trim().toLowerCase()) &&
         (!this.filterTag().trim() ||
           d.fields.tags.some(
             (t) => t.trim().toLowerCase() === this.filterTag().trim().toLowerCase(),
@@ -83,6 +85,7 @@ export class WritingState {
     this.loading.set(true);
     this.group.set('');
     this.filterTag.set('');
+    this.draftQuery.set('');
     try {
       const list = await firstValueFrom(this.api.listDrafts(campaign, 'body', false, this.json));
       if (token !== this.generation) return;
@@ -142,6 +145,7 @@ export class WritingState {
       this.drafts.update((ds) => [...ds, draft]);
       this.group.set(type);
       this.filterTag.set('');
+      this.draftQuery.set('');
       this.install(draft);
     } catch (e) {
       if (token === this.generation) this.error.set(this.message(e));
@@ -411,6 +415,7 @@ export class WritingState {
       this.drafts.update((ds) => [...ds, draft]);
       this.group.set(draft.fields.type);
       this.filterTag.set('');
+      this.draftQuery.set('');
       this.install(draft);
       return true;
     } catch (e) {

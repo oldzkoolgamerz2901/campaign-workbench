@@ -38,6 +38,7 @@
             [disabled]="disabled()"
             (click)="selectItem.emit(item.id)"
           >
+            <img src="/card-placeholder.svg" alt="" class="item-thumbnail" width="30" height="36" />
             <strong>{{ item.title }}</strong
             ><small>{{ context(item) }}</small>
           </button>

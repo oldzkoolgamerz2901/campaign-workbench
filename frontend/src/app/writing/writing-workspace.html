@@ -1,41 +1,66 @@
 <div class="writing-desk">
-  <header class="writing-header">
-    <div>
-      <p class="eyebrow">CAMPAIGN WRITING</p>
-      <h2>Your writing desk</h2>
-    </div>
-    <label
-      >Campaign<select
-        aria-label="Campaign"
-        [disabled]="!ready() || state.loading() || state.deleting()"
-        [ngModel]="library.selected()?.id ?? ''"
-        (ngModelChange)="selectCampaign($event)"
-      >
-        <option value="" disabled>Select a campaign</option>
-        @for (campaign of library.campaigns(); track campaign.id) {
-          <option [value]="campaign.id">{{ campaign.name }}</option>
-        }
-      </select></label
+  <workbench-header
+    [campaign]="library.selected()?.id ?? ''"
+    [campaigns]="library.campaigns()"
+    mode="write"
+    [disabled]="!ready() || state.loading() || state.deleting()"
+    [status]="state.current() ? saveLabel() : ''"
+    statusLabel="Draft save status"
+    (selectCampaign)="selectCampaign($event)"
+    (selectMode)="changeMode($event)"
+  >
+    <button
+      headerActions
+      matButton
+      aria-label="More writing actions"
+      [matMenuTriggerFor]="writingActions"
     >
-    <button matButton [disabled]="state.deleting()" (click)="management.set(!management())">
-      Manage campaign
+      ⋯
     </button>
+  </workbench-header>
+  <mat-menu #writingActions="matMenu">
+    <button mat-menu-item (click)="management.set(!management())">Manage campaign</button>
+    <button mat-menu-item (click)="router.navigate(['/writing/recovery'])">Writing recovery</button>
+    <button mat-menu-item (click)="reviewExport()" [disabled]="!state.current()">
+      Export history
+    </button>
+    <button
+      mat-menu-item
+      class="danger"
+      [disabled]="!state.current() || state.deleting() || state.transferBusy() || state.conflict()"
+      (click)="state.deleteCurrent()"
+    >
+      Delete draft
+    </button>
+  </mat-menu>
+  <div class="context-toolbar">
+    <h2>{{ state.current()?.fields?.title || 'Choose or create a draft' }}</h2>
+    @if (state.current(); as draft) {
+      <small>{{ draft.fields.type }} · {{ draft.fields.status }}</small>
+    }
+    <span class="spacer"></span>
     <button
       matButton
       (click)="openSources()"
       [disabled]="!ready() || state.loading() || state.deleting()"
     >
-      Copy from source library
+      Copy source
     </button>
+    <button matButton [matMenuTriggerFor]="writingView">View ▾</button>
+    <mat-menu #writingView="matMenu">
+      <button mat-menu-item (click)="previewOpen.set(!previewOpen())">
+        {{ previewOpen() ? 'Hide' : 'Show' }} preview
+      </button>
+      <button mat-menu-item (click)="detailsOpen.set(!detailsOpen())">Card details</button>
+    </mat-menu>
     <button
-      matButton
-      [disabled]="state.deleting()"
-      (click)="router.navigate(['/writing/recovery'])"
+      matButton="filled"
+      (click)="reviewExport()"
+      [disabled]="!state.current() || state.deleting()"
     >
-      Writing recovery
+      Review export
     </button>
-    <button matButton [disabled]="state.deleting()" (click)="prepare()">Return to Prepare</button>
-  </header>
+  </div>
   @if (management()) {
     <campaign-controls
       [ready]="ready() && !state.deleting() && state.status() === 'saved'"
@@ -99,6 +124,7 @@
     }
     <div
       class="writing-columns"
+      [class.preview-hidden]="!previewOpen()"
       [hidden]="!ready()"
       [attr.aria-busy]="!ready() || state.loading() || state.deleting()"
     >
@@ -106,16 +132,25 @@
         <h3>
           Drafts <span>{{ state.drafts().length }}</span>
         </h3>
-        <nav aria-label="Writing groups" class="groups">
-          <button [attr.aria-pressed]="!state.group()" (click)="state.group.set('')">
-            All ({{ state.drafts().length }})
-          </button>
+        <input
+          type="search"
+          aria-label="Find drafts"
+          placeholder="Find drafts…"
+          [ngModel]="state.draftQuery()"
+          (ngModelChange)="state.draftQuery.set($event)"
+        />
+        <select
+          aria-label="Writing groups"
+          [ngModel]="state.group()"
+          (ngModelChange)="state.group.set($event)"
+        >
+          <option value="">All ({{ state.drafts().length }})</option>
           @for (type of state.catalog()?.types ?? []; track type) {
-            <button [attr.aria-pressed]="state.group() === type" (click)="state.group.set(type)">
+            <option [value]="type">
               {{ type === 'npc' ? 'NPCs' : type + 's' }} ({{ count(type) }})
-            </button>
+            </option>
           }
-        </nav>
+        </select>
         <label
           >Filter by tag<input
             [ngModel]="state.filterTag()"
@@ -140,30 +175,36 @@
               </button>
             </li>
           } @empty {
-            <li class="empty">No drafts in this group. Create one below.</li>
+            <li class="empty">No drafts match these filters. Clear the find or create a draft.</li>
           }
         </ul>
-        <form (ngSubmit)="create()" class="create-draft">
-          <h4>New draft</h4>
-          <label
-            >New card type<select aria-label="New card type" name="newType" [(ngModel)]="newType">
-              @for (type of state.catalog()?.types ?? []; track type) {
-                <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
-              }
-            </select></label
-          >
-          <label class="checkbox"
-            ><input type="checkbox" name="template" [(ngModel)]="template" /> Start with suggested
-            headings</label
-          >
-          <button
-            matButton="filled"
-            type="submit"
-            [disabled]="!ready() || state.loading() || state.deleting() || !state.catalog()"
-          >
-            Create draft
-          </button>
-        </form>
+        <details
+          class="new-draft"
+          [open]="newOpen()"
+          (toggle)="newOpen.set($any($event.target).open)"
+        >
+          <summary>New draft</summary>
+          <form (ngSubmit)="create()" class="create-draft">
+            <label
+              >New card type<select aria-label="New card type" name="newType" [(ngModel)]="newType">
+                @for (type of state.catalog()?.types ?? []; track type) {
+                  <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+                }
+              </select></label
+            >
+            <label class="checkbox"
+              ><input type="checkbox" name="template" [(ngModel)]="template" /> Start with suggested
+              headings</label
+            >
+            <button
+              matButton="filled"
+              type="submit"
+              [disabled]="!ready() || state.loading() || state.deleting() || !state.catalog()"
+            >
+              Create draft
+            </button>
+          </form>
+        </details>
       </aside>
       @if (state.current(); as draft) {
         <fieldset
@@ -171,79 +212,64 @@
           aria-label="Draft editor"
           [disabled]="state.loading() || state.deleting() || !ready()"
         >
-          <header>
-            <h3>{{ draft.fields.title || 'Untitled draft' }}</h3>
-            <button
-              matButton
-              type="button"
-              (click)="state.deleteCurrent()"
-              [disabled]="state.deleting() || state.transferBusy() || state.conflict()"
-            >
-              Delete draft
-            </button>
-            <span role="status" aria-label="Draft save status">{{
-              state.deleteFailed()
-                ? 'Deletion unresolved'
-                : state.status() === 'saved'
-                  ? 'Saved'
-                  : state.status() === 'saving'
-                    ? 'Saving…'
-                    : state.status() === 'failed'
-                      ? 'Save failed'
-                      : 'Unsaved changes'
-            }}</span>
-          </header>
           <label
             >Title<input
               [ngModel]="draft.fields.title"
               (ngModelChange)="state.edit({ title: $event })"
           /></label>
-          <div class="metadata-row">
-            <label
-              >Content type<select
-                aria-label="Content type"
-                [ngModel]="draft.fields.type"
-                (ngModelChange)="state.edit({ type: $event })"
+          <details
+            class="card-details"
+            [open]="detailsOpen()"
+            (toggle)="detailsOpen.set($any($event.target).open)"
+          >
+            <summary>Card details · {{ draft.fields.type }} · {{ draft.fields.status }}</summary>
+            <div class="metadata-row">
+              <label
+                >Content type<select
+                  aria-label="Content type"
+                  [ngModel]="draft.fields.type"
+                  (ngModelChange)="state.edit({ type: $event })"
+                >
+                  @for (type of state.catalog()?.types ?? []; track type) {
+                    <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+                  }
+                </select></label
               >
-                @for (type of state.catalog()?.types ?? []; track type) {
-                  <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
-                }
-              </select></label
-            >
-            <label
-              >Metadata status<select
-                aria-label="Metadata status"
-                [ngModel]="draft.fields.status"
-                (ngModelChange)="state.edit({ status: $event })"
+              <label
+                >Metadata status<select
+                  aria-label="Metadata status"
+                  [ngModel]="draft.fields.status"
+                  (ngModelChange)="state.edit({ status: $event })"
+                >
+                  @for (status of state.catalog()?.statuses ?? []; track status) {
+                    <option [value]="status">{{ status }}</option>
+                  }
+                </select></label
               >
-                @for (status of state.catalog()?.statuses ?? []; track status) {
-                  <option [value]="status">{{ status }}</option>
-                }
-              </select></label
-            >
-          </div>
-          <label
-            >Tags (comma separated)<input
-              [ngModel]="draft.fields.tags.join(',')"
-              (ngModelChange)="tags($event)"
-              list="writing-tags"
-          /></label>
-          <label
-            >Card summary<textarea
-              rows="3"
-              [ngModel]="draft.fields.summary"
-              (ngModelChange)="state.edit({ summary: $event })"
-            ></textarea>
-          </label>
-          <label
-            >Suggested export path<input
-              [ngModel]="draft.fields.path"
-              (ngModelChange)="state.edit({ path: $event })"
-          /></label>
-          <p class="hint">
-            Purpose: session. Metadata status does not approve session use. Export and placement
-            checks appear below. Place downloaded files in the campaign repository manually.
-          </p>
+            </div>
+            <label
+              >Tags (comma separated)<input
+                [ngModel]="draft.fields.tags.join(',')"
+                (ngModelChange)="tags($event)"
+                list="writing-tags"
+            /></label>
+            <label
+              >Card summary<textarea
+                rows="3"
+                [ngModel]="draft.fields.summary"
+                (ngModelChange)="state.edit({ summary: $event })"
+              ></textarea>
+            </label>
+            <label
+              >Suggested export path<input
+                [ngModel]="draft.fields.path"
+                (ngModelChange)="state.edit({ path: $event })"
+            /></label>
+            <p class="hint">
+              Purpose: session. Metadata status does not approve session use. Export and placement
+              checks appear below. Place downloaded files in the campaign repository manually.
+            </p>
+          </details>
           <label
             >Markdown body<textarea
               class="body-editor"
@@ -267,12 +293,22 @@
             }
           }
         </fieldset>
-        <section class="preview-panel" aria-label="Draft preview">
+        <section class="preview-panel" aria-label="Draft preview" [hidden]="!previewOpen()">
           <nav class="preview-tabs">
-            <button matButton [attr.aria-pressed]="!full()" (click)="full.set(false)">
-              Card preview</button
-            ><button matButton [attr.aria-pressed]="full()" (click)="full.set(true)">
-              Full document
+            <button
+              matButton
+              aria-label="Card preview"
+              [attr.aria-pressed]="!full()"
+              (click)="full.set(false)"
+            >
+              Card</button
+            ><button
+              matButton
+              aria-label="Full document"
+              [attr.aria-pressed]="full()"
+              (click)="full.set(true)"
+            >
+              Document
             </button>
           </nav>
           @if (state.previewError()) {
@@ -298,7 +334,12 @@
             />
           }
         </section>
-        <writing-export-panel (recheckSources)="recheckSources()" />
+        <writing-export-panel
+          #exportPanel
+          id="writing-export"
+          [hidden]="!exportOpen()"
+          (recheckSources)="recheckSources()"
+        />
       } @else {
         <section class="welcome">
           <p class="eyebrow">FROM IDEA TO PLAY</p>
@@ -309,8 +350,8 @@
           </p>
           <p class="hint">
             Drafts save locally. Copy captured sources or create a new card, then inspect and
-            download Markdown. Adding drafts directly to sessions and portable draft backup come
-            later.
+            download Markdown. Approve saved revisions from Prepare, or back up your drafts through
+            Writing recovery.
           </p>
         </section>
       }

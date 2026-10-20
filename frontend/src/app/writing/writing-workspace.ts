@@ -6,9 +6,13 @@ import {
   inject,
   OnDestroy,
   signal,
+  viewChild,
+  ElementRef,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatMenuModule } from '@angular/material/menu';
+import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { SourceControllerService, CheckedLink } from '../../api/generated';
@@ -25,6 +29,8 @@ import { WritingState } from './writing-state';
   imports: [
     FormsModule,
     MatButtonModule,
+    MatMenuModule,
+    WorkbenchHeader,
     CampaignControls,
     PlayingCard,
     DraftReader,
@@ -40,6 +46,22 @@ export class WritingWorkspace implements OnDestroy {
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly ready = signal(false);
+  readonly newOpen = signal(false);
+  readonly detailsOpen = signal(false);
+  readonly exportOpen = signal(false);
+  readonly previewOpen = signal(true);
+  readonly exportPanel = viewChild('exportPanel', { read: ElementRef<HTMLElement> });
+  readonly saveLabel = computed(() =>
+    this.state.deleteFailed()
+      ? 'Deletion unresolved'
+      : this.state.status() === 'saved'
+        ? 'Saved'
+        : this.state.status() === 'saving'
+          ? 'Saving…'
+          : this.state.status() === 'failed'
+            ? 'Save failed'
+            : 'Unsaved changes',
+  );
   readonly management = signal(false);
   readonly full = signal(false);
   readonly sourceChooser = signal(false);
@@ -152,12 +174,25 @@ export class WritingWorkspace implements OnDestroy {
     const id = this.library.selected()?.id;
     if (id && id !== this.state.campaign()) await this.state.selectCampaign(id);
   }
-  async prepare() {
-    await this.router.navigate(['/'], { queryParams: this.route.snapshot.queryParams });
+  async prepare(mode: 'prepare' | 'play' = 'prepare') {
+    const origin = this.route.snapshot.queryParams;
+    await this.router.navigate(['/'], {
+      queryParams: { ...origin, mode, view: origin['session'] ? 'prepare' : 'library' },
+    });
+  }
+  changeMode(mode: WorkbenchMode) {
+    if (mode !== 'write') void this.prepare(mode);
+  }
+  reviewExport() {
+    this.exportOpen.set(true);
+    requestAnimationFrame(() =>
+      this.exportPanel()?.nativeElement.scrollIntoView({ block: 'start' }),
+    );
   }
   async create() {
     await this.state.create(this.newType, this.template);
     this.full.set(false);
+    this.newOpen.set(false);
   }
   count(type: string) {
     return this.state.drafts().filter((d) => d.fields.type === type).length;

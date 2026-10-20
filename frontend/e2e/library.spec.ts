@@ -23,16 +23,22 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
   page.on('request', (request) => {
     if (request.url().includes('example.invalid')) remote.push(request.url());
   });
+  const manageCampaign = async () => {
+    await page.getByRole('button', { name: 'More session actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Manage campaign', exact: true }).click();
+  };
   try {
     await page.goto('/');
     if (!(await page.getByText('Register a campaign', { exact: true }).isVisible()))
-      await page.getByRole('button', { name: 'Manage campaign', exact: true }).click();
+      await manageCampaign();
     if (!(await page.getByLabel('Display name').isVisible()))
       await page.getByText('Register a campaign', { exact: true }).click();
     await page.getByLabel('Display name').fill(name);
     await page.getByLabel('Folder path').fill(first);
     await page.getByRole('button', { name: 'Register campaign', exact: true }).click();
-    await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(name);
+    await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(
+      name,
+    );
     await expect(page.getByLabel('Campaign', { exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await expect(page.getByRole('button', { name: 'source.md', exact: true })).toBeVisible();
@@ -60,7 +66,7 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await writeFile(join(first, 'source.md'), '# Updated\nNew passage');
     await page.getByRole('button', { name: 'source.md', exact: true }).click();
     await expect(page.locator('#source-reader')).toContainText('First needle');
-    await page.getByRole('button', { name: 'Manage campaign', exact: true }).click();
+    await manageCampaign();
     await page.getByRole('button', { name: 'Refresh library', exact: true }).click();
     await expect(
       page.getByRole('status', { name: 'Source library status', exact: true }),
@@ -68,7 +74,7 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await page.getByRole('button', { name: 'Close campaign management', exact: true }).click();
     await page.getByRole('button', { name: 'source.md', exact: true }).click();
     await expect(page.locator('#source-reader')).toContainText('New passage');
-    await page.getByRole('button', { name: 'Manage campaign', exact: true }).click();
+    await manageCampaign();
     await page.getByRole('button', { name: 'Source rules', exact: true }).click();
     await page.getByLabel('Exclude patterns').fill('**/AGENTS.md\nsource.md');
     await page.getByRole('button', { name: 'Save source rules' }).click();
@@ -83,7 +89,9 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await page.getByLabel('Display name').fill(name + ' Other');
     await page.getByLabel('Folder path').fill(second);
     await page.getByRole('button', { name: 'Register campaign', exact: true }).click();
-    await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(name + ' Other');
+    await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(
+      name + ' Other',
+    );
     await expect(page.getByLabel('Campaign', { exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await expect(

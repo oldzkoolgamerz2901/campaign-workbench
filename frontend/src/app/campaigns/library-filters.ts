@@ -8,19 +8,23 @@ import { LibraryState, LibraryFilters } from './library-state';
   imports: [FormsModule, MatButtonModule],
   template: `
     <fieldset class="controls" [disabled]="!ready()">
-      <nav aria-label="Library categories">
-        <button matButton (click)="state.playLibrary()">Play library</button>
-        @for (type of types; track type) {
-          <button
-            matButton
-            [attr.aria-pressed]="state.filters().types.includes(type)"
-            (click)="toggle('types', type)"
-          >
-            {{ type === 'npc' ? 'NPC' : type }}
-          </button>
-        }
-        <button matButton (click)="searchAll()">Search all</button>
-      </nav>
+      <details class="type-chooser">
+        <summary>
+          Type: {{ state.filters().types.length ? state.filters().types.join(', ') : 'All' }}
+        </summary>
+        <nav aria-label="Library categories">
+          <button matButton (click)="state.playLibrary()">Play library</button>
+          @for (type of types; track type) {
+            <button
+              matButton
+              [attr.aria-pressed]="state.filters().types.includes(type)"
+              (click)="toggle('types', type)"
+            >
+              {{ type === 'npc' ? 'NPC' : type }}
+            </button>
+          }
+        </nav>
+      </details>
       <form (ngSubmit)="search()">
         <label
           >Search sources<input
@@ -31,6 +35,7 @@ import { LibraryState, LibraryFilters } from './library-state';
             placeholder="Search full content…"
         /></label>
         <button matButton type="submit">Search</button>
+        <button matButton type="button" (click)="searchAll()">Search all</button>
         @if (query) {
           <button matButton type="button" (click)="clear()">Clear search</button>
         }
@@ -111,7 +116,10 @@ import { LibraryState, LibraryFilters } from './library-state';
       min-width: 0;
     }
     .controls {
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
       border: 0;
       margin: 0;
       padding: 0;
@@ -124,6 +132,24 @@ import { LibraryState, LibraryFilters } from './library-state';
       gap: 0.3rem;
       align-items: center;
       flex-wrap: wrap;
+    }
+    .type-chooser nav {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 5;
+      width: 270px;
+      padding: 0.7rem;
+      background: #20372a;
+      border: 1px solid #7d896f;
+      box-shadow: 0 4px 12px #0008;
+    }
+    form {
+      flex: 1;
+      min-width: 0;
+    }
+    .criteria {
+      flex-basis: 100%;
     }
     nav button {
       text-transform: capitalize;

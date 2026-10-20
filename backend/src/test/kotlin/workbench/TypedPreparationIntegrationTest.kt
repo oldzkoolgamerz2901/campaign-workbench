@@ -85,9 +85,10 @@ class TypedPreparationIntegrationTest : StringSpec({
         val rendered = p.view(campaign, old.id).getOrNull()!!.items.single().source
         rendered.html shouldContain "old unparsed envelope"
         val v2 = p.export(campaign, ExportSessions(listOf(old.id))).getOrNull()!!
-        v2.version shouldBe 3
+        v2.version shouldBe 4
         val tree = mapper().valueToTree<ObjectNode>(v2)
         tree.put("version", 1)
+        (tree.path("sessions")[0] as ObjectNode).remove("table")
         (tree.path("sessions")[0].path("items")[0] as ObjectNode).remove("capturedSource")
         (tree.path("sessions")[0].path("items")[0].path("provenance") as ObjectNode).remove(listOf("kind", "authored"))
         val response = post(other, tree.toString())
@@ -157,10 +158,10 @@ class TypedPreparationIntegrationTest : StringSpec({
         Files.list(root).use { it.forEach(Files::delete) }
         sources.refresh(campaign).isRight() shouldBe true
         typedArchive = p.export(campaign, ExportSessions(listOf(saved.id))).getOrNull()!!
-        typedArchive!!.version shouldBe 3
+        typedArchive!!.version shouldBe 4
         val oldWire = mapper().valueToTree<ObjectNode>(typedArchive)
         oldWire.put("version", 2)
-        oldWire.path("sessions").forEach { session -> session.path("items").forEach { item ->
+        oldWire.path("sessions").forEach { session -> (session as ObjectNode).remove("table"); session.path("items").forEach { item ->
             (item.path("provenance") as ObjectNode).remove(listOf("kind", "authored"))
         } }
         post(other, oldWire.toString()).statusCode() shouldBe 200
@@ -214,7 +215,7 @@ class TypedPreparationIntegrationTest : StringSpec({
             mutate { _, item, _ -> item.put("markdown", "Tampered") },
             mutate { _, item, _ -> item.put("notes", "x".repeat(2 * 1024 * 1024 + 1)) },
             mapper().writeValueAsString(archive) + "{}",
-            mapper().writeValueAsString(archive).replaceFirst("\"version\":3", "\"version\":3,\"version\":1")
+            mapper().writeValueAsString(archive).replaceFirst("\"version\":4", "\"version\":4,\"version\":1")
         )
         invalid.forEachIndexed { index, json ->
             val response = post(other, json)

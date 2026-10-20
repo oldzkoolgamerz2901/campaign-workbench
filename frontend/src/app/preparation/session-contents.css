@@ -139,3 +139,10 @@ button:disabled {
   overflow: hidden;
   clip-path: inset(50%);
 }
+
+.item-thumbnail {
+  float: left;
+  object-fit: cover;
+  border-radius: 3px;
+  margin-right: 6px;
+}

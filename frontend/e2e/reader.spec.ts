@@ -133,9 +133,17 @@ ${'code-token'.repeat(160)}
     expect(await page.evaluate(() => 'readerInjected' in window)).toBe(false);
     expect(remote).toEqual([]);
     const setPanel = async (name: string, show: boolean) => {
-      const button = page.getByRole('button', { name: new RegExp(`^(Hide|Show) ${name}$`) });
-      if (((await button.getAttribute('aria-expanded')) === 'true') !== show) await button.click();
-      await expect(button).toHaveAttribute('aria-expanded', String(show));
+      if (name === 'notes') {
+        const button = page.getByRole('button', { name: /^(Hide|Show) notes$/ });
+        if (((await button.getAttribute('aria-expanded')) === 'true') !== show)
+          await button.click();
+        await expect(button).toHaveAttribute('aria-expanded', String(show));
+        return;
+      }
+      await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+      const action = page.getByRole('menuitem', { name: new RegExp(`^(Hide|Show) ${name}$`) });
+      if ((await action.innerText()).startsWith('Hide') !== show) await action.click();
+      else await page.keyboard.press('Escape');
     };
     const contents = page.getByLabel('Session outline');
     await contents.getByLabel('Find in session', { exact: true }).fill('Long reader');
@@ -161,7 +169,7 @@ ${'code-token'.repeat(160)}
     await expect(frozen.getByRole('status')).toContainText('outside the captured');
     await page.getByLabel('Item Markdown notes').fill('Durable **reader** reminder.');
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
-    await page.getByRole('button', { name: 'Read session', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect(page.getByLabel('Item Markdown notes')).toHaveCount(0);
     await expect(page.locator('.notes-page')).toContainText('reader reminder');
     for (const [width, height] of [
@@ -181,22 +189,27 @@ ${'code-token'.repeat(160)}
         }
       await page.screenshot({ path: testInfo.outputPath(`reader-${width}.png`) });
     }
-    await page.getByRole('button', { name: 'Return to Prepare', exact: true }).click();
+    await page.getByRole('button', { name: 'Prepare', exact: true }).click();
+    await expect(page.locator('.read-toolbar')).toHaveCount(0);
     await setPanel('session contents', true);
     await setPanel('notes', true);
     await contents.getByLabel('Find in session', { exact: true }).fill('');
-    await page.getByRole('button', { name: 'Focus source', exact: true }).click();
+    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Focus source', exact: true }).click();
     await expect(contents).toBeHidden();
     await expect(page.locator('.notes-page')).toBeHidden();
-    await page.getByRole('button', { name: 'Restore panels', exact: true }).click();
+    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Restore panels', exact: true }).click();
     await expect(contents).toBeVisible();
     // Focus the live reader as well: hiding its browsing shelf must keep its text mounted.
     await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'Focus source', exact: true }).click();
+    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Focus source', exact: true }).click();
     await expect(shelf).toBeHidden();
     await expect(live).toBeVisible();
     await expect(live.getByText('Visible quick facts.', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Restore panels', exact: true }).click();
+    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Restore panels', exact: true }).click();
     await contents.getByRole('button', { name: 'Long reader', exact: true }).click();
     for (const [width, height] of [
       [1280, 800],
@@ -251,8 +264,14 @@ ${'code-token'.repeat(160)}
     expect(importedResponse.ok()).toBe(true);
     const imported = (await importedResponse.json()).sessions[0];
     await page.goto(`/?campaign=${campaign.id}&session=${imported.id}&mode=read&view=prepare`);
-    await contents.getByLabel('Find in session', { exact: true }).fill('Long reader');
-    await contents.getByRole('button', { name: 'Long reader', exact: true }).click();
+    await page
+      .locator('.read-toolbar')
+      .getByLabel('Find in session', { exact: true })
+      .fill('Long reader');
+    await page
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: Long reader', exact: true })
+      .click();
     await frozen.getByRole('button', { name: 'Expand all', exact: true }).click();
     await expect(frozen).toContainText('Second hidden needle.');
     await expect(page.locator('.notes-page')).toContainText('reader reminder');
@@ -269,7 +288,7 @@ ${'code-token'.repeat(160)}
     const legacyArchive = {
       ...archive,
       version: 1,
-      sessions: archive.sessions.map((s: any) => ({
+      sessions: archive.sessions.map(({ table, ...s }: any) => ({
         ...s,
         title: 'Legacy import',
         items: s.items.map(({ capturedSource, ...item }: any) => {
@@ -284,8 +303,14 @@ ${'code-token'.repeat(160)}
     await page.goto(
       `/?campaign=${campaign.id}&session=${legacy.sessions[0].id}&mode=read&view=prepare`,
     );
-    await contents.getByLabel('Find in session', { exact: true }).fill('Long reader');
-    await contents.getByRole('button', { name: 'Long reader', exact: true }).click();
+    await page
+      .locator('.read-toolbar')
+      .getByLabel('Find in session', { exact: true })
+      .fill('Long reader');
+    await page
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: Long reader', exact: true })
+      .click();
     await expect(frozen.getByText('Secret opening.', { exact: true })).toBeVisible();
     await expect(frozen.getByRole('button', { name: 'Show Background', exact: true })).toHaveCount(
       0,

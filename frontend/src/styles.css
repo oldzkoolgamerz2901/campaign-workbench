@@ -1,4 +1,4 @@
-@import '@angular/material/prebuilt-themes/azure-blue.css';
+@import '@angular/material/prebuilt-themes/cyan-orange.css';
 :root {
   color-scheme: dark;
   --ink: #e8e8d9;
@@ -10,6 +10,25 @@
   --mat-sys-on-primary: #1c2c21;
   --mat-sys-surface: #192d22;
   --mat-sys-on-surface: #e8e8d9;
+  --mat-sys-on-surface-variant: #c0ccba;
+  --mat-sys-surface-container: #20372a;
+  --mat-sys-surface-container-lowest: #112219;
+  --mat-sys-surface-container-low: #1c3026;
+  --mat-sys-surface-container-high: #2b4434;
+  --mat-sys-surface-container-highest: #344d3d;
+  --mat-sys-secondary-container: #3e5843;
+  --mat-sys-on-secondary-container: #eee8d7;
+  --mat-sys-outline: #7d896f;
+  --mat-sys-outline-variant: #3c5144;
+  --mat-menu-container-color: #20372a;
+  --mat-menu-item-label-text-color: #eee8d7;
+  --mat-menu-item-icon-color: #d9bd7c;
+  --mat-menu-item-hover-state-layer-color: #344d3d;
+  --mat-menu-item-focus-state-layer-color: #435b43;
+  --mat-select-panel-background-color: #20372a;
+  --mat-option-label-text-color: #eee8d7;
+  --mat-sys-error: #ffb4a5;
+  --mat-sys-on-error: #561e14;
 }
 body {
   margin: 0;
@@ -89,4 +108,53 @@ a {
 .reader-content [data-reader-role='background'],
 .reader-content [data-reader-role='design notes'] {
   color: #515345;
+}
+
+.mat-mdc-menu-panel {
+  border: 1px solid #7d896f;
+}
+.context-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 0.35rem 20px;
+  flex-shrink: 0;
+}
+.context-toolbar h2 {
+  font:
+    1.2rem Georgia,
+    serif;
+  margin: 0;
+  min-width: 0;
+}
+.context-toolbar .spacer {
+  flex: 1;
+}
+.context-toolbar input,
+.context-toolbar select {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+.context-toolbar input {
+  width: min(260px, 25vw);
+}
+.context-toolbar small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+button.danger,
+.mat-mdc-menu-item.danger {
+  color: #ffb4a5;
+}
+@media (max-width: 750px) {
+  .context-toolbar {
+    flex-wrap: wrap;
+    padding-inline: 10px;
+  }
+  .context-toolbar input {
+    width: 180px;
+  }
 }

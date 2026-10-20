@@ -138,7 +138,7 @@ export class SessionState {
     this.error.set('');
     this.selectedItem.set(null);
   }
-  edit(change: Partial<Pick<SessionData, 'title' | 'objective' | 'notes' | 'items'>>) {
+  edit(change: Partial<Pick<SessionData, 'title' | 'objective' | 'notes' | 'items' | 'table'>>) {
     if (!this.current()) return;
     const previous = this.current()!;
     this.current.update((s) => (s ? { ...s, ...change } : s));
@@ -189,8 +189,51 @@ export class SessionState {
   remove(id: string) {
     if (this.queueRunning()) return;
     const items = this.current()!.items.filter((i) => i.id !== id);
-    this.edit({ items });
+    const table = this.current()!.table;
+    this.edit({
+      items,
+      ...(table
+        ? {
+            table: {
+              active: table.active.filter((x) => x !== id),
+              used: table.used.filter((x) => x !== id),
+            },
+          }
+        : {}),
+    });
     if (this.selectedItem() === id) this.selectItem(items[0]?.id ?? null);
+  }
+  initializeTable() {
+    const session = this.current();
+    if (session && !session.table)
+      this.edit({ table: { active: session.items.map((i) => i.id), used: [] } });
+  }
+  moveTable(id: string, to: number) {
+    if (this.queueRunning() || this.mutating()) return;
+    const table = this.current()?.table;
+    if (!table) return;
+    const active = [...table.active];
+    const from = active.indexOf(id);
+    if (from < 0 || to < 0 || to >= active.length || from === to) return;
+    active.splice(from, 1);
+    active.splice(to, 0, id);
+    this.edit({ table: { ...table, active } });
+  }
+  markUsed(id: string) {
+    if (this.queueRunning() || this.mutating()) return;
+    const table = this.current()?.table;
+    if (!table?.active.includes(id)) return;
+    this.edit({
+      table: { active: table.active.filter((x) => x !== id), used: [id, ...table.used] },
+    });
+  }
+  returnToTable(id: string) {
+    if (this.queueRunning() || this.mutating()) return;
+    const table = this.current()?.table;
+    if (!table?.used.includes(id)) return;
+    this.edit({
+      table: { active: [id, ...table.active], used: table.used.filter((x) => x !== id) },
+    });
   }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
@@ -220,6 +263,7 @@ export class SessionState {
               objective: snapshot.objective,
               notes: snapshot.notes,
               items: snapshot.items.map((i) => ({ id: i.id, notes: i.notes })),
+              table: snapshot.table ?? null,
             },
             'body',
             false,
@@ -354,7 +398,14 @@ export class SessionState {
         if (epoch !== this.epoch) return;
         const added = saved.items.filter((i) => !snapshot.items.some((old) => old.id === i.id));
         this.current.update((s) =>
-          s ? { ...s, revision: saved.revision, items: [...s.items, ...added] } : s,
+          s
+            ? {
+                ...s,
+                revision: saved.revision,
+                items: [...s.items, ...added],
+                table: saved.table ?? null,
+              }
+            : s,
         );
         this.selectItem(added[0]?.id ?? null);
         this.status.set(this.dirty ? 'pending' : 'saved');

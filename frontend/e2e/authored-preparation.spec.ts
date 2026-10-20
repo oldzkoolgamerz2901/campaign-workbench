@@ -69,7 +69,10 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
     await page.getByRole('button', { name: 'Drafts', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Drafts for session' });
     await chooser.getByRole('button', { name: 'npc', exact: true }).click();
+    await expect(chooser.locator('ul img[src="/card-placeholder.svg"]')).toHaveCount(1);
     await chooser.getByRole('button', { name: /Captain Mira · npc · revision/ }).click();
+    await expect(chooser.locator('draft-reader')).toContainText('Protect the crew.');
+    await chooser.getByRole('button', { name: 'Card', exact: true }).click();
     await expect(chooser.getByLabel('Playing card preview')).toContainText('A watchful captain.');
     await chooser.getByRole('button', { name: 'Approve revision 1 and add', exact: true }).click();
     await expect(page.getByLabel('Session outline')).toContainText('Captain Mira');
@@ -111,14 +114,14 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
       .click();
     await expect(page.locator('.source-page')).toContainText('A watchful captain.');
     await expect(page.getByLabel('Item Markdown notes')).toHaveValue('Session-specific secret.');
-    await page.getByRole('button', { name: 'Read session', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect(page.locator('.source-page')).toContainText('Protect the crew.');
     await page.screenshot({ path: info.outputPath('authored-session-card.png') });
     await page.locator('.source-page').getByRole('link', { name: 'Scene', exact: true }).click();
     await expect(page.locator('.source-page')).toContainText('outside captured material');
     await page
-      .getByLabel('Session outline')
-      .getByRole('button', { name: 'scene.md', exact: true })
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: scene.md', exact: true })
       .first()
       .click();
     await expect(page.locator('.source-page')).toContainText('A source scene.');
@@ -127,7 +130,7 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(3);
+    expect(archive.version).toBe(4);
     const imported = await (
       await request.post(`/api/campaigns/${destination.id}/sessions/import`, { data: archive })
     ).json();
@@ -135,8 +138,8 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
       `/?campaign=${destination.id}&session=${imported.sessions[0].id}&view=prepare&mode=read`,
     );
     await page
-      .getByLabel('Session outline')
-      .getByRole('button', { name: 'Captain Mira', exact: true })
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: Captain Mira', exact: true })
       .click();
     await expect(page.locator('.source-page')).toContainText('A watchful captain.');
     await expect(page.locator('.source-page')).toContainText('Protect the crew.');

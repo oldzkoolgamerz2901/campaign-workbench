@@ -36,6 +36,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
               [disabled]="busy()"
               [attr.aria-pressed]="selected()?.id === draft.id"
             >
+              <img src="/card-placeholder.svg" alt="Default card artwork" width="64" height="80" />
               {{ draft.fields.title || 'Untitled draft' }} · {{ draft.fields.type }} · revision
               {{ draft.revision }}
             </button>
@@ -48,15 +49,20 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
         <p>
           Saved revision {{ draft.revision }} · {{ draft.fields.status }} · {{ draft.fields.path }}
         </p>
-        <playing-card
-          [title]="draft.fields.title"
-          [type]="draft.fields.type"
-          [tags]="draft.fields.tags"
-          [summary]="draft.fields.summary"
-          (openDocument)="bodyOpen.set(true)"
-        />
+        <nav aria-label="Draft presentation">
+          <button [attr.aria-pressed]="!bodyOpen()" (click)="bodyOpen.set(false)">Card</button>
+          <button [attr.aria-pressed]="bodyOpen()" (click)="bodyOpen.set(true)">Document</button>
+        </nav>
         @if (bodyOpen()) {
           <draft-reader [preview]="preview()?.preview ?? null" />
+        } @else {
+          <playing-card
+            [title]="draft.fields.title"
+            [type]="draft.fields.type"
+            [tags]="draft.fields.tags"
+            [summary]="draft.fields.summary"
+            (openDocument)="bodyOpen.set(true)"
+          />
         }
         @if (preview(); as checked) {
           @for (issue of checked.preview.classification.issues ?? []; track $index) {
@@ -98,6 +104,21 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
     [aria-pressed='true'] {
       font-weight: bold;
     }
+    li {
+      list-style: none;
+      margin: 0.4rem 0;
+    }
+    li button {
+      width: 100%;
+      text-align: left;
+      min-height: 92px;
+    }
+    li img {
+      float: left;
+      object-fit: cover;
+      margin-right: 0.7rem;
+      border-radius: 4px;
+    }
     pre {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
@@ -118,7 +139,7 @@ export class DraftChooser {
   readonly selected = signal<DraftData | null>(null);
   readonly preview = signal<DraftPreview | null>(null);
   readonly loading = signal(false);
-  readonly bodyOpen = signal(false);
+  readonly bodyOpen = signal(true);
   readonly error = signal('');
   readonly visible = computed(() =>
     this.drafts().filter((d) => this.group() === 'All' || d.fields.type === this.group()),
@@ -167,7 +188,7 @@ export class DraftChooser {
       selection = ++this.selection;
     this.selected.set(draft);
     this.preview.set(null);
-    this.bodyOpen.set(false);
+    this.bodyOpen.set(true);
     this.error.set('');
     try {
       const preview = await firstValueFrom(

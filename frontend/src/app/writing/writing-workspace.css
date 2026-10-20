@@ -2,7 +2,7 @@
   display: block;
 }
 .writing-desk {
-  padding: 1.2rem;
+  padding: 0;
 }
 .writing-header {
   display: flex;
@@ -34,7 +34,8 @@ h3 {
   display: grid;
   grid-template-columns: 230px minmax(300px, 1fr) minmax(300px, 0.8fr);
   gap: 1.3rem;
-  margin-top: 1.2rem;
+  margin-top: 0;
+  padding: 1rem 20px;
 }
 .draft-library {
   border-right: 1px solid var(--line);
@@ -201,4 +202,63 @@ small {
   .writing-desk {
     padding: 0.75rem;
   }
+}
+
+.draft-library > input,
+.draft-library > select {
+  width: 100%;
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+}
+.card-details {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.7rem;
+  background: #20372a;
+}
+.card-details > summary {
+  font-size: 0.8rem;
+}
+.card-details label {
+  margin-top: 0.7rem;
+}
+.new-draft {
+  border-top: 1px solid var(--line);
+  padding-top: 0.7rem;
+}
+.new-draft > summary {
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+.preview-hidden {
+  grid-template-columns: 230px minmax(300px, 1fr);
+}
+.body-editor {
+  min-height: 55dvh;
+}
+@media (max-width: 750px) {
+  .writing-columns {
+    padding: 0.7rem 10px;
+  }
+}
+
+.draft-editor {
+  background: #eee8d7;
+  color: #302f27;
+  padding: 1rem;
+  border: 1px solid #b9b79e;
+  border-radius: 4px;
+}
+.draft-editor input,
+.draft-editor select,
+.draft-editor textarea {
+  background: #f5f0e3;
+  color: #29392c;
+  border-color: #9ca588;
+}
+.draft-editor .card-details {
+  background: #e4ddc9;
+}
+.draft-editor .hint {
+  color: #59624e;
 }

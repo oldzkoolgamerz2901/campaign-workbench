@@ -20,12 +20,23 @@ class SessionArchiveReader(private val mapper: ObjectMapper) {
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version in setOf(1, 2, 3))
+        require(version in setOf(1, 2, 3, 4))
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
         for (session in sessions) {
-            fields(session, "id", "campaign", "revision", "title", "objective", "notes", "items")
+            val sessionFields = arrayOf("id", "campaign", "revision", "title", "objective", "notes", "items")
+            if (version == 4) {
+                fields(session, *sessionFields, "table")
+                val table = session.path("table")
+                if (!table.isNull) {
+                    fields(table, "active", "used")
+                    for (name in listOf("active", "used")) {
+                        require(table.path(name).isArray && table.path(name).size() <= 1000)
+                        table.path(name).forEach(::uuid)
+                    }
+                }
+            } else fields(session, *sessionFields)
             uuid(session.path("id")); uuid(session.path("campaign"))
             val revision = session.path("revision")
             require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
@@ -42,14 +53,14 @@ class SessionArchiveReader(private val mapper: ObjectMapper) {
                 anchors.properties().forEach { string(it.value); require(it.key.toByteArray(Charsets.UTF_8).size <= MAX_TEXT) }
                 val p = item.path("provenance")
                 val provenanceFields = arrayOf("campaign", "capture", "path", "section", "documentHash", "contentHash")
-                if (version == 3) fields(p, *provenanceFields, "kind", "authored") else fields(p, *provenanceFields)
+                if (version >= 3) fields(p, *provenanceFields, "kind", "authored") else fields(p, *provenanceFields)
                 uuid(p.path("campaign"))
-                if (version == 3 && p.path("kind").asString() == "authored") {
+                if (version >= 3 && p.path("kind").asString() == "authored") {
                     require(p.path("capture").isNull)
                     authored(p.path("authored"))
                 } else {
                     uuid(p.path("capture"))
-                    if (version == 3) require(p.path("kind").asString() == "source" && p.path("authored").isNull)
+                    if (version >= 3) require(p.path("kind").asString() == "source" && p.path("authored").isNull)
                 }
                 strings(p, "path", "documentHash", "contentHash")
                 nullableString(p.path("section"))

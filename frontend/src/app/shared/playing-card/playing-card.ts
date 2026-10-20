@@ -3,13 +3,27 @@ import { Component, input, output } from '@angular/core';
 @Component({
   selector: 'playing-card',
   template: `
-    <article class="card" aria-label="Playing card preview">
+    <article
+      class="card"
+      [class.selectable]="selectable()"
+      [class.selected]="selected()"
+      [attr.aria-label]="
+        selectable() ? 'Read: ' + (selectionLabel() || title()) : 'Playing card preview'
+      "
+      [attr.tabindex]="selectable() && !disabled() ? 0 : null"
+      [attr.aria-current]="selectable() && selected() ? 'true' : null"
+      [attr.aria-disabled]="selectable() && disabled() ? 'true' : null"
+      (click)="selectCard($event)"
+      (keydown)="activate($event)"
+    >
+      <div class="card-actions" data-card-actions><ng-content select="[cardActions]" /></div>
       <div class="card-top">
         <span>{{ type() || 'Untyped' }}</span
         ><span>CAMPAIGN WORKBENCH</span>
       </div>
       <img
         src="/card-placeholder.svg"
+        draggable="false"
         alt="Default card illustration: a compass over distant mountains"
       />
       <h3>{{ title() || 'Untitled card' }}</h3>
@@ -25,7 +39,13 @@ import { Component, input, output } from '@angular/core';
           }
         </ul>
       </div>
-      <button type="button" (click)="openDocument.emit()">
+      <button
+        type="button"
+        [disabled]="disabled()"
+        (mousedown)="$event.stopPropagation()"
+        (touchstart)="$event.stopPropagation()"
+        (click)="openDocument.emit()"
+      >
         Open full document <span aria-hidden="true">↗</span>
       </button>
     </article>
@@ -37,6 +57,7 @@ import { Component, input, output } from '@angular/core';
       margin: auto;
     }
     .card {
+      position: relative;
       aspect-ratio: 5/7;
       box-sizing: border-box;
       display: flex;
@@ -49,6 +70,28 @@ import { Component, input, output } from '@angular/core';
       color: #28352b;
       box-shadow: 0 12px 28px #0004;
       overflow: hidden;
+    }
+    .selectable {
+      cursor: grab;
+    }
+    .selected {
+      border-color: #e8bf65;
+      box-shadow:
+        0 0 0 2px #e8bf65,
+        0 12px 28px #0004;
+    }
+    .selectable:focus-visible {
+      outline: 3px solid #e8bf65;
+      outline-offset: 3px;
+    }
+    .card-actions {
+      position: absolute;
+      top: 0.35rem;
+      right: 0.35rem;
+      z-index: 1;
+    }
+    .selectable .card-top {
+      padding-right: 1.8rem;
     }
     .card-top {
       display: flex;
@@ -132,4 +175,22 @@ export class PlayingCard {
   readonly summary = input('');
   readonly tags = input<string[]>([]);
   readonly openDocument = output<void>();
+  readonly selectable = input(false);
+  readonly selectionLabel = input('');
+  readonly selected = input(false);
+  readonly disabled = input(false);
+  readonly select = output<void>();
+  selectCard(event: MouseEvent) {
+    if (!this.selectable() || this.disabled()) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button, [data-card-actions]')) return;
+    this.select.emit();
+  }
+  activate(event: KeyboardEvent) {
+    if (event.target !== event.currentTarget || !this.selectable() || this.disabled()) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.select.emit();
+    }
+  }
 }

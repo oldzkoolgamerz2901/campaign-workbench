@@ -15,7 +15,8 @@ test('restores detached Writing history and explicitly resumes a fresh draft wit
     return response.json();
   };
   try {
-    const recoveryBefore = (await (await request.get('/api/writing-recovery')).json()).workspaces.length;
+    const recoveryBefore = (await (await request.get('/api/writing-recovery')).json()).workspaces
+      .length;
     await writeFile(join(root, 'original.md'), '# Original scene\nRetained evidence.');
     const origin = await json('post', '/api/campaigns', {
       name: 'Recovery walkthrough',

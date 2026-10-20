@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription } from 'rxjs';
 import { CampaignLibrary } from '../campaigns/library';
@@ -22,6 +23,8 @@ import { revealReaderTarget } from '../shared/reader/reader-presentation';
 import { DraftChooser } from './draft-chooser';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { DraftData } from '../../api/generated';
+import { CardTable } from './card-table';
+import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { MarkdownView } from './markdown-view';
 
 @Component({
@@ -29,6 +32,7 @@ import { MarkdownView } from './markdown-view';
   imports: [
     FormsModule,
     MatButtonModule,
+    MatMenuModule,
     CampaignLibrary,
     MarkdownView,
     CampaignControls,
@@ -36,13 +40,53 @@ import { MarkdownView } from './markdown-view';
     AdventureAssembly,
     DraftChooser,
     PlayingCard,
+    CardTable,
+    WorkbenchHeader,
   ],
   templateUrl: './workspace.html',
   styleUrl: './workspace.css',
 })
 export class Workspace implements OnDestroy {
+  readonly cardQuery = signal('');
+  readonly cardGroup = signal('');
+  readonly cardTypes = [
+    'npc',
+    'location',
+    'faction',
+    'item',
+    'scene',
+    'adventure',
+    'handout',
+    'reference',
+  ];
+  readonly activeCount = computed(() => {
+    const ids = new Set(this.state.current()?.table?.active ?? []);
+    const query = this.cardQuery().trim().toLowerCase();
+    return (
+      this.state
+        .current()
+        ?.items.filter(
+          (i) =>
+            ids.has(i.id) &&
+            (!this.cardGroup() ||
+              i.capturedSource?.classification?.metadata?.type === this.cardGroup()) &&
+            `${i.title} ${i.provenance.path}`.toLowerCase().includes(query),
+        ).length ?? 0
+    );
+  });
+  readonly saveLabel = computed(() =>
+    this.state.status() === 'saved'
+      ? 'Saved'
+      : this.state.status() === 'failed'
+        ? 'Save failed'
+        : this.state.status() === 'saving'
+          ? 'Saving…'
+          : 'Unsaved changes',
+  );
+  private pendingPlay = false;
+  readonly sessionDetailsOpen = signal(false);
   readonly material = signal<'sources' | 'drafts'>('sources');
-  readonly cardOpen = signal(true);
+  readonly cardOpen = signal(false);
   readonly library = inject(LibraryState);
   readonly state = inject(SessionState);
   readonly router = inject(Router);
@@ -66,6 +110,14 @@ export class Workspace implements OnDestroy {
   readonly source = computed(
     () => this.state.rendered()?.items.find((i) => i.id === this.item()?.id)?.source ?? null,
   );
+  readonly sourceHasTitle = computed(() => {
+    const html = this.source()?.html;
+    if (!html || !this.item()) return false;
+    const heading = new DOMParser()
+      .parseFromString(html, 'text/html')
+      .querySelector('h1, h2, h3, h4, h5, h6');
+    return heading?.textContent?.trim() === this.item()?.title.trim();
+  });
   title = '';
   objective = '';
   exportIds: string[] = [];
@@ -89,7 +141,9 @@ export class Workspace implements OnDestroy {
       const campaign = params.get('campaign') ?? this.library.selected()?.id;
       const id = params.get('session');
       const applyView = () => {
-        this.reading.set(params.get('mode') === 'read');
+        this.reading.set(['read', 'play'].includes(params.get('mode') ?? '') && !!id);
+        if (!id && ['read', 'play'].includes(params.get('mode') ?? '')) this.pendingPlay = true;
+        if (this.reading()) this.state.initializeTable();
         this.showingLibrary.set(params.get('view') === 'library' || !id);
       };
       // A view change keeps the working session and all pending edits in place.
@@ -120,8 +174,10 @@ export class Workspace implements OnDestroy {
         if (campaign) await this.state.list(campaign);
         if (epoch !== this.routeEpoch) return;
         applyView();
+        this.cardQuery.set('');
+        this.cardGroup.set('');
         this.notesScope.set(this.state.current()?.items.length ? 'item' : 'session');
-        this.sessionsOpen.set(false);
+        this.sessionsOpen.set(this.pendingPlay && !id);
         this.campaignReady.set(!campaign || campaign === this.library.selected()?.id);
       })();
     });
@@ -137,7 +193,7 @@ export class Workspace implements OnDestroy {
       event.returnValue = '';
     }
   }
-  navigate(session?: string | null, view = 'prepare', mode = this.reading() ? 'read' : 'prepare') {
+  navigate(session?: string | null, view = 'prepare', mode = this.reading() ? 'play' : 'prepare') {
     if (this.busy()) return Promise.resolve(false);
     this.adventure.set(null);
     return this.router.navigate([], {
@@ -149,11 +205,25 @@ export class Workspace implements OnDestroy {
       },
     });
   }
+  changeMode(mode: WorkbenchMode) {
+    if (mode !== 'play') this.pendingPlay = false;
+    if (mode === 'write') {
+      this.openWriting();
+      return;
+    }
+    if (mode === 'play' && !this.state.current()) {
+      this.pendingPlay = true;
+      this.sessionsOpen.set(true);
+      return;
+    }
+    void this.navigate(undefined, this.state.current() ? 'prepare' : 'library', mode);
+  }
   async create() {
     const campaign = this.library.selected();
     if (!campaign) return;
     const s = await this.state.create(campaign.id, this.title, this.objective);
     if (s) {
+      this.pendingPlay = false;
       this.title = '';
       this.objective = '';
       this.libraryOpen.set(true);
@@ -185,12 +255,13 @@ export class Workspace implements OnDestroy {
     if (await this.state.addDraft(draft.id, draft.revision)) {
       this.notesScope.set('item');
       this.contentsOpen.set(true);
-      this.cardOpen.set(true);
+      this.cardOpen.set(false);
       await this.navigate(undefined, 'prepare');
     }
   }
   async openSession(id: string) {
-    await this.navigate(id, 'prepare', 'prepare');
+    await this.navigate(id, 'prepare', this.pendingPlay ? 'play' : 'prepare');
+    this.pendingPlay = false;
     this.sessionsOpen.set(false);
   }
   selectCampaign(id: string) {
@@ -201,7 +272,7 @@ export class Workspace implements OnDestroy {
   }
   selectPrepared(id: string) {
     if (this.busy()) return;
-    this.cardOpen.set(true);
+    this.cardOpen.set(false);
     this.state.selectItem(id);
     this.notesScope.set('item');
     void this.navigate(undefined, 'prepare');
@@ -218,6 +289,8 @@ export class Workspace implements OnDestroy {
   @HostListener('window:keydown.escape') closePanels() {
     this.sessionsOpen.set(false);
     this.managementOpen.set(false);
+    this.sessionDetailsOpen.set(false);
+    this.pendingPlay = false;
   }
   followCaptured(target: string) {
     const [id, anchor] = target.slice(1).split('#');

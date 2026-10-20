@@ -84,13 +84,14 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
       'Lower chamber',
       'observatory.md',
     ]);
-    await page.getByRole('button', { name: 'Read session', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Prepare', exact: true })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Return to Prepare', exact: true }),
+      page
+        .locator('read-card-table .entry')
+        .first()
+        .getByRole('article', { name: 'Read: Lower chamber', exact: true }),
     ).toBeVisible();
-    await expect(page.getByLabel('Session outline').locator('ol li').first()).toContainText(
-      'Lower chamber',
-    );
     await expect(page.getByLabel('Item Markdown notes')).toHaveCount(0);
     await page.setViewportSize({ width: 1280, height: 800 });
     expect(
@@ -113,32 +114,32 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await expect(page.locator('.source-page img')).toHaveCount(0);
     expect(await page.evaluate(() => 'preparedInjected' in window)).toBe(false);
     await page
-      .getByLabel('Session outline')
-      .getByRole('button', { name: 'observatory.md', exact: true })
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: observatory.md', exact: true })
       .click();
     await expect(page.locator('.notes-page strong')).toHaveText('brass key');
-    await page.getByRole('button', { name: 'Session notes', exact: true }).click();
+    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Session notes', exact: true }).click();
     await expect(page.locator('.session-notes strong')).toHaveText('reminder');
     await writeFile(path, '# Changed\nNew telescope text.');
     await request.post(`/api/campaigns/${first.id}/sources/refresh`);
     await rm(path);
     await request.post(`/api/campaigns/${first.id}/sources/refresh`);
     await page.reload();
-    await expect(
-      page.getByRole('button', { name: 'Return to Prepare', exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Prepare', exact: true })).toBeVisible();
     await page
-      .getByLabel('Session outline')
-      .getByRole('button', { name: 'observatory.md', exact: true })
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: observatory.md', exact: true })
       .click();
     await expect(page.locator('.source-page')).toContainText('Original telescope clue.');
     await expect(page.locator('.notes-page')).toContainText('brass key');
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export session', exact: true }).click();
+    await page.getByRole('button', { name: 'More session actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Export session', exact: true }).click();
     const download = await downloadPromise;
     const downloaded = await download.path();
     const archive = JSON.parse(await readFile(downloaded!, 'utf8'));
-    expect(archive.version).toBe(3);
+    expect(archive.version).toBe(4);
     expect(archive.sessions).toHaveLength(1);
     expect(archive.sessions[0].items[0].title).toBe('Lower chamber');
     expect(archive.sessions[0].items[0].capturedSource.classification.metadata).toMatchObject({
@@ -236,13 +237,13 @@ test('failed saves retain edits across modes and guard session navigation', asyn
     );
     await page.getByLabel('Session Markdown notes').fill('Keep these local notes');
     await expect(page.getByLabel('Session save status')).toHaveText('Save failed');
-    await page.getByRole('button', { name: 'Read session', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect(page.locator('.session-notes')).toContainText('Keep these local notes');
     await page.getByRole('button', { name: 'Sessions / New session', exact: true }).click();
     page.once('dialog', (dialog) => dialog.dismiss());
     await page.getByRole('button', { name: 'Session B', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Session A', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Return to Prepare', exact: true }).click();
+    await page.getByRole('button', { name: 'Prepare', exact: true }).click();
     await expect(page.getByLabel('Session Markdown notes')).toHaveValue('Keep these local notes');
     await page.unroute(`**/api/campaigns/${campaign.id}/sessions/${a.id}`);
     await page.getByRole('button', { name: 'Retry save', exact: true }).click();

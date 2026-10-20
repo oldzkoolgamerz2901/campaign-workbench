@@ -15,6 +15,11 @@
       <ul class="results">
         @for (group of state.groups(); track group.path) {
           <li>
+            <img
+              class="material-thumbnail"
+              src="/card-placeholder.svg"
+              alt="Default card artwork"
+            />
             <strong>{{ group.classification?.metadata?.title ?? group.path }}</strong>
             <small
               >{{ group.classification?.metadata?.type ?? 'Unclassified' }} ·
@@ -49,6 +54,11 @@
               [attr.aria-label]="document.path"
               [attr.aria-current]="state.document()?.path === document.path ? 'page' : null"
             >
+              <img
+                class="material-thumbnail"
+                src="/card-placeholder.svg"
+                alt="Default card artwork"
+              />
               <strong>{{ document.classification?.metadata?.title ?? document.path }}</strong>
               <small
                 >{{ document.classification?.metadata?.type ?? 'Unclassified' }} ·

@@ -3,12 +3,13 @@
     <ng-container [ngComponentOutlet]="prototype" />
   }
 } @else {
-  <header class="app-header">
-    <div><h1>Campaign Workbench</h1></div>
-    <div class="connection">
-      <button matButton (click)="checkConnection()" [disabled]="checking()">Check connection</button
-      ><span role="status" aria-label="Connection status">{{ connection() }}</span>
+  @if (connection().startsWith('Unavailable')) {
+    <div class="availability-warning" role="alert" aria-label="Connection status">
+      Backend unavailable. Your local edits are retained; save status is shown in the workspace.
+      <button matButton [disabled]="checking()" (click)="checkConnection()">
+        Retry connection
+      </button>
     </div>
-  </header>
+  }
   <main><router-outlet /></main>
 }

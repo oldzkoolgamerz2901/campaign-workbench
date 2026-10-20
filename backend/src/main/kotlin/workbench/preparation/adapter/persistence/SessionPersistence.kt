@@ -13,6 +13,7 @@ import tools.jackson.databind.ObjectMapper
 class SessionEntity(
     @Id var id: UUID = UUID.randomUUID(), var campaign: UUID = UUID.randomUUID(), var revision: Long = 0,
     var title: String = "", var objective: String = "", var notes: String = "",
+    @Column(name = "card_table") var cardTable: String? = null,
     @OneToMany(cascade = [CascadeType.ALL], orphanRemoval = true)
     @JoinColumn(name = "session_id", nullable = false)
     @OrderColumn(name = "position")
@@ -37,7 +38,7 @@ class ItemEntity(
 interface SessionRepository : JpaRepository<SessionEntity, UUID> { fun findByCampaignOrderByTitle(campaign: UUID): List<SessionEntity> }
 @Repository
 class JpaSessionStore(private val repository: SessionRepository, private val em: EntityManager, private val mapper: ObjectMapper) : SessionStore {
-    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash, it.originKind, it.authoredOrigin?.let { json -> mapper.readValue(json, AuthoredOrigin::class.java) }), it.anchors.toMap(), it.notes, it.capturedSource?.let { json -> mapper.readValue(json, CapturedSource::class.java) }) })
+    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash, it.originKind, it.authoredOrigin?.let { json -> mapper.readValue(json, AuthoredOrigin::class.java) }), it.anchors.toMap(), it.notes, it.capturedSource?.let { json -> mapper.readValue(json, CapturedSource::class.java) }) }, s.cardTable?.let { mapper.readValue(it, CardTable::class.java) })
     override fun list(campaign: UUID) = repository.findByCampaignOrderByTitle(campaign).map(::model)
     override fun get(campaign: UUID, id: UUID) = repository.findById(id).orElse(null)?.takeIf { it.campaign == campaign }?.let(::model)
     override fun put(session: Session) {
@@ -46,6 +47,7 @@ class JpaSessionStore(private val repository: SessionRepository, private val em:
         em.flush(); em.clear()
         val entity = repository.findById(session.id).orElseGet { SessionEntity(id = session.id, campaign = session.campaign) }
         entity.revision = session.revision; entity.title = session.title; entity.objective = session.objective; entity.notes = session.notes
+        entity.cardTable = session.table?.let(mapper::writeValueAsString)
         entity.items.clear()
         entity.items.addAll(session.items.map { i -> ItemEntity(i.id, i.title, i.markdown, i.notes, i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.anchors.toMutableMap(), i.capturedSource?.let(mapper::writeValueAsString), i.provenance.kind, i.provenance.authored?.let(mapper::writeValueAsString)) })
         repository.saveAndFlush(entity)
