@@ -1,0 +1,112 @@
+<fieldset aria-label="Markdown export" [disabled]="state.deleting() || state.deleteFailed()">
+  <h3>Markdown export</h3>
+  <p>
+    Inspect the saved draft, then create a fixed export and download its Markdown. Downloads do not
+    approve or place the document in your campaign.
+  </p>
+  <button matButton (click)="recheckSources.emit()">Reload captured index</button>
+  <button
+    matButton
+    (click)="state.inspectExport(library.library()?.capture ?? null)"
+    [disabled]="state.transferBusy() || state.loading()"
+  >
+    Inspect export
+  </button>
+  @if (state.exportError()) {
+    <p role="alert">{{ state.exportError() }}</p>
+  }
+  @if (state.exportNotice()) {
+    <p role="status">{{ state.exportNotice() }}</p>
+  }
+  @if (state.inspection(); as report) {
+    <p>
+      Saved revision {{ report.revision }} · Suggested placement: <strong>{{ report.path }}</strong>
+    </p>
+    @if (report.errors.length) {
+      <strong>Resolve these errors before export:</strong>
+      <ul>
+        @for (error of report.errors; track $index) {
+          <li>{{ error }}</li>
+        }
+      </ul>
+    }
+    @if (report.warnings.length) {
+      <strong>Review these warnings:</strong>
+      <ul>
+        @for (warning of report.warnings; track $index) {
+          <li>{{ warning }}</li>
+        }
+      </ul>
+      <label
+        ><input type="checkbox" [(ngModel)]="acknowledged" /> I reviewed the warnings for this
+        export.</label
+      >
+    }
+    <details>
+      <summary>Link report ({{ report.links.length }})</summary>
+      <ul>
+        @for (link of report.links; track link.key) {
+          <li>{{ link.destination }} — {{ link.kind }} {{ link.warning ?? '' }}</li>
+        }
+      </ul>
+    </details>
+    <details>
+      <summary>Exact Markdown and SHA-256</summary>
+      <p>{{ report.hash }}</p>
+      <textarea
+        aria-label="Export Markdown"
+        rows="16"
+        readonly
+        [value]="report.markdown"
+      ></textarea>
+    </details>
+    <button
+      matButton="filled"
+      (click)="state.prepareExport(acknowledged)"
+      [disabled]="
+        state.transferBusy() ||
+        state.status() !== 'saved' ||
+        !!report.errors.length ||
+        (!!report.warnings.length && !acknowledged)
+      "
+    >
+      Download Markdown
+    </button>
+  }
+  <h4>Export history</h4>
+  <p>Each entry retains its original bytes, path, checks, and saved revision.</p>
+  <button matButton (click)="state.loadHistory()">Reload history</button>
+  <ul>
+    @for (artifact of state.artifacts(); track artifact.id) {
+      <li>
+        Revision {{ artifact.revision }} · {{ artifact.createdAt }} · {{ artifact.path }}
+        <button matButton (click)="state.download(artifact.id, artifact.path)">
+          Download again
+        </button>
+      </li>
+    } @empty {
+      <li>No exports yet.</li>
+    }
+  </ul>
+  @if (state.current()?.origin; as origin) {
+    <details>
+      <summary>Original source and retained metadata</summary>
+      <p>{{ origin.path }} · Capture {{ origin.capture }} · SHA-256 {{ origin.hash }}</p>
+      @for (issue of origin.issues ?? []; track $index) {
+        <p>{{ issue }}</p>
+      }
+      <h4>Retained YAML</h4>
+      <pre>{{ origin.retainedEnvelope }}</pre>
+      <h4>Original captured Markdown</h4>
+      <pre>{{ origin.raw }}</pre>
+    </details>
+  }
+</fieldset>
+
+@if (state.current()?.recovery; as recovery) {
+  <details>
+    <summary>Recovered draft provenance</summary>
+    <p>Workspace {{ recovery.workspace }} · original campaign {{ recovery.campaign }}</p>
+    <p>Draft {{ recovery.draft }} · card {{ recovery.card }} · revision {{ recovery.revision }}</p>
+  </details>
+}

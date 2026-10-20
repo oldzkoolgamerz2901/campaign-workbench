@@ -1,0 +1,20 @@
+package workbench.writing.api
+
+import java.util.UUID
+import io.swagger.v3.oas.annotations.media.Schema
+import workbench.sources.api.CheckedLink
+import workbench.sources.api.AuthoredPreview
+
+/** Stable recovery wire contract; never contains rendered HTML or database entity payloads. */
+data class WritingArchive(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val format: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val version: Int, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val campaign: UUID, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val name: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val savedAt: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val drafts: List<DraftData>, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val approved: List<RecoveryApproval>, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val exports: List<RecoveryExport>)
+data class RecoveryApproval(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val snapshot: DraftData, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val markdown: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val hash: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val capture: UUID?, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val links: List<CheckedLink>)
+data class RecoveryExport(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val id: UUID, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val snapshot: DraftData, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val createdAt: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val report: ExportInspection, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val acknowledged: Boolean)
+data class RecoverySummary(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val id: UUID, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val name: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val restoredAt: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val drafts: Int, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val approved: Int, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val exports: Int)
+data class RecoveryList(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val workspaces: List<RecoverySummary>)
+data class RecoveryRecord(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val key: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val kind: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val draft: UUID, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val revision: Long, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val type: String)
+data class RecoveryIndex(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val workspace: RecoverySummary, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val records: List<RecoveryRecord>)
+data class RecoveryDetail(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val record: RecoveryRecord, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val snapshot: DraftData, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val preview: AuthoredPreview,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val markdown: String?, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val hash: String?, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val links: List<CheckedLink>, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val createdAt: String?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val report: ExportInspection?, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val acknowledged: Boolean?)
+data class CopyRecovery(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val draft: UUID, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val campaign: UUID)

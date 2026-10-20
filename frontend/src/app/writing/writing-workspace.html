@@ -1,0 +1,319 @@
+<div class="writing-desk">
+  <header class="writing-header">
+    <div>
+      <p class="eyebrow">CAMPAIGN WRITING</p>
+      <h2>Your writing desk</h2>
+    </div>
+    <label
+      >Campaign<select
+        aria-label="Campaign"
+        [disabled]="!ready() || state.loading() || state.deleting()"
+        [ngModel]="library.selected()?.id ?? ''"
+        (ngModelChange)="selectCampaign($event)"
+      >
+        <option value="" disabled>Select a campaign</option>
+        @for (campaign of library.campaigns(); track campaign.id) {
+          <option [value]="campaign.id">{{ campaign.name }}</option>
+        }
+      </select></label
+    >
+    <button matButton [disabled]="state.deleting()" (click)="management.set(!management())">
+      Manage campaign
+    </button>
+    <button
+      matButton
+      (click)="openSources()"
+      [disabled]="!ready() || state.loading() || state.deleting()"
+    >
+      Copy from source library
+    </button>
+    <button
+      matButton
+      [disabled]="state.deleting()"
+      (click)="router.navigate(['/writing/recovery'])"
+    >
+      Writing recovery
+    </button>
+    <button matButton [disabled]="state.deleting()" (click)="prepare()">Return to Prepare</button>
+  </header>
+  @if (management()) {
+    <campaign-controls
+      [ready]="ready() && !state.deleting() && state.status() === 'saved'"
+      (close)="management.set(false); registered()"
+    />
+  }
+  @if (sourceNotice()) {
+    <p role="status">{{ sourceNotice() }}</p>
+  }
+  @if (sourceChooser()) {
+    <section aria-label="Copy source document">
+      <h3>Copy a whole source document</h3>
+      <p>
+        The captured original stays unchanged. A copy gets its own card identity and draft status.
+      </p>
+      <label
+        >Type for legacy documents<select
+          [(ngModel)]="forkType"
+          aria-label="Type for legacy documents"
+        >
+          <option value="">Choose if the document has no supported type</option>
+          @for (type of state.catalog()?.types ?? []; track type) {
+            <option [value]="type">{{ type }}</option>
+          }
+        </select></label
+      >
+      <button matButton (click)="sourceChooser.set(false)">Close sources</button>
+      <button matButton (click)="recheckSources()">Reload captured index</button>
+      <campaign-library
+        [authoring]="true"
+        [ready]="!sourceBusy() && !(state.loading() || state.deleting())"
+        (copySource)="copySource($event)"
+      />
+    </section>
+  }
+  @if (state.notice()) {
+    <p role="status">{{ state.notice() }}</p>
+  }
+  @if (state.deleting()) {
+    <p role="status">Deleting draft…</p>
+  }
+  @if (state.error()) {
+    <p role="alert" class="error">{{ state.error() }}</p>
+  }
+  @if (state.status() === 'failed') {
+    <div class="recovery">
+      <strong>Your working edits are retained.</strong>
+      @if (!state.conflict() && !state.deleteFailed()) {
+        <button matButton (click)="state.flush()">Retry save</button>
+      }
+      <button matButton [disabled]="state.deleting()" (click)="state.reload()">
+        Reload / discard local edits
+      </button>
+    </div>
+  }
+  @if (!library.selected()) {
+    <p>Register a campaign folder to start writing.</p>
+  } @else {
+    @if (!ready()) {
+      <p role="status">Opening writing workspace…</p>
+    }
+    <div
+      class="writing-columns"
+      [hidden]="!ready()"
+      [attr.aria-busy]="!ready() || state.loading() || state.deleting()"
+    >
+      <aside class="draft-library" aria-label="Writing library">
+        <h3>
+          Drafts <span>{{ state.drafts().length }}</span>
+        </h3>
+        <nav aria-label="Writing groups" class="groups">
+          <button [attr.aria-pressed]="!state.group()" (click)="state.group.set('')">
+            All ({{ state.drafts().length }})
+          </button>
+          @for (type of state.catalog()?.types ?? []; track type) {
+            <button [attr.aria-pressed]="state.group() === type" (click)="state.group.set(type)">
+              {{ type === 'npc' ? 'NPCs' : type + 's' }} ({{ count(type) }})
+            </button>
+          }
+        </nav>
+        <label
+          >Filter by tag<input
+            [ngModel]="state.filterTag()"
+            (ngModelChange)="state.filterTag.set($event)"
+            list="writing-tags"
+        /></label>
+        <datalist id="writing-tags">
+          @for (tag of suggestions(); track tag) {
+            <option [value]="tag"></option>
+          }
+        </datalist>
+        <ul class="draft-list">
+          @for (draft of state.filtered(); track draft.id) {
+            <li>
+              <button
+                [disabled]="!ready() || state.loading() || state.deleting()"
+                [attr.aria-current]="state.current()?.id === draft.id ? 'page' : null"
+                (click)="state.open(draft.id)"
+              >
+                <strong>{{ draft.fields.title || 'Untitled ' + draft.fields.type }}</strong
+                ><small>{{ draft.fields.type }} · {{ draft.fields.status }}</small>
+              </button>
+            </li>
+          } @empty {
+            <li class="empty">No drafts in this group. Create one below.</li>
+          }
+        </ul>
+        <form (ngSubmit)="create()" class="create-draft">
+          <h4>New draft</h4>
+          <label
+            >New card type<select aria-label="New card type" name="newType" [(ngModel)]="newType">
+              @for (type of state.catalog()?.types ?? []; track type) {
+                <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+              }
+            </select></label
+          >
+          <label class="checkbox"
+            ><input type="checkbox" name="template" [(ngModel)]="template" /> Start with suggested
+            headings</label
+          >
+          <button
+            matButton="filled"
+            type="submit"
+            [disabled]="!ready() || state.loading() || state.deleting() || !state.catalog()"
+          >
+            Create draft
+          </button>
+        </form>
+      </aside>
+      @if (state.current(); as draft) {
+        <fieldset
+          class="draft-editor"
+          aria-label="Draft editor"
+          [disabled]="state.loading() || state.deleting() || !ready()"
+        >
+          <header>
+            <h3>{{ draft.fields.title || 'Untitled draft' }}</h3>
+            <button
+              matButton
+              type="button"
+              (click)="state.deleteCurrent()"
+              [disabled]="state.deleting() || state.transferBusy() || state.conflict()"
+            >
+              Delete draft
+            </button>
+            <span role="status" aria-label="Draft save status">{{
+              state.deleteFailed()
+                ? 'Deletion unresolved'
+                : state.status() === 'saved'
+                  ? 'Saved'
+                  : state.status() === 'saving'
+                    ? 'Saving…'
+                    : state.status() === 'failed'
+                      ? 'Save failed'
+                      : 'Unsaved changes'
+            }}</span>
+          </header>
+          <label
+            >Title<input
+              [ngModel]="draft.fields.title"
+              (ngModelChange)="state.edit({ title: $event })"
+          /></label>
+          <div class="metadata-row">
+            <label
+              >Content type<select
+                aria-label="Content type"
+                [ngModel]="draft.fields.type"
+                (ngModelChange)="state.edit({ type: $event })"
+              >
+                @for (type of state.catalog()?.types ?? []; track type) {
+                  <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+                }
+              </select></label
+            >
+            <label
+              >Metadata status<select
+                aria-label="Metadata status"
+                [ngModel]="draft.fields.status"
+                (ngModelChange)="state.edit({ status: $event })"
+              >
+                @for (status of state.catalog()?.statuses ?? []; track status) {
+                  <option [value]="status">{{ status }}</option>
+                }
+              </select></label
+            >
+          </div>
+          <label
+            >Tags (comma separated)<input
+              [ngModel]="draft.fields.tags.join(',')"
+              (ngModelChange)="tags($event)"
+              list="writing-tags"
+          /></label>
+          <label
+            >Card summary<textarea
+              rows="3"
+              [ngModel]="draft.fields.summary"
+              (ngModelChange)="state.edit({ summary: $event })"
+            ></textarea>
+          </label>
+          <label
+            >Suggested export path<input
+              [ngModel]="draft.fields.path"
+              (ngModelChange)="state.edit({ path: $event })"
+          /></label>
+          <p class="hint">
+            Purpose: session. Metadata status does not approve session use. Export and placement
+            checks appear below. Place downloaded files in the campaign repository manually.
+          </p>
+          <label
+            >Markdown body<textarea
+              class="body-editor"
+              rows="16"
+              spellcheck="true"
+              [ngModel]="draft.fields.body"
+              (ngModelChange)="state.edit({ body: $event })"
+            ></textarea>
+          </label>
+          @if (state.preview(); as result) {
+            @if (result.preview.classification.issues?.length || result.pathIssues.length) {
+              <aside class="issues" aria-label="Draft validation">
+                <strong>Saved drafts can be unfinished.</strong>
+                @for (issue of result.preview.classification.issues; track $index) {
+                  <p>{{ issue.field }}: {{ issue.message }}</p>
+                }
+                @for (issue of result.pathIssues; track $index) {
+                  <p>{{ issue }}</p>
+                }
+              </aside>
+            }
+          }
+        </fieldset>
+        <section class="preview-panel" aria-label="Draft preview">
+          <nav class="preview-tabs">
+            <button matButton [attr.aria-pressed]="!full()" (click)="full.set(false)">
+              Card preview</button
+            ><button matButton [attr.aria-pressed]="full()" (click)="full.set(true)">
+              Full document
+            </button>
+          </nav>
+          @if (state.previewError()) {
+            <p role="alert">{{ state.previewError() }}</p>
+          }
+          @if (!full()) {
+            <playing-card
+              [title]="draft.fields.title"
+              [type]="draft.fields.type"
+              [tags]="state.preview()?.preview?.classification?.metadata?.tags ?? draft.fields.tags"
+              [summary]="draft.fields.summary"
+              (openDocument)="full.set(true)"
+            />
+          } @else {
+            <p class="hint">
+              Links checked against capture {{ state.preview()?.capture ?? 'unavailable' }}. Draft
+              references require separate export and placement.
+            </p>
+            <draft-reader
+              [preview]="state.preview()?.preview ?? null"
+              [checkedLinks]="state.preview()?.checkedLinks ?? []"
+              (followTarget)="followTarget($event)"
+            />
+          }
+        </section>
+        <writing-export-panel (recheckSources)="recheckSources()" />
+      } @else {
+        <section class="welcome">
+          <p class="eyebrow">FROM IDEA TO PLAY</p>
+          <h3>Make a card for your campaign.</h3>
+          <p>
+            Choose a group, start with suggested headings, and write. Your card and full-document
+            previews share the same saved draft.
+          </p>
+          <p class="hint">
+            Drafts save locally. Copy captured sources or create a new card, then inspect and
+            download Markdown. Adding drafts directly to sessions and portable draft backup come
+            later.
+          </p>
+        </section>
+      }
+    </div>
+  }
+</div>
