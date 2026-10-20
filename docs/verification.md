@@ -1,5 +1,37 @@
 # Verification evidence
 
+## Increment 5 UI follow-up — shared Write / Prepare / Play — 2026-10-20
+
+**Assessment: pass within the assessed scope; no blocking defect found.** Assessed the accepted “Shared mode UI and Prepare placeholders” requirements and “Shared Write / Prepare / Play UI” bounded plan, including the retained card-table interactions. This is a separate verification pass by the implementing agent, not an independent reviewer assessment. It does not reassess or close historical findings from other increments below.
+
+### Evidence and method
+
+Reviewed the current uncommitted working tree based on `8de2529`, rather than claiming that HEAD contains this implementation. Inspected App availability handling, the shared header and global theme, Writing search/disclosures/navigation, Prepare material filters/readers/placeholders, Play table filtering/events and their state/browser tests. No application or test source was changed during verification. Client regeneration reproduced the existing generated contract. Only this formal evidence record was written.
+
+Fresh `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` execution passed: **63 frontend tests across nine files**, production build, **all 14 Chromium browser flows**, generated-client/version checks and isolated PostgreSQL restart preservation. Backend test/bootJar tasks were UP-TO-DATE, not freshly executed backend tests; existing XML reports total **44 tests, zero failures/errors/skips**. This frontend follow-up introduces no additional backend changes. `git diff --check` passed. Owned smoke services and containers were cleaned up; browser fixtures use temporary campaign directories and the disposable database.
+
+### Requirements assessment
+
+| Approved behavior | Assessment and evidence |
+| --- | --- |
+| Consistent campaign/mode/save header and contextual rows | Pass on shared-component inspection, browser navigation/save-guard flows and rendered screenshots. Write/Prepare/Play reuse the same presentation component; feature owners retain navigation, persistence and guards. Active mode is identified with `aria-current`. |
+| Dark menus and availability without a permanent healthy indicator | Pass. Browser checks assert actual menu background/text colors and startup-failure/retry recovery. Unit checks cover startup and foreground return; subscription cleanup and suppression of concurrent checks are present on inspection. Save status is separate from availability. |
+| Write body visible early; optional metadata, creation and export controls | Pass. The Writing flow asserts the body is in the viewport before expanding metadata, edits and saves a draft, checks backend persistence and reload, combines title/type filters, and exercises preview and failure recovery. Template inspection confirms disclosures and on-demand export/history access. Existing export/deletion/recovery flows pass. |
+| Prepare compact filters and full-document-first material viewing | Pass on inspection and typed-library/authored-preparation/reader flows. Multi-type filtering, Search all, diagnostics and explicit assembly/approval remain accessible. Draft selection renders the document before switching to Card; prepared selection resets to Document. Reader metadata disclosures preserve the mounted safe reader and authored text. |
+| Bundled placeholders across Prepare | Pass. Source and draft-list browser assertions verify placeholder coverage; source search-result, prepared-list and card templates use the same local SVG. Inspected Prepare screenshot shows source and session-list thumbnails. No per-card selection/storage or source-owned image fetching was added. |
+| Play primary-type group plus text find | Pass. The table unit test covers combined filters across active/used, All including untyped entries, unchanged input order and suppression of filtered drop/reorder. Browser flow filters a used NPC, combines a nonmatching find, retains selected full text, clears filters and checks the saved arrangement. All eight existing types are provided without a new taxonomy. |
+| Card interactions and persistence remain usable | Pass within Chromium coverage: actual whole-card reorder and Used-pile/tray drag, on-card keyboard alternatives, selection border, summary scrolling, independent preparation order, newly added cards at front, reopen and archive export. Both find/group filters disable drag and positional move actions. Explicit Mark used/Return actions remain available through card menus. |
+| Play naming and compatibility | Pass. New navigation emits Play; new `mode=play` browser flow and existing `mode=read` reader/import flows pass. The route accepts both aliases. No play lifecycle record or journal is introduced. |
+| Ownership, immutable material and save protection | Pass on inspection and regression evidence. Shared header only receives values/emits intents; Writing and Preparation own state. Frozen reading, captured links, archive portability, failed-save retention, conflicts and guarded navigation continue through existing owners and passing browser flows. Per-card images remain deferred. |
+
+### Visual evidence and limits
+
+Reviewed freshly generated screenshots for Write (`writing-card.png`), Prepare (`typed-library-1280.png`) and Play (`card-table-1440.png`) under their corresponding `frontend/test-results/` flow directories. Automated Prepare/Play viewport checks cover 1280×800 and 1440×900; the table retains 320px cards and has no external per-card control rows. Write's screenshot deliberately has metadata expanded; the body-visible default is established by the browser assertion before expansion. These generated screenshots are local artifacts, not tracked source.
+
+The initial bundle remains **710.42 kB** versus the **500 kB** warning budget. Workspace CSS remains **7.91 kB** versus **4 kB**, with existing prototype stylesheet warnings. Builds pass; budgets were not relaxed. These are recorded nonblocking size risks, not performance benchmark results.
+
+Safari/WebKit, real touch/iPad dragging, exhaustive accessibility, narrow-screen visual review, resource stress and exhaustive multi-browser interleavings were not verified. Menu color assertions establish the tested colors, not a complete contrast/accessibility audit. This scoped pass does not constitute a new assessment of every older backend feature or resolve historical findings below. No corrective application work is required by this assessment; commits and later increments remain separate actions.
+
 ## MW-5 — delete a Writing draft — 2026-10-20
 
 **Assessment: correction required before verification can pass.** One reproducible HTTP validation defect violates the accepted missing/malformed-request behavior. Normal exact-revision deletion, retained history and the assessed race/failure behavior pass. The owner reviewed/approved implementation and explicitly authorized this verification. No application or test source was changed; this is a separate pass by the same agent, not an independent reviewer assessment.
