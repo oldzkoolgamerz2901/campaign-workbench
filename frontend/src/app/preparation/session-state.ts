@@ -308,7 +308,16 @@ export class SessionState {
     if (this.queueRunning()) return false;
     return this.addOne(capture, path, section);
   }
-  private async addOne(capture: string, path: string, section: string | null): Promise<boolean> {
+  async addDraft(draft: string, draftRevision: number): Promise<boolean> {
+    if (this.queueRunning()) return false;
+    return this.addOne('', '', null, { draft, draftRevision });
+  }
+  private async addOne(
+    capture: string,
+    path: string,
+    section: string | null,
+    authored?: { draft: string; draftRevision: number },
+  ): Promise<boolean> {
     if (this.mutating() || !(await this.flush())) return false;
     if (this.mutating()) return false;
     const snapshot = this.current();
@@ -322,15 +331,25 @@ export class SessionState {
     let completed = false;
     this.mutation = (async () => {
       try {
+        const json = { httpHeaderAccept: 'application/json' as const };
         const saved = await firstValueFrom(
-          this.api.addSessionSource(
-            snapshot.campaign,
-            snapshot.id,
-            { revision: snapshot.revision, capture, path, section },
-            'body',
-            false,
-            { httpHeaderAccept: 'application/json' },
-          ),
+          authored
+            ? this.api.addSessionDraft(
+                snapshot.campaign,
+                snapshot.id,
+                { revision: snapshot.revision, ...authored },
+                'body',
+                false,
+                json,
+              )
+            : this.api.addSessionSource(
+                snapshot.campaign,
+                snapshot.id,
+                { revision: snapshot.revision, capture, path, section },
+                'body',
+                false,
+                json,
+              ),
         );
         if (epoch !== this.epoch) return;
         const added = saved.items.filter((i) => !snapshot.items.some((old) => old.id === i.id));
@@ -338,11 +357,12 @@ export class SessionState {
           s ? { ...s, revision: saved.revision, items: [...s.items, ...added] } : s,
         );
         this.selectItem(added[0]?.id ?? null);
-        completed = true;
         this.status.set(this.dirty ? 'pending' : 'saved');
         await this.renderSources();
+        if (epoch !== this.epoch) return;
+        completed = true;
         this.notice.set(
-          `Captured source added to ${this.current()?.title}. Its text is preserved with this session.`,
+          `${authored ? 'Approved draft revision' : 'Captured source'} added to ${this.current()?.title}. Its text is preserved with this session.`,
         );
       } catch (e) {
         if (epoch === this.epoch) this.fail(e);

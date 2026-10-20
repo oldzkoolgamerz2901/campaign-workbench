@@ -9,13 +9,51 @@ import workbench.sources.api.*
 import java.util.Locale
 import java.util.UUID
 
-internal data class FrontMatter(val bodyStart: Int = 0, val classification: SourceClassification = SourceClassification(), val declaredPurpose: String? = null, val declaredId: UUID? = null)
+internal data class FrontMatter(val bodyStart: Int = 0, val classification: SourceClassification = SourceClassification(), val declaredPurpose: String? = null, val declaredId: UUID? = null, val data: Map<*, *>? = null)
 
 /** Decode data only. Raw source and all offsets remain owned by the Markdown capture. */
 internal class WorkbenchFrontMatter {
     private val settings = LoadSettings.builder().setSchema(JsonSchema()).setAllowDuplicateKeys(false)
         .setAllowRecursiveKeys(false).setAllowNonScalarKeys(false).setMaxAliasesForCollections(0)
         .setCodePointLimit(65_536).build()
+
+    /** Inspect only an opening YAML mapping, including an incomplete one; never scan later Markdown. */
+    fun hasOwnedEnvelope(text: String): Boolean {
+        val prefix = text.removePrefix("\uFEFF").take(65_536)
+        val lines = prefix.lineSequence().iterator()
+        if (!lines.hasNext() || lines.next() != "---") return false
+        val yaml = buildString {
+            while (lines.hasNext()) {
+                val line = lines.next()
+                if (line == "---") break
+                append(line).append('\n')
+            }
+        }
+        return try {
+            var depth = 0
+            var rootMapping = false
+            var rootItems = 0
+            var events = 0
+            for (event in Parse(settings).parseString(yaml)) {
+                if (++events > 4096) return false
+                when (event) {
+                    is CollectionStartEvent -> {
+                        if (depth == 0) rootMapping = event is MappingStartEvent
+                        if (depth == 1) rootItems++
+                        if (++depth > 16) return false
+                    }
+                    is CollectionEndEvent -> if (--depth == 0) return false
+                    is ScalarEvent -> if (rootMapping && depth == 1) {
+                        if (rootItems % 2 == 0 && event.value == "workbench") return true
+                        rootItems++
+                    }
+                    is AliasEvent -> if (depth == 1) rootItems++
+                    else -> Unit
+                }
+            }
+            false
+        } catch (_: Exception) { false }
+    }
 
     fun extract(text: String): FrontMatter {
         val start = if (text.startsWith('\uFEFF')) 1 else 0
@@ -54,8 +92,8 @@ internal class WorkbenchFrontMatter {
             Load(settings).loadFromString(yaml)
         } catch (_: Exception) { return failure("metadata.yaml", "Invalid or unsupported YAML; use one data mapping without duplicate keys, aliases or explicit tags (maximum depth 16 and 4096 events).") }
         if (root !is Map<*, *>) return failure("metadata.mapping", "Front matter must be a mapping.")
-        if (!root.containsKey("workbench")) return FrontMatter(bodyStart)
-        val fields = root["workbench"] as? Map<*, *> ?: return failure("metadata.mapping", "workbench must be a mapping.")
+        if (!root.containsKey("workbench")) return FrontMatter(bodyStart, data = root)
+        val fields = root["workbench"] as? Map<*, *> ?: return failure("metadata.mapping", "workbench must be a mapping.").copy(data = root)
         val issues = mutableListOf<ClassificationIssue>()
         fun issue(field: String, message: String) { issues += ClassificationIssue("metadata.field", field, message) }
         fun string(field: String, limit: Int, required: Boolean = true): String? {
@@ -86,6 +124,6 @@ internal class WorkbenchFrontMatter {
         val known = setOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary")
         fields.keys.filter { it !in known }.forEach { issues += ClassificationIssue("metadata.unknown-field", it?.toString(), "Unknown Workbench field is ignored.", "warning") }
         val metadata = if (issues.none { it.severity == "error" }) CardMetadata(1, id!!, title!!, type!!, purpose!!, status!!, tags, summary) else null
-        return FrontMatter(bodyStart, SourceClassification(metadata, issues), purpose, id)
+        return FrontMatter(bodyStart, SourceClassification(metadata, issues), purpose, id, root)
     }
 }

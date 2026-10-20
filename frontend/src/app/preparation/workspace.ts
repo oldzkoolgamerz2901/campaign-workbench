@@ -19,6 +19,9 @@ import { SessionContents } from './session-contents';
 import { SourceDocument } from '../../api/generated';
 import { AdventureAssembly } from './adventure-assembly';
 import { revealReaderTarget } from '../shared/reader/reader-presentation';
+import { DraftChooser } from './draft-chooser';
+import { PlayingCard } from '../shared/playing-card/playing-card';
+import { DraftData } from '../../api/generated';
 import { MarkdownView } from './markdown-view';
 
 @Component({
@@ -31,11 +34,15 @@ import { MarkdownView } from './markdown-view';
     CampaignControls,
     SessionContents,
     AdventureAssembly,
+    DraftChooser,
+    PlayingCard,
   ],
   templateUrl: './workspace.html',
   styleUrl: './workspace.css',
 })
 export class Workspace implements OnDestroy {
+  readonly material = signal<'sources' | 'drafts'>('sources');
+  readonly cardOpen = signal(true);
   readonly library = inject(LibraryState);
   readonly state = inject(SessionState);
   readonly router = inject(Router);
@@ -172,6 +179,16 @@ export class Workspace implements OnDestroy {
       this.contentsOpen.set(true);
     }
   }
+  async approveDraft(draft: DraftData) {
+    if (!this.campaignReady() || this.busy() || draft.campaign !== this.state.current()?.campaign)
+      return;
+    if (await this.state.addDraft(draft.id, draft.revision)) {
+      this.notesScope.set('item');
+      this.contentsOpen.set(true);
+      this.cardOpen.set(true);
+      await this.navigate(undefined, 'prepare');
+    }
+  }
   async openSession(id: string) {
     await this.navigate(id, 'prepare', 'prepare');
     this.sessionsOpen.set(false);
@@ -179,13 +196,18 @@ export class Workspace implements OnDestroy {
   selectCampaign(id: string) {
     if (this.campaignReady() && !this.busy()) void this.library.select(id);
   }
+  openWriting() {
+    void this.router.navigate(['/writing'], { queryParams: this.route.snapshot.queryParams });
+  }
   selectPrepared(id: string) {
     if (this.busy()) return;
+    this.cardOpen.set(true);
     this.state.selectItem(id);
     this.notesScope.set('item');
     void this.navigate(undefined, 'prepare');
   }
   browse() {
+    this.material.set('sources');
     this.libraryOpen.set(true);
     void this.navigate(undefined, 'library', 'prepare');
   }
@@ -201,6 +223,7 @@ export class Workspace implements OnDestroy {
     const [id, anchor] = target.slice(1).split('#');
     if (!this.state.current()?.items.some((i) => i.id === id)) return;
     this.state.selectItem(id);
+    this.cardOpen.set(false);
     this.notesScope.set('item');
     setTimeout(() => {
       const page = document.querySelector('.source-page');

@@ -85,10 +85,11 @@ class TypedPreparationIntegrationTest : StringSpec({
         val rendered = p.view(campaign, old.id).getOrNull()!!.items.single().source
         rendered.html shouldContain "old unparsed envelope"
         val v2 = p.export(campaign, ExportSessions(listOf(old.id))).getOrNull()!!
-        v2.version shouldBe 2
+        v2.version shouldBe 3
         val tree = mapper().valueToTree<ObjectNode>(v2)
         tree.put("version", 1)
         (tree.path("sessions")[0].path("items")[0] as ObjectNode).remove("capturedSource")
+        (tree.path("sessions")[0].path("items")[0].path("provenance") as ObjectNode).remove(listOf("kind", "authored"))
         val response = post(other, tree.toString())
         response.statusCode() shouldBe 200
         val imported = mapper().readValue(response.body(), SessionList::class.java).sessions.single().id
@@ -101,7 +102,7 @@ class TypedPreparationIntegrationTest : StringSpec({
         p.import(other, v2.copy(version = 1)).isRight() shouldBe true // null snapshots are legacy in the application contract
     }
 
-    "typed snapshots and links survive source refactors, notes, restart and portable v2 import" {
+    "typed snapshots and links survive source refactors, notes, restart and portable v3 import" {
         val sources = context!!.getBean(SourceService::class.java)
         val p = service()
         val adventureId = UUID.randomUUID()
@@ -156,7 +157,13 @@ class TypedPreparationIntegrationTest : StringSpec({
         Files.list(root).use { it.forEach(Files::delete) }
         sources.refresh(campaign).isRight() shouldBe true
         typedArchive = p.export(campaign, ExportSessions(listOf(saved.id))).getOrNull()!!
-        typedArchive!!.version shouldBe 2
+        typedArchive!!.version shouldBe 3
+        val oldWire = mapper().valueToTree<ObjectNode>(typedArchive)
+        oldWire.put("version", 2)
+        oldWire.path("sessions").forEach { session -> session.path("items").forEach { item ->
+            (item.path("provenance") as ObjectNode).remove(listOf("kind", "authored"))
+        } }
+        post(other, oldWire.toString()).statusCode() shouldBe 200
         val response = post(other, mapper().writeValueAsString(typedArchive))
         response.statusCode() shouldBe 200
         val importedId = mapper().readValue(response.body(), SessionList::class.java).sessions.single().id
@@ -207,7 +214,7 @@ class TypedPreparationIntegrationTest : StringSpec({
             mutate { _, item, _ -> item.put("markdown", "Tampered") },
             mutate { _, item, _ -> item.put("notes", "x".repeat(2 * 1024 * 1024 + 1)) },
             mapper().writeValueAsString(archive) + "{}",
-            mapper().writeValueAsString(archive).replaceFirst("\"version\":2", "\"version\":2,\"version\":1")
+            mapper().writeValueAsString(archive).replaceFirst("\"version\":3", "\"version\":3,\"version\":1")
         )
         invalid.forEachIndexed { index, json ->
             val response = post(other, json)

@@ -380,3 +380,22 @@ button:disabled {
   max-width: 72ch;
   margin-inline: auto;
 }
+
+session-draft-chooser {
+  grid-column: 2;
+  grid-row: var(--reader-row);
+  min-height: 0;
+  overflow: auto;
+}
+.provenance pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+nav[aria-label='Available material'] {
+  display: flex;
+  flex-shrink: 0;
+}
+nav[aria-label='Available material'] button {
+  font-size: 0.72rem;
+}

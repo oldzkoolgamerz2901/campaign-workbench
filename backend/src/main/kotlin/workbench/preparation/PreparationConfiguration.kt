@@ -9,5 +9,5 @@ import workbench.preparation.application.*
 
 @Configuration
 class PreparationConfiguration {
-    @Bean fun preparationService(campaigns: Campaigns, sources: Sources, store: SessionStore, tx: Transactions, markdown: PreparationMarkdown) = PreparationService(campaigns, sources, store, tx, markdown)
+    @Bean fun preparationService(campaigns: Campaigns, sources: Sources, store: SessionStore, tx: Transactions, markdown: PreparationMarkdown, writing: workbench.writing.api.SessionDrafts) = PreparationService(campaigns, sources, store, tx, markdown, writing)
 }

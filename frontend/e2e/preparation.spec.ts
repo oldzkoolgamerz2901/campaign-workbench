@@ -138,7 +138,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     const download = await downloadPromise;
     const downloaded = await download.path();
     const archive = JSON.parse(await readFile(downloaded!, 'utf8'));
-    expect(archive.version).toBe(2);
+    expect(archive.version).toBe(3);
     expect(archive.sessions).toHaveLength(1);
     expect(archive.sessions[0].items[0].title).toBe('Lower chamber');
     expect(archive.sessions[0].items[0].capturedSource.classification.metadata).toMatchObject({

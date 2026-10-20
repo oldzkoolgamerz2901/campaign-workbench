@@ -62,7 +62,7 @@ class PreparationIntegrationTest : StringSpec({
         }) })).isLeft() shouldBe true
         val beforeImport = p.list(b).getOrNull()!!.sessions.size
         tx.run<Unit> {
-            p.import(b, archive.copy(sessions = archive.sessions + archive.sessions.map { it.copy(id = UUID.randomUUID()) })).isRight() shouldBe true
+            p.import(b, archive.copy(sessions = archive.sessions + archive.sessions.map { it.copy(id = UUID.randomUUID(), items = it.items.map { item -> item.copy(id = UUID.randomUUID()) }) })).isRight() shouldBe true
             Either.Left(Failure.Invalid("test.import-rollback", "Rollback after both sessions were written"))
         }.isLeft() shouldBe true
         p.list(b).getOrNull()!!.sessions.size shouldBe beforeImport

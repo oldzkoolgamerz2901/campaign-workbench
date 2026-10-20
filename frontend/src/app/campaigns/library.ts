@@ -18,6 +18,8 @@ export class CampaignLibrary {
   readonly shelfVisible = input(true);
   readonly readerVisible = input(true);
   readonly canAdd = input(false);
+  readonly authoring = input(false);
+  readonly copySource = output<{ capture: string; path: string }>();
   readonly addSource = output<{ path: string; section: string | null }>();
   readonly requestSession = output<void>();
   readonly openSource = output<void>();

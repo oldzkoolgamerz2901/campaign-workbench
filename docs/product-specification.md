@@ -12,7 +12,7 @@ The accepted application name is **Campaign Workbench**, with repository name `c
 
 The app serves a DM preparing and playing any registered campaign. The first version supports multiple campaign folders and one selected campaign at a time. Sea Witch is an initial example, not a required campaign structure. The DM operates the app; players receive material deliberately displayed or exported by the DM. Player accounts and a player portal are excluded initially.
 
-Markdown in independent campaign directories remains the authority for campaign content. The application monorepo is separate from those directories. The local backend reads a selected directory directly and detects source changes; prepared content remains pinned until the DM accepts updates. The database owns application state, drafts, playthrough records, and prepared snapshots. The app does not automatically rewrite campaign files.
+Markdown in independent campaign directories remains the authority for repository campaign content. The application monorepo is separate from those directories. The local backend reads a selected directory directly and detects source changes; prepared content remains pinned until the DM accepts updates. The database owns application state, drafts, playthrough records, and prepared snapshots. The accepted creative co-author extension below adds explicit campaign decisions that may guide assistance before repository incorporation; overriding a source passage requires explicit owner resolution. The app does not automatically rewrite campaign files.
 
 Campaign conventions are configurable: folders and filenames may vary, authority sources are designated by the DM, and revelation rules apply when supplied. No Sea Witch names, paths, lore, or mechanics are built into application behavior.
 
@@ -43,7 +43,7 @@ Acceptance:
 
 ### R3 — Assisted creation
 
-Given a session objective, assisted creation can adapt existing material and draft missing scenes, NPC interactions, clues, and handouts. Broader campaign development is outside the initial scope.
+Given a session objective, assisted creation can adapt existing material and draft missing scenes, NPC interactions, clues, and handouts. The original session-specific scope is extended by the accepted creative co-author requirements below to include campaign development conversations and drafts.
 
 Context includes the objective, selected sources, designated campaign canon, revelation rules, and recorded discoveries. Outputs cite sources, identify conflicts, and distinguish invented additions from source-supported material. Citations and automated checks assist review; they do not guarantee correctness.
 
@@ -56,7 +56,7 @@ Acceptance:
 
 ### R4 — Draft approval and export
 
-Generated material remains a session draft until the DM approves it. Approval makes it usable in the session; adopting it as campaign canon is a separate decision. Approved content can be exported as Markdown for manual incorporation into the repository.
+Generated material remains a draft until the DM approves it. Approval for session use makes that draft version usable in preparation; accepting a campaign decision is a separate action. Approved finished content can be exported as Markdown for manual incorporation into the repository. Campaign-scoped drafts need not belong to a session.
 
 Acceptance:
 
@@ -166,7 +166,7 @@ Acceptance:
 - Excluded notes are absent from outgoing AI context.
 - Assistance uses the applicable campaign and session context without treating all stored notes as implicitly shareable.
 
-Provider selection and associated data handling terms remain unresolved.
+The creative co-author initially targets OpenAI ChatGPT plan access as specified below. Model availability, account eligibility, and associated data handling terms remain to be verified before live integration; separately billed API access is not enabled by that choice.
 
 ### R14 — Explicit generation and spending controls
 
@@ -180,6 +180,8 @@ Acceptance:
 - AI failure or spending limits do not remove access to existing material or manual recording.
 
 Provider accounting capabilities, limit enforcement semantics, and the actual budget require resolution before this requirement can be finalized for implementation.
+
+For the accepted subscription-first co-author, distinguish plan allowance from separately billed API spending. Use existing ChatGPT Plus allowance where supported, with no automatic paid fallback or app-initiated credit purchase. If access or allowance is unavailable, preserve manual work and explain the limitation. A paid API path requires explicit owner enablement and a configured budget before use; API cost estimates must not be represented as subscription-allowance measurements.
 
 ### R15 — Campaign registration and isolation
 
@@ -327,6 +329,97 @@ Status: Requirements accepted by the owner on 2026-10-17. This concerns develope
 
 Acceptance: from the Gradle task, reach the Angular interface and its local backend without separate startup commands; observe useful errors on startup failure; stop the task and confirm its backend/frontend processes terminate while database state remains. Ordinary build/test tasks must not start the development stack.
 
+## Manual writing and playing cards — accepted requirements — 2026-10-19
+
+Status: The owner approved the requirements below and authorized architecture work. This is the first addition to develop before AI integration. It supersedes the co-author's subscription-feasibility-first sequence, not the accepted longer-term co-author requirements. Architecture, increment planning, implementation, and verification retain their separate approval boundaries.
+
+### Goal and scope
+
+Provide manual campaign writing that produces ordinary Workbench-compatible Markdown, can be prepared directly for sessions, and has an in-app playing-card presentation. No AI access is required. Groups mean the existing primary content types, not a second taxonomy or a synonym for tags.
+
+### Observable requirements
+
+- **MW1 — Grouped writing library:** Provide All and NPC, Location, Faction, Item, Scene, Adventure, Handout, and Reference tabs. A document has one primary type. Optional free-form campaign tags support cross-cutting filtering, with suggestions/reuse of existing tags; no compulsory taxonomy, custom groups, or tag hierarchy is included.
+- **MW2 — Manual editor:** Provide dedicated title, type, optional tags, and optional authored-summary controls alongside a Markdown body editor. Offer optional type-specific starting templates, using the existing recommended headings as a starting point, not compulsory document structure. Metadata status remains distinct from session-use approval.
+- **MW3 — Durable drafts:** Save campaign-scoped drafts across restart. Show saving/saved/failure states based on completed saves, retain working edits on failure, and protect navigation against silent loss. Concurrent/late saves must not overwrite newer revisions or another campaign's work.
+- **MW4 — Draft from source:** Create an editable draft from an existing captured library document, retaining its source reference and leaving the source untouched. Draft/source identity and export behavior must be explicit before implementation; copying must not silently overwrite sources or introduce duplicate card identities.
+- **MW5 — Playing-card face:** Use a portrait playing-card presentation with default placeholder artwork, title, type, tags, and authored summary. When the summary is absent, show a clear missing-summary state. Never invent a summary or silently substitute truncated body text. Full content remains accessible rather than being forced into the card face.
+- **MW6 — Preview and full reading:** Preview both the card and full Markdown document during writing. Use the same presentation rules for prepared material. Long Scenes remain readable; card presentation does not change Markdown content or remove full reading access.
+- **MW7 — Direct preparation:** Explicitly approve an exact draft revision for session use and add a frozen copy before export. Subsequent draft edits must not change prepared content or labels. Existing per-entry notes remain available.
+- **MW8 — Planner groups and ordering:** Type tabs organize available material; each saved session retains one mixed, manually ordered collection. Group navigation must not partition or reorder the saved session. Preserve existing source access, filtering, full reading, and session notes.
+- **MW9 — Markdown export and compatibility:** Export a selected finished draft revision using the existing Workbench front-matter contract. Preserve authored body text and warn about nonportable links. After manual incorporation into a registered campaign fixture and refresh, the exported file must classify and render correctly with matching type, tags, summary, body, and supported link behavior. Export does not write campaign files, imply canon acceptance, or automatically approve session use.
+- **MW10 — Export placement and link checks:** Retain a suggested campaign-relative export path for each draft. Check relative Markdown links against intended placement and show link/placement warnings before download. The DM still places exported files manually; do not promise links remain valid at arbitrary locations.
+- **MW11 — Manual draft recovery:** Include a portable draft archive with tested restore covering saved drafts, retained approved/exported revisions, and source provenance. Restore into a separate recovered workspace without overwriting existing work. This is distinct from finished-document Markdown export and does not require the future AI conversation/decision archive.
+- **MW12 — Delete a Writing draft — accepted 2026-10-20:** Provide Delete draft for the selected campaign-scoped draft, with confirmation naming it and explaining that its working copy and unsaved edits will be deleted while retained history and prepared copies remain. Successful deletion removes it from Writing and the planner's available drafts, clears the editor and shows confirmation. Preserve campaign files, frozen session contents, retained exports/approved revisions and existing recovery workspaces. Target the exact saved revision; reject stale requests and require explicit reload. On failure retain the editor/local edits, and prevent pending saves or late responses from recreating a deleted draft. No trash or undo is included; previously downloaded recovery archives remain unchanged.
+
+Accepted architecture-related refinements: copying a source creates an independent card identity with retained source provenance. New cards default to metadata status draft, with explicit status controls; session approval remains independent. Portrait cards expose overflowing summary/tags through explicit expansion or scrolling rather than silent clipping. Exported draft-status cards remain accessible through the existing Include drafts library control.
+
+### Acceptance walkthrough
+
+1. Create an NPC draft with metadata/body; find it under NPCs and preview both card and full text.
+2. Restart and recover the saved draft. Demonstrate save failure, retained working edits, and safe navigation/retry.
+3. Approve a revision and add its frozen copy between Scenes in one mixed session; add session-specific notes.
+4. Edit the draft and verify the prepared copy retains its text, metadata, summary, order, and notes.
+5. Export the draft, manually incorporate it into an isolated campaign fixture, refresh, and verify classification/rendering/link compatibility. Do not modify the real Sea Witch campaign as an implicit part of this check.
+6. Repeat with a long Scene and a draft copied from existing material. Verify campaign isolation, source preservation, and existing prepared/archive compatibility.
+7. Exercise placement-dependent link warnings; export and restore the manual draft archive into a separate recovered workspace, verifying retained revisions/provenance and preservation of existing work.
+8. Delete unexported and exported drafts, including a draft with unsaved edits and a prepared copy. Verify retained history, unchanged campaign files/prepared copies, disappearance from available drafts and persistence after restart. Exercise failed deletion, concurrent revision changes and campaign isolation without losing local edits or resurrecting the draft.
+
+### Exclusions and design questions
+
+AI, direct source-file editing, custom groups, structured relationships/inventories, image upload/generation, dragging/stacking, standalone HTML export, and player sharing are excluded. Default placeholder artwork is included. Cards are in-app HTML presentations, not standalone exported HTML artifacts or a separately deployed rendering service requirement.
+
+Source forks have independent identities, draft status/session approval remain separate, overflow is explicitly expandable/scrollable, and suggested export paths support link checks. Exact visual layout, prepared-draft provenance/archive evolution, metadata serialization/validation, and draft-archive format/bounds remain design details before affected implementation. The broader Writing recovery archive remains accepted future scope; its full conversation/decision content does not become a prerequisite for the accepted bounded manual-draft recovery path.
+
+## Creative co-author — accepted requirements — 2026-10-19
+
+Status: The owner approved these requirements and authorized architecture work in the current conversation. This records product decisions, not authorization to plan or implement. Architecture proposals belong in `implementation-plan.md` and require separate approval.
+
+### Goal and scope
+
+Build first for the owner's campaigns. Provide an ongoing creative collaboration grounded in campaign material, rather than only single-request session gap filling. Measure usefulness through preparation effort, creative continuity, repeated explanation, correction effort, and usability of the prepared result. No numerical time-saving target has been established.
+
+Initial topic guidance covers world/lore, characters/factions, and scenes/adventures. Retain the existing small content-type vocabulary, optional templates, ordinary Markdown links, and per-prepared-item notes before introducing structured relationships. Enemies need not become a separate type from NPCs, nor weapons a separate type from items merely to support this scope.
+
+### Observable requirements
+
+- **CW1 — Saved conversations:** Save and resume campaign-scoped topic conversations across application restart. Campaign switching and late generation/save results must not mix conversations, sources, decisions, drafts, or guidance between campaigns.
+- **CW2 — Approved topic guidance:** Apply approved guidance appropriate to the creative topic. AI-proposed guidance changes have no effect until explicitly approved. Keep creative instructions distinct from facts about the campaign.
+- **CW3 — Explicit decisions:** The DM can explicitly accept, edit, and supersede campaign decisions independently of document completion. Accepted decisions become available to subsequent relevant conversations before Markdown export. Suggestions and unaccepted brainstorms do not acquire authority through inclusion in conversation history.
+- **CW4 — Visible authority conflicts:** Distinguish source material, accepted decisions, drafts, and proposals. Show identified contradictions without automatically choosing a winner. The DM may explicitly approve a decision overriding an identified source passage for future assistance, pending manual repository incorporation. Preserve the original source and resolution; do not infer that an entire document is overridden. Automated detection does not guarantee exhaustive consistency.
+- **CW5 — Inspectable context:** Show the sources, decisions, drafts, and topic guidance selected for a request and allow adjustment. Excluded material must remain outside outgoing requests, including automatically selected derived context. Expose context limitations rather than silently representing partial context as complete campaign knowledge. Existing R13 privacy constraints apply.
+- **CW6 — Reviewable drafts:** Create, manually edit, and explicitly request AI revision of Markdown drafts. Distinguish invented additions from source-supported claims and retain references to supporting material. Export selected finished content for manual incorporation into the campaign repository; no campaign-file writes are included.
+- **CW7 — Separate approvals:** Session approval, campaign-decision acceptance, guidance approval, and finished-document export are distinct actions. None automatically performs another or establishes whole-draft canon authority.
+- **CW8 — Preparation integration:** Add a session-approved draft version as a frozen prepared item before export. Later draft edits do not silently change the prepared copy. Retain the existing prepared-item notes and session behavior.
+- **CW9 — Revision traceability:** Preserve superseded decisions and their origins. Make conversation and supporting-material origins inspectable for decisions and drafts. Flag potentially affected drafts for review without automatically rewriting them or claiming exhaustive impact detection.
+- **CW10 — Persistence and failures:** Preserve saved conversations, decisions, guidance, and drafts across restart and generation failure. Existing preparation and manual work remain usable when AI is unavailable. Generation requires an explicit action; R14 usage visibility and spending constraints remain mandatory.
+- **CW11 — Creative-work recovery:** Include a portable Writing archive and tested restoration covering conversations, decisions, guidance, drafts, and retained source evidence. Validate before import and restore to a separate recovered workspace without overwriting or merging existing work. Preserve internal relationships and historical approvals; recovered material influences new conversations only after explicit selection. Source-folder attachment and sign-in are separate actions. Exclude credentials; restoration must not reset spending records. This is distinct from finished-document export and existing prepared-session archives.
+
+Accepted access/export refinements: prioritize minimal additional spending by using the owner's existing ChatGPT Plus allowance where supported. This supersedes the earlier API-credentials-first choice. Separately billed API use remains disabled unless explicitly enabled. Ordinary document export downloads one selected finished draft as Markdown, preserving authored text and warning about nonportable links. Existing ChatGPT conversations are not presumed available through sign-in.
+
+Acceptance is assessed against these observable behaviors; a source reference establishes traceability, not proof that a generated claim is correct.
+
+### Sea Witch pilot acceptance scenario
+
+Use one real Sea Witch preparation task, with its exact subject selected before pilot execution:
+
+1. Resume a creative conversation with selected campaign material and approved topic guidance.
+2. Brainstorm, refine, and explicitly accept a campaign decision.
+3. Open a related conversation and demonstrate that the accepted decision can inform it.
+4. Revise the decision, preserve its history, and expose potentially affected drafts for review. Exercise explicit resolution of a conflict with a selected source passage.
+5. Produce and manually edit a Markdown draft with inspectable context and traceable references.
+6. Approve the draft version for session use and add a frozen prepared copy before export. Demonstrate that subsequent draft edits leave that copy intact.
+7. Export the finished draft for manual repository incorporation. Export does not change sources or silently accept decisions.
+8. Confirm persistence after restart, exclusion of private context, campaign isolation, and preservation of work after failed generation.
+
+Evaluate the creative result with the owner. Campaign independence also needs a differently structured fixture; Sea Witch terminology must not become application behavior. This pilot does not require the broader Agelus/playthrough scenario below or complete journal functionality.
+
+### Exclusions and unresolved decisions
+
+The first co-author scope excludes direct campaign-file editing, images/image generation, spatial card layouts, structured inventories, battle simulation, autonomous campaign-wide editing, and networked player sharing. Direct Markdown source authoring remains a longer-term direction, separately designed and authorized. Existing non-AI preparation and reading remain supported.
+
+OpenAI subscription access is selected subject to eligibility and integration verification. Manual writing/cards take priority; subscription feasibility remains a prerequisite before building the full AI workflow, not the next development increment. Verify sign-in, model availability, and additional-credit controls before co-author implementation; return to the owner if this route cannot meet the spending constraint. Model choice, acceptable data handling, precise allowance/usage behavior, detailed context selection, archive format/validation details, and the exact pilot task remain unresolved before affected implementation. No numerical paid budget has been approved. No existing discovery records or comprehensive source-authority system may be presumed implemented. Full conversation/decision recovery belongs to the accepted Writing archive scope and is not supplied by existing prepared-session archives.
+
 ## Evaluation scenario
 
 Proposed review scenario: prepare and run the Agelus investigation from Tordeck's chest through the monastery, using linked scenes, NPC context, clues, handouts, assisted creation, and discovery records.
@@ -341,7 +434,7 @@ Campaign independence also requires a second, differently structured campaign fi
 - Player accounts, a hosted player portal, and automatic cross-device synchronization.
 - Automatic repository edits or automatic canon adoption.
 - Unattended generation or automatic application of AI-interpreted outcomes.
-- General campaign authoring beyond session preparation.
+- General campaign authoring beyond the explicitly accepted manual-writing and creative co-author scopes above.
 - A full virtual tabletop, tactical combat engine, or autonomous world simulation.
 - Tablet delivery in the first increments.
 
@@ -350,7 +443,7 @@ Ship accounting, interactive maps, and comprehensive automated consistency audit
 ## Outstanding decisions and limits
 
 - Confirm the representative evaluation session.
-- Select an AI provider and model, acceptable provider data handling, and a spending budget; settle how the limit is measured and enforced.
+- Verify the selected OpenAI subscription access, model availability and acceptable data handling; settle allowance handling. Separately billed API use requires explicit enablement and a configured budget.
 - Establish laptop browser targets and local startup/distribution expectations.
 - PostgreSQL runs locally through Docker Compose; backup/restore behavior remains to be resolved before affected architecture decisions.
 - Application repository name and location are agreed above. Setup increment 0 covers repository creation and transfer of application design documents; no campaign-content migration is authorized.

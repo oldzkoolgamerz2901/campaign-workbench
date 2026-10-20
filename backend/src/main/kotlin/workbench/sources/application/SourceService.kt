@@ -8,12 +8,16 @@ import workbench.campaigns.api.Campaigns
 import workbench.platform.api.*
 import workbench.sources.api.*
 import workbench.sources.domain.*
-import java.net.URI
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 
 class SourceService(private val campaigns: Campaigns, private val store: CaptureStore, private val scanner: SourceScanner, private val markdown: Markdown, private val tx: Transactions) : Sources {
+    override fun authoringLibrary(campaign: UUID): Either<Failure, AuthoringLibrary> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val captured = store.get(campaign)
+        AuthoringLibrary(captured?.id, captured?.documents ?: emptyMap())
+    } }
     private val locks = ConcurrentHashMap<UUID, ReentrantLock>()
     private fun parsed(capture: Capture): Map<String, ParsedDocument> {
         val documents = capture.documents.mapValues { markdown.parse(it.value) }
@@ -116,28 +120,6 @@ class SourceService(private val campaigns: Campaigns, private val store: Capture
         SourceRelationship(link.key, link.originSection, link.destination, target, classification,
             !target.missing && metadata?.type == "scene" && metadata.purpose == "session")
     }
-    private fun resolveLink(origin: String, link: ParsedLink, documents: Map<String, ParsedDocument>): SourceLink {
-        fun missing() = SourceLink(link.key, null, null, null, true)
-        return try {
-            val uri = URI(link.destination.replace(" ", "%20"))
-            if (uri.isAbsolute) {
-                if (uri.scheme.lowercase() in setOf("https", "http")) SourceLink(link.key, null, null, uri.toASCIIString(), false) else missing()
-            } else {
-                if (uri.authority != null || uri.query != null) return missing()
-                val local = uri.path.orEmpty()
-                if (local.startsWith('/') || '\\' in local) return missing()
-                val segments = if (local.isEmpty()) origin.split('/').toMutableList() else (origin.substringBeforeLast('/', "").split('/').filter { it.isNotEmpty() }).toMutableList().apply {
-                    for (segment in local.split('/')) when (segment) {
-                        "", "." -> Unit
-                        ".." -> { if (isEmpty()) return missing(); removeAt(lastIndex) }
-                        else -> add(segment)
-                    }
-                }
-                val path = segments.joinToString("/")
-                val target = documents[path] ?: return missing()
-                val section = if (uri.fragment.isNullOrEmpty()) null else target.anchors[uri.fragment] ?: return missing()
-                SourceLink(link.key, path, section, null, false)
-            }
-        } catch (_: Exception) { missing() }
-    }
+    private fun resolveLink(origin: String, link: ParsedLink, documents: Map<String, ParsedDocument>): SourceLink =
+        resolveCapturedLink(origin, link, documents)
 }

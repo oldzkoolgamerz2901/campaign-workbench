@@ -101,7 +101,19 @@
         @for (issue of document.classification?.issues ?? []; track $index) {
           <p>{{ issue.message }}</p>
         }
-        @if (eligible(document)) {
+        @if (authoring()) {
+          @if (eligible(document)) {
+            <button
+              matButton="filled"
+              (click)="copySource.emit({ capture: document.capture, path: document.path })"
+              [disabled]="!ready()"
+            >
+              Copy document to draft
+            </button>
+          } @else {
+            <p>Guidance/tooling can be read here but cannot be copied into session drafts.</p>
+          }
+        } @else if (eligible(document)) {
           <button
             matButton="filled"
             (click)="addSource.emit({ path: document.path, section: null })"
@@ -121,7 +133,7 @@
           </p>
         }
       </header>
-      @if (!canAdd()) {
+      @if (!authoring() && !canAdd()) {
         <p>Create or open a session to collect this material.</p>
         <button matButton (click)="requestSession.emit()">Create or open a session</button>
       }
@@ -139,7 +151,7 @@
             tabindex="-1"
             [attr.aria-label]="section.heading"
           >
-            @if (eligible(document)) {
+            @if (!authoring() && eligible(document)) {
               <button
                 matButton
                 data-section-action

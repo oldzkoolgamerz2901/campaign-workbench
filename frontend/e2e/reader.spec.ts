@@ -272,7 +272,10 @@ ${'code-token'.repeat(160)}
       sessions: archive.sessions.map((s: any) => ({
         ...s,
         title: 'Legacy import',
-        items: s.items.map(({ capturedSource, ...item }: any) => item),
+        items: s.items.map(({ capturedSource, ...item }: any) => {
+          const { kind, authored, ...provenance } = item.provenance;
+          return { ...item, provenance };
+        }),
       })),
     };
     const legacy = await (

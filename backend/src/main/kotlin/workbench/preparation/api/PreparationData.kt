@@ -5,11 +5,13 @@ import java.util.UUID
 
 data class ProvenanceData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val campaign: UUID,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val capture: UUID,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val capture: UUID?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val path: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val section: String?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val documentHash: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val contentHash: String
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val contentHash: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val kind: String = "source",
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val authored: AuthoredOriginData? = null
 )
 
 data class PreparedItemData(

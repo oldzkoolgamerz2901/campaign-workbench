@@ -46,7 +46,7 @@ class CommonmarkPreparation : PreparationMarkdown {
                             val uri = try { URI(node.destination.replace(" ", "%20")) } catch (_: Exception) { null }
                             val external = uri?.takeIf { it.scheme?.lowercase() in setOf("http", "https") && it.host != null }?.toASCIIString()
                             val target = if (origin == null) uri?.takeIf { !it.isAbsolute && it.authority == null && it.path.orEmpty().isEmpty() && it.query == null }?.fragment?.takeIf { it in anchors }
-                                else capturedTarget(uri, origin, items)
+                                else if (origin.provenance.kind == "authored") authoredTarget(uri, node.destination, origin, items, links.size) else capturedTarget(uri, origin, items)
                             val key = "prepared-link-${links.size}"
                             links += RenderedLink(key, target, external, target == null && external == null)
                             context.writer.tag("a", mapOf("href" to "#$key")); children(node); context.writer.tag("/a")
@@ -56,6 +56,24 @@ class CommonmarkPreparation : PreparationMarkdown {
                 }
             } }.build()
         return RenderedMarkdown(anchors.toList(), renderer.render(root), links)
+    }
+    private fun authoredTarget(uri: URI?, destination: String, origin: PreparedItem, items: List<PreparedItem>, index: Int): String? {
+        if (uri == null || uri.isAbsolute || uri.authority != null || uri.query != null ||
+            uri.path.orEmpty().startsWith('/') || '\\' in uri.path.orEmpty()) return null
+        val authored = origin.provenance.authored ?: return null
+        val link = authored.links.getOrNull(index)?.takeIf { it.destination == destination } ?: return null
+        val candidates = when (link.kind) {
+            "local", "self" -> listOf(origin)
+            "source" -> items.filter { it.provenance.kind == "source" && it.provenance.campaign == origin.provenance.campaign &&
+                it.provenance.capture == link.capture && it.provenance.path == link.path &&
+                (if (link.anchor == null) it.provenance.section == null else link.anchor in it.anchors) }
+            "draft" -> items.filter { it.provenance.kind == "authored" && it.provenance.campaign == origin.provenance.campaign &&
+                it.provenance.authored?.draft == link.draft && it.provenance.authored?.revision == link.revision }
+            else -> emptyList()
+        }
+        val target = candidates.firstOrNull() ?: return null
+        val anchor = link.anchor?.let { target.anchors[it] ?: return null }.orEmpty()
+        return if (target.id == origin.id && anchor.isNotEmpty()) anchor else "@${target.id}#$anchor"
     }
     private fun capturedTarget(uri: URI?, origin: PreparedItem, items: List<PreparedItem>): String? {
         if (uri == null || uri.isAbsolute || uri.authority != null || uri.query != null) return null
@@ -69,7 +87,7 @@ class CommonmarkPreparation : PreparationMarkdown {
         }
         val path = if (local.isEmpty()) origin.provenance.path else segments.joinToString("/")
         val candidates = listOf(origin) + items.filter { it.id != origin.id }
-        val target = candidates.firstOrNull { i -> i.provenance.campaign == origin.provenance.campaign && i.provenance.capture == origin.provenance.capture && i.provenance.path == path &&
+        val target = candidates.firstOrNull { i -> i.provenance.kind == "source" && i.provenance.campaign == origin.provenance.campaign && i.provenance.capture == origin.provenance.capture && i.provenance.path == path &&
             (if (uri.fragment.isNullOrEmpty()) i.provenance.section == null else uri.fragment in i.anchors) } ?: return null
         val anchor = uri.fragment?.let { target.anchors[it] }.orEmpty()
         return if (target.id == origin.id && anchor.isNotEmpty()) anchor else "@${target.id}#$anchor"

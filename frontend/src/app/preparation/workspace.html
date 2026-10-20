@@ -27,6 +27,9 @@
       }
     </div>
     <div class="header-actions">
+      <button matButton [disabled]="!campaignReady() || busy()" (click)="openWriting()">
+        Writing
+      </button>
       <button
         matButton
         (click)="managementOpen.set(!managementOpen()); sessionsOpen.set(false)"
@@ -174,6 +177,26 @@
         ><span>{{ state.current()?.items?.length }} prepared items</span>
       }
     </div>
+    @if (libraryVisible()) {
+      <nav aria-label="Available material">
+        <button
+          matButton
+          [disabled]="!campaignReady() || busy()"
+          (click)="browse()"
+          [attr.aria-pressed]="material() === 'sources'"
+        >
+          Sources
+        </button>
+        <button
+          matButton
+          [disabled]="!campaignReady() || busy()"
+          (click)="material.set('drafts'); navigate(undefined, 'library', 'prepare')"
+          [attr.aria-pressed]="material() === 'drafts'"
+        >
+          Drafts
+        </button>
+      </nav>
+    }
     <div class="actions">
       @if (state.current()) {
         <button matButton (click)="toggleSourceFocus()" [attr.aria-pressed]="focusSource">
@@ -223,13 +246,24 @@
   </div>
   <div
     class="working-area"
-    [class.library-hidden]="!libraryVisible()"
+    [class.library-hidden]="!libraryVisible() || material() === 'drafts'"
     [class.contents-hidden]="!contentsOpen() || !state.current()"
     [class.notes-hidden]="!notesOpen() || !state.current()"
     [hidden]="!campaignReady() || !library.selected()"
   >
+    @if (
+      libraryVisible() && material() === 'drafts' && showingLibrary() && library.selected();
+      as campaign
+    ) {
+      <session-draft-chooser
+        [campaign]="campaign.id"
+        [destination]="state.current()?.title ?? ''"
+        [busy]="busy()"
+        (approve)="approveDraft($event)"
+      />
+    }
     <campaign-library
-      [hidden]="reading() || (!libraryVisible() && !showingLibrary())"
+      [hidden]="reading() || material() !== 'sources' || (!libraryVisible() && !showingLibrary())"
       [shelfVisible]="libraryVisible()"
       [ready]="campaignReady() && !busy()"
       [canAdd]="!!state.current() && state.current()?.campaign === library.selected()?.id"
@@ -260,7 +294,21 @@
         <h3>{{ prepared.title }}</h3>
         <details class="provenance">
           <summary>{{ prepared.provenance.path }}</summary>
-          <p>Capture: {{ prepared.provenance.capture }}</p>
+          @if (prepared.provenance.authored; as authored) {
+            <p>Authored draft {{ authored.draft }} · revision {{ authored.revision }}</p>
+            <p>Approved {{ authored.approvedAt }} · {{ authored.approval }}</p>
+            @if (authored.original) {
+              <details>
+                <summary>Original source evidence · {{ authored.originalPath }}</summary>
+                <p>
+                  Capture: {{ authored.originalCapture }} · SHA-256: {{ authored.originalHash }}
+                </p>
+                <pre>{{ authored.original }}</pre>
+              </details>
+            }
+          } @else {
+            <p>Source capture: {{ prepared.provenance.capture }}</p>
+          }
           <p>Section: {{ prepared.provenance.section ?? 'Whole document' }}</p>
           <p>Content SHA-256: {{ prepared.provenance.contentHash }}</p>
         </details>
@@ -276,6 +324,20 @@
           }
           @for (issue of classification.issues ?? []; track $index) {
             <p>{{ issue.message }}</p>
+          }
+        }
+        @if (prepared.capturedSource?.classification?.metadata; as card) {
+          <button matButton (click)="cardOpen.set(!cardOpen())">
+            {{ cardOpen() ? 'Full document' : 'Card preview' }}
+          </button>
+          @if (cardOpen()) {
+            <playing-card
+              [title]="card.title ?? prepared.title"
+              [type]="card.type ?? ''"
+              [tags]="card.tags ?? []"
+              [summary]="card.summary ?? ''"
+              (openDocument)="cardOpen.set(false)"
+            />
           }
         }
         <prepared-markdown

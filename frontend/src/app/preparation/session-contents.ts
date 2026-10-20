@@ -56,6 +56,8 @@ export class SessionContents {
     });
   }
   context(item: PreparedItemData) {
+    const origin = item.provenance.authored;
+    if (origin) return `${item.capturedSource?.classification?.metadata?.type ?? 'Card'} · Draft revision ${origin.revision}`;
     return item.provenance.section
       ? (item.capturedSource?.classification?.metadata?.title ?? item.provenance.path)
       : (item.capturedSource?.classification?.metadata?.type ?? 'Document');

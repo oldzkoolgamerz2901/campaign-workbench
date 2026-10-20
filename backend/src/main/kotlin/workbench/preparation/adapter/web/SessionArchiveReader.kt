@@ -20,7 +20,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) {
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version in setOf(1, 2))
+        require(version in setOf(1, 2, 3))
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
@@ -41,15 +41,41 @@ class SessionArchiveReader(private val mapper: ObjectMapper) {
                 require(anchors.isObject)
                 anchors.properties().forEach { string(it.value); require(it.key.toByteArray(Charsets.UTF_8).size <= MAX_TEXT) }
                 val p = item.path("provenance")
-                fields(p, "campaign", "capture", "path", "section", "documentHash", "contentHash")
-                uuid(p.path("campaign")); uuid(p.path("capture")); strings(p, "path", "documentHash", "contentHash")
+                val provenanceFields = arrayOf("campaign", "capture", "path", "section", "documentHash", "contentHash")
+                if (version == 3) fields(p, *provenanceFields, "kind", "authored") else fields(p, *provenanceFields)
+                uuid(p.path("campaign"))
+                if (version == 3 && p.path("kind").asString() == "authored") {
+                    require(p.path("capture").isNull)
+                    authored(p.path("authored"))
+                } else {
+                    uuid(p.path("capture"))
+                    if (version == 3) require(p.path("kind").asString() == "source" && p.path("authored").isNull)
+                }
+                strings(p, "path", "documentHash", "contentHash")
                 nullableString(p.path("section"))
-                if (version == 2 && !item.path("capturedSource").isNull) captured(item.path("capturedSource"))
+                if (version >= 2 && !item.path("capturedSource").isNull) captured(item.path("capturedSource"))
             }
         }
         Either.Right(mapper.treeToValue(tree, Archive::class.java))
     } catch (_: Exception) { Either.Left(Failure.Invalid("preparation.archive-format", "Invalid or unsupported session archive. No sessions imported.")) }
 
+    private fun authored(node: JsonNode) {
+        fields(node, "draft", "card", "revision", "approval", "approvedAt", "original", "originalHash", "originalCampaign", "originalCapture", "originalPath", "links")
+        listOf("draft", "card", "approval").forEach { uuid(node.path(it)) }
+        require(node.path("revision").isIntegralNumber && node.path("revision").canConvertToLong() && node.path("revision").longValue() >= 0)
+        strings(node, "approvedAt")
+        listOf("original", "originalHash", "originalPath").forEach { nullableString(node.path(it)) }
+        listOf("originalCampaign", "originalCapture").forEach { if (!node.path(it).isNull) uuid(node.path(it)) }
+        require(node.path("links").isArray)
+        for (link in node.path("links")) {
+            fields(link, "destination", "kind", "path", "anchor", "section", "capture", "draft", "revision")
+            strings(link, "destination", "kind")
+            listOf("path", "anchor", "section").forEach { nullableString(link.path(it)) }
+            listOf("capture", "draft").forEach { if (!link.path(it).isNull) uuid(link.path(it)) }
+            val revision = link.path("revision")
+            require(revision.isNull || (revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0))
+        }
+    }
     private fun captured(node: JsonNode) {
         fields(node, "interpretation", "bodyStart", "classification", "relationships")
         integer(node.path("interpretation")); integer(node.path("bodyStart"))

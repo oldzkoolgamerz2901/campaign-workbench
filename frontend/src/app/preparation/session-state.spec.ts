@@ -21,6 +21,7 @@ describe('Session working state', () => {
     renderSession: vi.fn(),
     previewMarkdown: vi.fn(),
     addSessionSource: vi.fn(),
+    addSessionDraft: vi.fn(),
     listSessions: vi.fn(),
     createSession: vi.fn(),
     importSessions: vi.fn(),
@@ -40,6 +41,74 @@ describe('Session working state', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+  it('flushes notes before approval and pins both revisions while preserving edits during capture', async () => {
+    await state.open('campaign-a', 'session-a');
+    api.saveSession.mockReturnValue(of({ ...session(), revision: 2, notes: 'Saved notes' }));
+    const result = new Subject<SessionData>();
+    api.addSessionDraft.mockReturnValue(result);
+    state.edit({ notes: 'Saved notes' });
+    const approving = state.addDraft('draft-a', 7);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(api.addSessionDraft.mock.calls[0][2]).toEqual({
+      revision: 2,
+      draft: 'draft-a',
+      draftRevision: 7,
+    });
+    expect(await state.allowLeave()).toBe(false);
+    state.edit({ notes: 'New local notes' });
+    result.next({
+      ...session(),
+      revision: 3,
+      notes: 'Saved notes',
+      items: [{ id: 'frozen' } as never],
+    });
+    result.complete();
+    expect(await approving).toBe(true);
+    expect(state.current()?.notes).toBe('New local notes');
+    expect(state.current()?.revision).toBe(3);
+    expect(state.selectedItem()).toBe('frozen');
+    expect(state.hasUnsaved()).toBe(true);
+  });
+  it('retains the session on stale draft approval and ignores late approval responses after a campaign change', async () => {
+    await state.open('campaign-a', 'session-a');
+    api.addSessionDraft.mockReturnValueOnce(
+      throwError(
+        () => new HttpErrorResponse({ status: 409, error: { detail: 'Review the newer draft' } }),
+      ),
+    );
+    expect(await state.addDraft('draft-a', 1)).toBe(false);
+    expect(state.current()).toEqual(session());
+    expect(state.error()).toBe('Review the newer draft');
+    const late = new Subject<SessionData>();
+    api.addSessionDraft.mockReturnValue(late);
+    const pending = state.addDraft('draft-a', 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    state.bindCampaign('campaign-b');
+    late.next({ ...session(), revision: 2 });
+    late.complete();
+    expect(await pending).toBe(false);
+    expect(state.current()).toBeNull();
+    expect(state.notice()).toBe('');
+  });
+  it('ignores approval completion when the campaign changes during reader rendering', async () => {
+    await state.open('campaign-a', 'session-a');
+    const rendering = new Subject<{ notes: { html: string; links: never[] }; items: never[] }>();
+    api.renderSession.mockReturnValueOnce(rendering);
+    api.addSessionDraft.mockReturnValue(of({ ...session(), revision: 2 }));
+    const pending = state.addDraft('draft-a', 1);
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    state.bindCampaign('campaign-b');
+    rendering.next({ notes: { html: '', links: [] }, items: [] });
+    rendering.complete();
+    expect(await pending).toBe(false);
+    expect(state.current()).toBeNull();
+    expect(state.notice()).toBe('');
   });
   it('serializes slow saves and preserves newer edits until the next completed revision', async () => {
     await state.open('campaign-a', 'session-a');
@@ -129,6 +198,8 @@ describe('Session working state', () => {
       notes: '',
       anchors: {},
       provenance: {
+        kind: 'source',
+        authored: null,
         campaign: 'campaign-a',
         capture: 'capture',
         path: 'source.md',
@@ -232,6 +303,8 @@ describe('Session working state', () => {
         markdown: '# Material',
         notes: `Note ${i + 1}`,
         provenance: {
+          kind: 'source',
+          authored: null,
           campaign: 'campaign-a',
           capture: 'capture-a',
           path: 'source.md',
@@ -296,6 +369,8 @@ describe('Session working state', () => {
       notes: '',
       anchors: {},
       provenance: {
+        kind: 'source',
+        authored: null,
         campaign: 'campaign-a',
         capture: 'pinned',
         path: 'adventure.md',
