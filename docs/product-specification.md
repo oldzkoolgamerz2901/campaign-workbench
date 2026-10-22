@@ -121,7 +121,7 @@ Acceptance:
 
 ### R10 — Session lifecycle
 
-Sessions support draft, ready, in play, and completed states and can be reopened. Completion offers a review of notes, discoveries, and unresolved threads. States organize work rather than constrain narrative order.
+Sessions support draft, ready, in play, and completed states and can be reopened. Notes, discoveries, and unresolved threads remain available for a DM-initiated review at any time, including after completion; ending a session does not automatically launch or require review. States organize work rather than constrain narrative order.
 
 Acceptance:
 
@@ -514,3 +514,101 @@ Proposed points to resolve in the follow-up:
 - Preserve explicit approval of the exact saved revision, frozen text/artwork, validation and existing save/navigation protection. Review keyboard access, scrolling and the 1280×800 / 1440×900 layouts.
 
 Status: TODO captured; exact layout, action placement, labels, filtering and implementation scope remain to be agreed. This records the requested improvement and discussion points, not an approved design or implementation increment.
+
+
+## Play workspace discovery — accepted owner decisions — 2026-10-22
+
+Status: Accepted product direction from the DM playtest and owner interview. This section refines R6, R7, R10 and the existing manual-writing/card requirements; it is **not** authorization for architecture, planning or implementation. Existing implemented Play behavior and historical increment scopes remain unchanged until separately authorized. Details explicitly marked for investigation are not approved requirements.
+
+### Authoring and cards
+
+- Preserve the existing Campaign Writer approach: one resource has both a complete Markdown document and a separately authored playing-card presentation. Improve this dual editing experience rather than adding an independent card-authoring system. Documents remain the comprehensive source; cards are concise play-facing views, with full-document access preserved. The card and document should not silently overwrite one another.
+- Consider smarter authoring (e.g. assisted extraction of card text, card previews, content-change awareness, layouts appropriate to NPCs/scenes/items), but these are **investigation opportunities**, not accepted automation or data-model commitments. AI may assist only when explicitly requested; manual authoring must remain fully usable.
+
+### Play workspace and navigation
+
+- Use a flexible card tabletop with a focus area supporting **two or three cards simultaneously**, rather than replacing the current card every time a second reference is opened. A DM can keep a scene and NPC visible and open an encounter or item alongside them. The exact layout, sizing, pinning and overflow interaction remain to be designed.
+- Expose **contextual related cards** from the active scene/resource (e.g. its NPCs, encounter, map or items), allowing one-click access to an available focus slot. Retain manual search/selection; do not require AI or automatically infer unapproved relationships. How relationships are authored, approved and stored remains an open design question.
+- Notes stay independently and persistently accessible while focused cards change. Card focus and note entry must not discard each other or force a scene transition.
+
+### Session notes, outcomes and review
+
+- Provide **fast manual note capture** during play. Notes automatically retain the active campaign/session and scene context, with a timestamp and optional association to a relevant card/resource where available. The DM should not need to file a note before continuing play. Preserve manual editing and durable storage consistent with R7.
+- Keep actual playthrough events and discoveries separate from prepared campaign documents/canon. A note about an NPC's changed allegiance or an item changing hands does not silently rewrite the NPC or item source. Distinguish recorded events, player theories and confirmed discoveries as already required by R7.
+- Notes **accumulate until the DM chooses to review them**, whether during play, after a session or much later. Do not force or automatically launch a post-session review. Manual review can organize notes and identify significant outcomes or lasting consequences. Optional, explicitly invoked AI assistance may suggest summaries, links or consequences, but is never required and must not apply changes without DM approval. This clarification supersedes any reading of R10 that would mandate a completion-time review prompt.
+
+### Combat scope
+
+- **Accepted current scope: reference-only.** Cards can show encounter preparation, stat blocks, maps and mechanics; notes capture narrative outcomes. No integrated initiative, HP, condition or turn tracking, combat automation or tactical grid is required for this scope. An unexpected fight does not require switching to a separate combat mode or automatically replacing the active scene.
+- **Deferred possible expansion (not approved):** optional lightweight encounter tracking for HP, conditions and initiative, without full virtual-tabletop mechanics. Reassess based on DM usage and a separately approved increment.
+
+### Open UX questions
+
+- Tabletop arrangement and retrieval with dozens of cards: free positioning, ordering, grouping, filtering and contextual relevance.
+- Focus-area layout at laptop sizes, third-slot behavior, pinning, and notes-panel ergonomics.
+- Relationship authoring and storage, card/document update awareness, and how DM-approved important events are represented in playthrough history.
+
+No application code, campaign source material or existing prepared sessions are changed by these documentation decisions.
+
+
+### Play tabletop interview closure and implementation gap review — accepted 2026-10-22
+
+**Status:** The owner closed the tabletop requirements interview and authorized documentation of its decisions and findings. This subsection refines and, where more specific, supersedes the earlier open UX questions above. It is a **requirements and investigation handoff**, not an accepted domain model, architecture, implementation plan, or authorization to code. Existing implementation remains unchanged.
+
+#### Accepted interaction decisions (Q10f–Q10x)
+
+| ID | Decision | Initial behavior |
+| --- | --- | --- |
+| Q10f | Contextual tabletop | Retain the existing ordered, searchable prepared-card shelf and access to all prepared cards. Highlight cards related to the explicitly active scene and allow 2–3 simultaneously focused cards. No free positioning. |
+| Q10g | Explicit active scene | Opening/inspecting a scene does not activate it. A separate explicit action sets the active scene, affecting related-card suggestions and default note context; it does not clear focus or mark anything complete. |
+| Q10h | Manual note context override | A new play note defaults to the active scene when present, retains its session, and can be manually associated with a different resource. Merely inspecting a card never changes the note's context. |
+| Q10i | Temporary inspection | With all focus slots occupied, an additional card opens in a readable temporary preview; the DM can explicitly replace a focus slot. Inspection does not change the active scene. |
+| Q10j | Wider-library inspection and explicit capture | Search the broader campaign library during Play, inspect an unprepared card, and optionally add it to the session. Inspection alone does not add it or change active scene/focus. Preserve frozen prepared-content behavior; exact reuse of existing capture paths needs investigation. |
+| Q10k | Improvisation as notes | Record improvised NPCs, locations and events as notes, not new authored resources, during Play. An explicitly invoked future “create resource from note” workflow in Write is deferred. |
+| Q10l | World changes as notes | Record deaths, destruction, allegiance changes and other outcomes in notes; do not automatically update authored cards, introduce NPC status tracking, or create a general world-state engine. Manual authoring changes can happen later in Write. |
+| Q10m | Cross-session card history | From the same underlying campaign card, access notes associated with it across previous sessions, newest first, retaining session provenance and original context. Do not alter authored source or require AI summaries. Identity across prepared copies and revisions is an investigation priority. |
+| Q10n | One primary resource per note initially | Reuse existing session/per-prepared-item note functionality where feasible. A play note has at most one manually chosen primary card/resource association initially; multiple associations and inferred relationships are deferred. |
+| Q10o | Manual note pinning | The DM may pin important notes above the chronological history; pinned notes remain in the full history. No automatic classification. |
+| Q10p | Existing full-document reader | Keep the full Markdown document with heading navigation and existing reading tools. No parallel scene reader, section dashboard or new document system. |
+| Q10q | Existing preparation review | Previous sessions and their notes remain accessible through existing session navigation, complemented by card-bound cross-session history. No new campaign-history browser or mandatory review workspace. |
+| Q10r | Restore working context | Reopening a session restores explicitly active scene and 2–3 focused-card identities alongside existing persisted prepared content, notes, card ordering and active/used piles. Temporary inspection previews close. Exact scroll, expanded sections and filters need not persist. |
+| Q10s | Expand a focused card | Temporarily enlarge one focused card for reading while retaining quick access to the other focused cards. Return to the prior arrangement in one action; reuse existing document reading tools. |
+| Q10t | No discovery state | Use notes and the existing Used pile to manage discoveries. “Used” means set aside by the DM, **not** “discovered by players”; no discovered marker or structured discovery journal initially. |
+| Q10u | Used cards remain discoverable | A related Used card may appear in contextual suggestions with a Used indicator. Inspection does not return it to the active pile; returning is explicit. Contextual suggestions never rearrange the table. |
+| Q10v | No recent-scene control initially | Select scenes through the existing shelf/search. Compact recent-scenes navigation is deferred as an optional future enhancement; no scene-transition history. |
+| Q10w | Preserve Play while visiting Prepare | Switching Play → Prepare → Play retains active scene, focused cards and expanded focus state. Newly added prepared cards join the shelf without stealing focus or changing active scene. |
+| Q10x | Simple removal behavior | Removing a prepared card closes it in Play focus. If it was the active scene, clear that selection. Leave remaining focus, notes and arrangement alone; no tombstone view, special warnings or automatic replacement. |
+
+**Scope and constraints:** Manual-first, AI optional and explicitly invoked, generic campaigns, authored Markdown remains separate from what happened in play. Avoid new combat tracking, discovery journals, world-state tracking, recent-scenes history, freeform/resizable tabletop windows, automatic card promotion, automatic scene changes, automatic post-session review and extra reading interfaces. Reuse existing card/document authoring and current Play/Prepare components. The deferred note-to-resource action, multiple note associations and optional recent-scenes shortcut are not authorized initial features.
+
+#### Evidence-based current implementation baseline (targeted review, not exhaustive)
+
+- `frontend/src/app/preparation/session-state.ts` exposes a single `selectedItem`, session/item note editing, and persisted `table.active`/`table.used` operations. Removal filters the item out of both piles and changes the selected item if needed. The existing selected item is **not** equivalent to the proposed multi-card focus or explicit active scene.
+- `frontend/src/app/preparation/card-table.ts` renders the horizontal active-card shelf, searchable/type-filtered card entries, selection, drag/reorder, Used pile, and explicit Return to table. It is an appropriate starting point, not a disposable prototype.
+- `frontend/src/app/preparation/workspace.ts` retains UI signals for note panel/scope and reading focus, initializes the table when entering Read/Play, and uses existing session state. Its current `focusSource` panel mode is **not** evidence that the proposed independently expandable multi-card focus already exists.
+- Existing accepted increment 5 specifies independent persisted Read table ordering, active/used piles, frozen prepared content, archive preservation and full-document access. Existing preparation and session-level/item-level notes survive restart; source capture is immutable for prepared entries.
+- Existing typed Sources relationships and prepared captured metadata offer a foundation for contextual suggestions, but the precise selection/ranking, missing targets and identity mapping remain unresolved.
+- The existing architecture distinguishes Preparation-owned prepared sessions/notes from the proposed Playthroughs responsibility for actual-play history. That boundary is documented, but the new cross-session note model and ownership are **not yet designed**.
+
+#### Gap classification for the next domain-modeling session
+
+| Capability | Assessment | Next investigation |
+| --- | --- | --- |
+| Prepared cards, frozen source, session order, active/used piles, session and per-item notes, full reader | Existing foundation | Reuse current APIs, persistence, archive and components; avoid duplicating data |
+| Search, type filtering, existing relationships, wider library | Partial foundation | Confirm Play-side inspection and explicit add flows, stable card IDs and relationship behavior |
+| Explicit active scene, 2–3 focus slots, temporary preview, expand one focus, contextual suggestion presentation | New Play behavior | Separate scene activation, focus, selection, inspection and table membership; identify persistence boundary |
+| Restored active scene/focus across reopen; mode-switch continuity | New or modified state | Determine minimal persistent vs transient state and safe handling of removed/renamed cards |
+| Notes defaulting to scene, one primary resource association, pinning, cross-session chronological history | Significant extension | Distinguish current item notes from individual play notes; model provenance, stable underlying resource identity and history retrieval |
+| Structured discoveries, automatic world changes, combat tracker, recent-scenes shortcut, new resource creation in Play | Deferred/excluded | No initial domain model or implementation |
+
+#### Domain questions intentionally left unresolved
+
+1. **What is a Play note?** Existing session notes and per-prepared-item Markdown fields are not necessarily individual timestamped records. Determine the minimal way to support individual note timestamps, optional primary resource association, pinning and cross-session history without silently changing the meaning or storage of existing notes.
+2. **Who owns actual-play history?** Evaluate the documented Preparation vs Playthroughs boundary, including whether a small Playthroughs slice is warranted or whether reuse is feasible without violating ownership. The older R7 language about discoveries, theories and outcomes must be reconciled explicitly with the accepted notes-only initial scope; do not silently replace either.
+3. **What identifies the same campaign card over time?** Distinguish source/card stable ID, prepared-item ID, frozen snapshot/provenance and session identity. Handle source revisions, rename/split, removed prepared cards, legacy/untyped cards, duplicates and imported archives without falsely merging histories.
+4. **What is persistent Play state?** Decide ownership and serialization for active-scene ID, ordered focused-card IDs and active/used table, with transient previews and expanded state. Q10r requires restoration after reopen; Q10w requires expanded-state continuity during a same-session mode switch, not necessarily after restart.
+5. **What constitutes an approved relationship?** Determine how existing typed/Markdown links yield contextual suggestions, including references to Used cards, missing or unprepared targets and manually approved relationships; do not infer links with AI by default.
+6. **How do edits and removals behave?** Preserve existing autosave/revision conflict/campaign isolation and archive semantics. Ensure removing a prepared card invalidates scene/focus references safely without deleting historical notes or rewriting source.
+7. **How does Play note capture coexist with current Prepare note editing?** Preserve existing session/item notes and note previews; avoid inventing an entirely new editor or conflating note context with whichever card is currently inspected.
+
+**Review outcome:** The largest likely domain change is cross-session, resource-associated actual-play notes; the tabletop itself is mainly a UX/state extension of existing card-table behavior. This is a preliminary finding based on selected documentation and source files, **not** a verified implementation estimate or an approved architecture. Next step: owner-authorized Architecture phase focused on domain modeling, then a separately approved implementation plan/increment. No application code, existing session data or campaign files changed by this documentation.
