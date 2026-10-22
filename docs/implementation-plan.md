@@ -1,3 +1,11 @@
+## Playthrough tabletop domain architecture — accepted 2026-10-22
+
+The owner approved the domain architecture following the Q10f–Q10x tabletop interview and the review of implemented Increment 6 images. The authoritative architecture record, including Mermaid domain and workflow diagrams, invariants, public use cases, trade-offs, and implementation-planning risks, is [Playthrough domain architecture](playthrough-domain-architecture.md).
+
+Key accepted decisions: Preparation owns frozen prepared items and artwork; Playthroughs owns runtime Active/Used arrangement, explicit active scene, ordered focus (up to three) and individual historical PlayNotes. New prepared items and cards returned from Used prepend to Active. Preparation and Playthroughs have independent optimistic revisions; reconciliation must still validate prepared membership. PlayNotes capture immutable scene/resource identity and title, not artwork, and remain distinct from preparation notes. Imported sessions/items/notes receive fresh IDs while original campaign-qualified logical resource identities and captured titles/timestamps are preserved; history queries are scoped by containing campaign. Extend illustrated session ZIP v5 through a new versioned manifest while preserving existing image and legacy import behavior. The existing Preparation-owned CardTable remains authoritative until a coordinated migration.
+
+**Status:** Architecture accepted; implementation planning and code changes are not authorized by this record.
+
 # Campaign Workbench — Architecture and implementation plan
 
 Date: 2026-10-17; subsequent decisions dated individually.
