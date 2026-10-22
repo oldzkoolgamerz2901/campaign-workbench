@@ -28,6 +28,9 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     if (await card.count()) {
       const bounds = (await card.boundingBox())!;
       expect(bounds.width / bounds.height).toBeCloseTo(243 / 420, 2);
+      await expect(image).toHaveCSS('object-fit', 'contain');
+      const artworkBounds = (await image.boundingBox())!;
+      expect(artworkBounds.height / bounds.height).toBeGreaterThan(0.49);
       const action = card.getByRole('button', { name: 'Open full document' });
       await action.scrollIntoViewIfNeeded();
       await expect(action).toBeVisible();

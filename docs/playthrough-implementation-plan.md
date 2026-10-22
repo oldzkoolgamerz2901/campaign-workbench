@@ -46,6 +46,14 @@ The shared PlayingCard used 5:7 before P2G. P2G changes its outer ratio to **243
 
 **Acceptance:** satisfy the geometry contract above across existing card surfaces, keyboard controls, focus outlines, dense content and narrow screens. Use synthetic fixtures, not independent campaign files. Run focused component checks, frontend build and browser/visual inspection. Frozen image selection, fallback and full-document access remain functional. Record visual evidence and any remaining owner visual acceptance.
 
+## P2A — Full-image card artwork
+
+**Status:** Approved follow-up to P2G, 2026-10-22. Preserve its outer geometry and default width.
+
+**Scope/design:** Shared PlayingCard allocates approximately 55% of its content height to artwork. ArtworkImage exposes a CSS fit property, retaining cover by default for thumbnails; PlayingCard opts into contain. This keeps fitting with the presentation owner and avoids a global thumbnail change, image processing or metadata fields. Letterboxing is an accepted consequence of displaying the full image. Existing summary overflow absorbs the reduced text area.
+
+**Acceptance/checks:** Portrait, landscape and square artwork remains complete and undistorted across shared card surfaces. Retain 243:420/320px geometry, keyboard access to long titles/summaries and the document action, frozen artwork, placeholders/failure/retry and Active/Used navigation. Add real-browser image-aspect fixtures and check laptop/narrow rendering; run frontend checks/build and integrated browser journeys. No backend/API/dependency/archive change. Record developer evidence in the main implementation plan; stop before separate formal verification and later increments.
+
 ## P3 — Scene and ordered focus state, including archives
 
 **Scope:** Playthrough domain/API/persistence and generated client, explicit scene activation, up to three unique ordered prepared IDs and frontend state integration. Preparation remains read-only to these operations.
@@ -96,7 +104,8 @@ Test valid identity, untyped/duplicate metadata (title context without fabricate
 flowchart LR
   P1["P1 Backend + archive foundation"] --> P2["P2 Frontend integration"]
   P2 --> P2G["P2G Card geometry"]
-  P2G --> P3["P3 Scene/focus + archives"]
+  P2G --> P2A["P2A Full-image artwork"]
+  P2A --> P3["P3 Scene/focus + archives"]
   P3 --> P4["P4 Focus UI"]
   P4 --> P4R["P4R Contextual suggestions"]
   P4R --> P5["P5 Notes + archives"]
@@ -123,4 +132,4 @@ Each increment needs explicit implementation authorization and its own developer
 | Q10w–Q10x mode continuity and simple removal | P3/P4/P7 |
 | Complete illustrated archives of all supported state | P1/P2, P3, P5; P8 regression |
 
-**Next gate:** P2 passed bounded corrective re-verification in [verification evidence](verification.md) and was accepted by the owner on 2026-10-22. P2G implementation has developer evidence in the main implementation record; its formal verification and owner visual acceptance remain separate gates. P3 and later increments require separate owner authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.
+**Next gate:** P2 passed bounded corrective re-verification in [verification evidence](verification.md) and was accepted by the owner on 2026-10-22. P2G passed bounded formal verification; owner visual acceptance remains separate. P2A full-image artwork has developer evidence in the main implementation record; formal verification and owner visual acceptance remain separate gates. P3 and later increments require separate owner authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.

@@ -41,7 +41,7 @@ export interface ArtworkSource {
       display: block;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: var(--artwork-fit, cover);
       object-position: center;
     }
     .state,

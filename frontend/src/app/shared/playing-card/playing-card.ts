@@ -110,8 +110,8 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
     artwork-image {
       display: block;
       width: 100%;
-      height: var(--card-artwork-height, 35%);
-      object-fit: cover;
+      height: var(--card-artwork-height, 55%);
+      --artwork-fit: contain;
       border: 1px solid #aa9567;
       border-radius: 0.3rem;
       flex-shrink: 0;

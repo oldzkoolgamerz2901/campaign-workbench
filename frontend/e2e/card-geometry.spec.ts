@@ -61,11 +61,13 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
         await summary.press('End');
         await expect.poll(() => summary.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
         const action = card.getByRole('button', { name: 'Open full document' });
-        const buttonBox = (await action.boundingBox())!;
-        const currentBox = (await card.boundingBox())!;
-        expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(
-          currentBox.y + currentBox.height,
-        );
+        // Keyboard scrolling can still be animating; compare both rectangles in one frame.
+        expect(
+          await action.evaluate((button) => {
+            const card = button.closest('article')!.getBoundingClientRect();
+            return button.getBoundingClientRect().bottom <= card.bottom;
+          }),
+        ).toBe(true);
         await expect(card.locator('img')).toHaveAttribute('src', '/card-placeholder.svg');
       }
       const heading = cards.nth(1).getByRole('heading', { level: 3 });

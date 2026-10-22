@@ -1,0 +1,115 @@
+import { test, expect } from '@playwright/test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+test('cards show complete portrait, landscape and square artwork within the existing shape', async ({
+  page,
+  request,
+}, info) => {
+  const root = await mkdtemp(join(tmpdir(), 'workbench-artwork-fit-'));
+  try {
+    const campaign = await (
+      await request.post('/api/campaigns', {
+        data: { name: 'Full artwork fixtures', directory: root },
+      })
+    ).json();
+    let draft = await (
+      await request.post(`/api/campaigns/${campaign.id}/drafts`, {
+        data: { type: 'npc', template: false },
+      })
+    ).json();
+    const endpoint = `/api/campaigns/${campaign.id}/drafts/${draft.id}`;
+    draft = await (
+      await request.put(endpoint, {
+        data: {
+          revision: draft.revision,
+          fields: {
+            ...draft.fields,
+            title: 'Complete artwork',
+            summary: 'All four coloured edges must be visible.',
+            body: '# Full artwork\nComplete source document.',
+            path: 'full-artwork.md',
+          },
+        },
+      })
+    ).json();
+    await page.goto(`/writing?campaign=${campaign.id}&draft=${draft.id}`);
+    await page.getByText('Card details · npc · draft', { exact: true }).click();
+    for (const [name, imageWidth, imageHeight] of [
+      ['portrait', 360, 720],
+      ['landscape', 720, 360],
+      ['square', 480, 480],
+    ] as const) {
+      // Real raster uploads with coloured edges make cropping visible in the screenshots.
+      const base64 = await page.evaluate(
+        ({ width, height }) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d')!;
+          context.fillStyle = '#f2dfb0';
+          context.fillRect(0, 0, width, height);
+          context.fillStyle = '#db2828';
+          context.fillRect(0, 0, width, 20);
+          context.fillStyle = '#2877db';
+          context.fillRect(0, height - 20, width, 20);
+          context.fillStyle = '#288c39';
+          context.fillRect(0, 20, 20, height - 40);
+          context.fillStyle = '#9147c7';
+          context.fillRect(width - 20, 20, 20, height - 40);
+          context.fillStyle = '#25352b';
+          context.font = '28px sans-serif';
+          context.fillText('Whole image', 35, height / 2);
+          return canvas.toDataURL('image/png').split(',')[1];
+        },
+        { width: imageWidth, height: imageHeight },
+      );
+      const saving = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`${endpoint}/artwork`) &&
+          response.request().method() === 'POST' &&
+          response.ok(),
+      );
+      await page
+        .getByLabel('Card artwork', { exact: true })
+        .setInputFiles({
+          name: `${name}.png`,
+          mimeType: 'image/png',
+          buffer: Buffer.from(base64, 'base64'),
+        });
+      await saving;
+      const card = page.locator('.preview-panel playing-card article');
+      const image = card.locator('img');
+      await expect(image).toHaveAttribute('src', /^blob:/);
+      await expect
+        .poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth / el.naturalHeight))
+        .toBeCloseTo(imageWidth / imageHeight, 2);
+      for (const width of [1280, 390, 320]) {
+        await page.setViewportSize({ width, height: 900 });
+        const outer = (await card.boundingBox())!;
+        expect(outer.width / outer.height).toBeCloseTo(243 / 420, 2);
+        if (width === 1280) expect(outer.width).toBe(320);
+        await expect(image).toHaveCSS('object-fit', 'contain');
+        const area = (await image.boundingBox())!;
+        expect(area.height / outer.height).toBeGreaterThan(0.49);
+        const natural = await image.evaluate((el: HTMLImageElement) => ({
+          width: el.naturalWidth,
+          height: el.naturalHeight,
+        }));
+        const scale = Math.min(area.width / natural.width, area.height / natural.height);
+        expect(natural.width * scale).toBeLessThanOrEqual(area.width + 0.01);
+        expect(natural.height * scale).toBeLessThanOrEqual(area.height + 0.01);
+        await card.screenshot({ path: info.outputPath(`${name}-${width}.png`) });
+      }
+      await page.setViewportSize({ width: 1280, height: 900 });
+    }
+    await page
+      .locator('.preview-panel playing-card')
+      .getByRole('button', { name: 'Open full document' })
+      .click();
+    await expect(page.locator('draft-reader')).toContainText('Complete source document.');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
