@@ -121,7 +121,7 @@ Acceptance:
 
 ### R10 — Session lifecycle
 
-Sessions support draft, ready, in play, and completed states and can be reopened. Completion offers a review of notes, discoveries, and unresolved threads. States organize work rather than constrain narrative order.
+Sessions support draft, ready, in play, and completed states and can be reopened. Notes, discoveries, and unresolved threads remain available for a DM-initiated review at any time, including after completion; ending a session does not automatically launch or require review. States organize work rather than constrain narrative order.
 
 Acceptance:
 
@@ -487,3 +487,38 @@ Proposed filter behavior, pending approval: place a compact Group chooser beside
 The owner approved the proposed common two-row shell and per-mode cleanup, including previously proposed Play filter details. Use Write / Prepare / Play navigation, a shared campaign chooser/save-status/More header, consistent contextual tools and global dark menus. Automatically check backend availability at startup and foreground return; display failures with retry, without a permanent healthy indicator. Save confirmation remains independent. Retain all existing save/discard/conflict guards.
 
 Write exposes Markdown early, expandable card metadata, draft-title search combined with the existing type/tag filters, compact New draft choices and on-demand export inspection/history. Prepare uses compact multi-type/filter controls, full-document-first viewing and the same application-owned placeholder image on source result/document and draft tiles; image assignment remains deferred. Preserve source searches, diagnostics, capture/approval validation and explicit material assembly. Play uses All or one existing primary card type combined with text find across active/used cards, matching/total counts and local filter state. Filtering leaves selected text and saved arrangements intact; clear filters before reordering. Readers place metadata/provenance/summary behind details, preserving authored Markdown and access to all information. No source-owned image loading or new asset storage is included.
+
+
+## Play workspace discovery — accepted owner decisions — 2026-10-22
+
+Status: Accepted product direction from the DM playtest and owner interview. This section refines R6, R7, R10 and the existing manual-writing/card requirements; it is **not** authorization for architecture, planning or implementation. Existing implemented Play behavior and historical increment scopes remain unchanged until separately authorized. Details explicitly marked for investigation are not approved requirements.
+
+### Authoring and cards
+
+- Preserve the existing Campaign Writer approach: one resource has both a complete Markdown document and a separately authored playing-card presentation. Improve this dual editing experience rather than adding an independent card-authoring system. Documents remain the comprehensive source; cards are concise play-facing views, with full-document access preserved. The card and document should not silently overwrite one another.
+- Consider smarter authoring (e.g. assisted extraction of card text, card previews, content-change awareness, layouts appropriate to NPCs/scenes/items), but these are **investigation opportunities**, not accepted automation or data-model commitments. AI may assist only when explicitly requested; manual authoring must remain fully usable.
+
+### Play workspace and navigation
+
+- Use a flexible card tabletop with a focus area supporting **two or three cards simultaneously**, rather than replacing the current card every time a second reference is opened. A DM can keep a scene and NPC visible and open an encounter or item alongside them. The exact layout, sizing, pinning and overflow interaction remain to be designed.
+- Expose **contextual related cards** from the active scene/resource (e.g. its NPCs, encounter, map or items), allowing one-click access to an available focus slot. Retain manual search/selection; do not require AI or automatically infer unapproved relationships. How relationships are authored, approved and stored remains an open design question.
+- Notes stay independently and persistently accessible while focused cards change. Card focus and note entry must not discard each other or force a scene transition.
+
+### Session notes, outcomes and review
+
+- Provide **fast manual note capture** during play. Notes automatically retain the active campaign/session and scene context, with a timestamp and optional association to a relevant card/resource where available. The DM should not need to file a note before continuing play. Preserve manual editing and durable storage consistent with R7.
+- Keep actual playthrough events and discoveries separate from prepared campaign documents/canon. A note about an NPC's changed allegiance or an item changing hands does not silently rewrite the NPC or item source. Distinguish recorded events, player theories and confirmed discoveries as already required by R7.
+- Notes **accumulate until the DM chooses to review them**, whether during play, after a session or much later. Do not force or automatically launch a post-session review. Manual review can organize notes and identify significant outcomes or lasting consequences. Optional, explicitly invoked AI assistance may suggest summaries, links or consequences, but is never required and must not apply changes without DM approval. This clarification supersedes any reading of R10 that would mandate a completion-time review prompt.
+
+### Combat scope
+
+- **Accepted current scope: reference-only.** Cards can show encounter preparation, stat blocks, maps and mechanics; notes capture narrative outcomes. No integrated initiative, HP, condition or turn tracking, combat automation or tactical grid is required for this scope. An unexpected fight does not require switching to a separate combat mode or automatically replacing the active scene.
+- **Deferred possible expansion (not approved):** optional lightweight encounter tracking for HP, conditions and initiative, without full virtual-tabletop mechanics. Reassess based on DM usage and a separately approved increment.
+
+### Open UX questions
+
+- Tabletop arrangement and retrieval with dozens of cards: free positioning, ordering, grouping, filtering and contextual relevance.
+- Focus-area layout at laptop sizes, third-slot behavior, pinning, and notes-panel ergonomics.
+- Relationship authoring and storage, card/document update awareness, and how DM-approved important events are represented in playthrough history.
+
+No application code, campaign source material or existing prepared sessions are changed by these documentation decisions.
