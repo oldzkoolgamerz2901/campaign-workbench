@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { PlayWorkspaceState } from '../playthroughs/workspace-state';
 import { transferError } from '../shared/transfer-error';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -22,6 +23,7 @@ export interface AdditionProgress extends SourceSelection {
 
 @Injectable({ providedIn: 'root' })
 export class SessionState {
+  readonly play = inject(PlayWorkspaceState);
   private readonly api = inject(PreparationControllerService);
   private readonly portable = inject(PortableSessionControllerService);
   readonly transferBusy = signal(false);
@@ -53,7 +55,12 @@ export class SessionState {
 
   hasUnsaved() {
     return (
-      this.transferBusy() || this.dirty || !!this.saving || this.mutating() || this.queueRunning()
+      this.play.hasUnsaved() ||
+      this.transferBusy() ||
+      this.dirty ||
+      !!this.saving ||
+      this.mutating() ||
+      this.queueRunning()
     );
   }
   bindCampaign(campaign: string) {
@@ -91,9 +98,12 @@ export class SessionState {
       return null;
     }
   }
-  async open(campaign: string, id: string) {
+  async open(campaign: string, id: string, reload = false): Promise<boolean> {
     this.bindCampaign(campaign);
-    if (this.current()?.id === id && this.current()?.campaign === campaign) return;
+    const sameSession = this.current()?.id === id && this.current()?.campaign === campaign;
+    if (sameSession && !reload) return true;
+    if (!sameSession) this.play.clear();
+    this.saving = undefined;
     const epoch = ++this.epoch;
     this.previewEpoch++;
     this.notice.set('');
@@ -111,18 +121,23 @@ export class SessionState {
       const s = await firstValueFrom(
         this.api.openSession(campaign, id, 'body', false, { httpHeaderAccept: 'application/json' }),
       );
-      if (epoch !== this.epoch) return;
+      if (epoch !== this.epoch) return false;
       this.current.set(s);
       this.selectedItem.set(s.items[0]?.id ?? null);
       await this.renderSources();
+      if (epoch !== this.epoch) return false;
       this.queuePreview();
+      return true;
     } catch (e) {
       if (epoch === this.epoch) this.fail(e);
+      return false;
     } finally {
       if (epoch === this.epoch) this.loading.set(false);
     }
   }
   clear() {
+    this.play.clear();
+    this.saving = undefined;
     this.additions.set([]);
     this.queueIdentity = undefined;
     this.epoch++;
@@ -143,7 +158,7 @@ export class SessionState {
     this.error.set('');
     this.selectedItem.set(null);
   }
-  edit(change: Partial<Pick<SessionData, 'title' | 'objective' | 'notes' | 'items' | 'table'>>) {
+  edit(change: Partial<Pick<SessionData, 'title' | 'objective' | 'notes' | 'items'>>) {
     if (!this.current()) return;
     const previous = this.current()!;
     this.current.update((s) => (s ? { ...s, ...change } : s));
@@ -194,51 +209,23 @@ export class SessionState {
   remove(id: string) {
     if (this.queueRunning()) return;
     const items = this.current()!.items.filter((i) => i.id !== id);
-    const table = this.current()!.table;
-    this.edit({
-      items,
-      ...(table
-        ? {
-            table: {
-              active: table.active.filter((x) => x !== id),
-              used: table.used.filter((x) => x !== id),
-            },
-          }
-        : {}),
-    });
+    this.edit({ items });
     if (this.selectedItem() === id) this.selectItem(items[0]?.id ?? null);
   }
-  initializeTable() {
-    const session = this.current();
-    if (session && !session.table)
-      this.edit({ table: { active: session.items.map((i) => i.id), used: [] } });
+  async initializeTable() {
+    const session = this.current(),
+      epoch = this.epoch;
+    if (!session || !(await this.flush()) || epoch !== this.epoch) return;
+    await this.play.open(session.campaign, session.id);
   }
   moveTable(id: string, to: number) {
-    if (this.queueRunning() || this.mutating()) return;
-    const table = this.current()?.table;
-    if (!table) return;
-    const active = [...table.active];
-    const from = active.indexOf(id);
-    if (from < 0 || to < 0 || to >= active.length || from === to) return;
-    active.splice(from, 1);
-    active.splice(to, 0, id);
-    this.edit({ table: { ...table, active } });
+    if (!this.queueRunning() && !this.mutating()) this.play.move(id, to);
   }
   markUsed(id: string) {
-    if (this.queueRunning() || this.mutating()) return;
-    const table = this.current()?.table;
-    if (!table?.active.includes(id)) return;
-    this.edit({
-      table: { active: table.active.filter((x) => x !== id), used: [id, ...table.used] },
-    });
+    if (!this.queueRunning() && !this.mutating()) this.play.use(id);
   }
   returnToTable(id: string) {
-    if (this.queueRunning() || this.mutating()) return;
-    const table = this.current()?.table;
-    if (!table?.used.includes(id)) return;
-    this.edit({
-      table: { active: [id, ...table.active], used: table.used.filter((x) => x !== id) },
-    });
+    if (!this.queueRunning() && !this.mutating()) this.play.restore(id);
   }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
@@ -247,7 +234,8 @@ export class SessionState {
       return this.flush();
     }
     if (this.saving) {
-      if (!(await this.saving)) return false;
+      const waitingEpoch = this.epoch;
+      if (!(await this.saving) || waitingEpoch !== this.epoch) return false;
       return this.dirty ? this.flush() : true;
     }
     const snapshot = this.current();
@@ -268,7 +256,6 @@ export class SessionState {
               objective: snapshot.objective,
               notes: snapshot.notes,
               items: snapshot.items.map((i) => ({ id: i.id, notes: i.notes })),
-              table: snapshot.table ?? null,
             },
             'body',
             false,
@@ -304,7 +291,7 @@ export class SessionState {
         }
         return false;
       } finally {
-        this.saving = undefined;
+        if (epoch === this.epoch) this.saving = undefined;
       }
     })();
     const ok = await this.saving;
@@ -408,7 +395,6 @@ export class SessionState {
                 ...s,
                 revision: saved.revision,
                 items: [...s.items, ...added],
-                table: saved.table ?? null,
               }
             : s,
         );
@@ -434,6 +420,7 @@ export class SessionState {
       this.error.set('Wait for the current operation to finish before leaving.');
       return false;
     }
+    if (!(await this.play.allowLeave())) return false;
     if (!this.hasUnsaved() || (await this.flush())) return true;
     if (
       window.confirm(
@@ -447,21 +434,26 @@ export class SessionState {
     }
     return false;
   }
-  async reload() {
-    if (this.queueRunning() || this.mutating()) return;
+  async reload(): Promise<boolean> {
+    if (this.queueRunning() || this.mutating()) return false;
     const s = this.current();
-    if (!s) return;
+    if (!s) return false;
     if (this.hasUnsaved() && !window.confirm('Discard local edits and reload the saved session?'))
-      return;
-    this.current.set(null);
-    await this.open(s.campaign, s.id);
+      return false;
+    return this.open(s.campaign, s.id, true);
   }
   async export(campaign: string, ids: string[]) {
     if (this.transferBusy() || campaign !== this.activeCampaign) return;
     this.transferBusy.set(true);
     const epoch = this.epoch;
     try {
-      if (!(await this.flush()) || epoch !== this.epoch || campaign !== this.activeCampaign) return;
+      if (
+        !(await this.flush()) ||
+        !(await this.play.flush()) ||
+        epoch !== this.epoch ||
+        campaign !== this.activeCampaign
+      )
+        return;
       const file = await firstValueFrom(
         this.portable.exportPortableSessions(campaign, { sessions: ids }, 'body', false, {
           httpHeaderAccept: 'application/zip',

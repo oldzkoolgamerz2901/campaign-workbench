@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { MatMenuModule } from '@angular/material/menu';
-import { PreparedItemData, CardTableData } from '../../api/generated';
+import { PreparedItemData } from '../../api/generated';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 
 @Component({
@@ -211,7 +211,7 @@ export class CardTable {
   readonly campaign = input('');
   readonly session = input('');
   readonly items = input<PreparedItemData[]>([]);
-  readonly table = input<CardTableData | null>(null);
+  readonly table = input<{ active: string[]; used: string[] } | null>(null);
   readonly selected = input<string | null>(null);
   readonly disabled = input(false);
   readonly query = input('');

@@ -1,4 +1,7 @@
-import { PortableSessionControllerService } from '../../api/generated';
+import {
+  PortableSessionControllerService,
+  PlaythroughControllerService,
+} from '../../api/generated';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
@@ -18,6 +21,8 @@ describe('Session working state', () => {
   let state: SessionState;
   const api = {
     saveSession: vi.fn(),
+    openPlayWorkspace: vi.fn(),
+    savePlayWorkspace: vi.fn(),
     openSession: vi.fn(),
     renderSession: vi.fn(),
     previewMarkdown: vi.fn(),
@@ -39,6 +44,7 @@ describe('Session working state', () => {
         SessionState,
         { provide: PreparationControllerService, useValue: api },
         { provide: PortableSessionControllerService, useValue: api },
+        { provide: PlaythroughControllerService, useValue: api },
       ],
     });
     state = TestBed.inject(SessionState);
@@ -47,59 +53,71 @@ describe('Session working state', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
-  it('initializes once, keeps Prepare order, moves used cards without changing selection and restores at front', async () => {
+  it('keeps workspace changes separate from Preparation notes and revisions', async () => {
     const initial = {
       ...session(),
       items: ['a', 'b', 'c'].map((id) => ({ id, notes: '' }) as never),
     };
     api.openSession.mockReturnValue(of(initial));
+    api.openPlayWorkspace.mockReturnValue(
+      of({ session: initial.id, revision: 7, active: ['a', 'b', 'c'], used: [] }),
+    );
     await state.open('campaign-a', 'session-a');
-    state.initializeTable();
+    await state.initializeTable();
     state.selectItem('b');
     state.moveTable('c', 0);
     state.markUsed('b');
-    state.initializeTable();
-    expect(state.current()?.table).toEqual({ active: ['c', 'a'], used: ['b'] });
-    expect(state.current()?.items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    expect(state.play.current()).toMatchObject({ active: ['c', 'a'], used: ['b'] });
+    expect(state.current()).toEqual(initial);
     expect(state.selectedItem()).toBe('b');
     state.returnToTable('b');
-    expect(state.current()?.table).toEqual({ active: ['b', 'c', 'a'], used: [] });
-    const pending = state.current()!;
-    api.saveSession.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 409 })));
-    expect(await state.flush()).toBe(false);
-    expect(state.current()).toEqual(pending);
-    expect(state.status()).toBe('failed');
-    api.saveSession.mockReturnValueOnce(of({ ...pending, revision: 2 }));
+    const table = state.play.current()!;
+    api.savePlayWorkspace.mockReturnValue(of({ ...table, revision: 8 }));
+    expect(await state.play.flush()).toBe(true);
+    expect(api.saveSession).not.toHaveBeenCalled();
+    expect(api.savePlayWorkspace.mock.calls[0][2]).toEqual({
+      revision: 7,
+      active: ['b', 'c', 'a'],
+      used: [],
+    });
+    state.edit({ notes: 'Preparation only' });
+    api.saveSession.mockReturnValue(of({ ...initial, revision: 2, notes: 'Preparation only' }));
     expect(await state.flush()).toBe(true);
-    expect(api.saveSession.mock.calls.at(-1)?.[2].table).toEqual(pending.table);
-    expect(state.status()).toBe('saved');
-    state.remove('c');
-    expect(state.current()?.table?.active).toEqual(['b', 'a']);
+    expect(api.saveSession.mock.calls[0][2]).not.toHaveProperty('table');
+    expect(state.play.current()?.revision).toBe(8);
   });
-  it('adopts the reconciled table when a source is added while retaining local note edits', async () => {
-    const initial = {
-      ...session(),
-      items: [{ id: 'a', notes: '' } as never],
-      table: { active: [], used: ['a'] },
-    };
+  it('flushes changed membership before opening the reconciled workspace', async () => {
+    const initial = { ...session(), items: ['a', 'b'].map((id) => ({ id, notes: '' }) as never) };
     api.openSession.mockReturnValue(of(initial));
     await state.open('campaign-a', 'session-a');
-    const response = new Subject<SessionData>();
-    api.addSessionSource.mockReturnValue(response);
-    const adding = state.add('capture', 'new.md', null);
-    await Promise.resolve();
-    await Promise.resolve();
-    state.edit({ notes: 'Local note during capture' });
-    response.next({
-      ...initial,
-      revision: 2,
-      items: [...initial.items, { id: 'b', notes: '' } as never],
-      table: { active: ['b'], used: ['a'] },
+    state.remove('a');
+    api.saveSession.mockReturnValue(of({ ...initial, revision: 2, items: initial.items.slice(1) }));
+    api.openPlayWorkspace.mockImplementation(() => {
+      expect(api.saveSession).toHaveBeenCalledTimes(1);
+      return of({ session: initial.id, revision: 9, active: ['b'], used: [] });
     });
-    response.complete();
-    expect(await adding).toBe(true);
-    expect(state.current()?.table).toEqual({ active: ['b'], used: ['a'] });
-    expect(state.current()?.notes).toBe('Local note during capture');
+    await state.initializeTable();
+    expect(state.play.current()?.active).toEqual(['b']);
+  });
+
+  it('preserves failed local workspace edits while reloading Preparation in the same session', async () => {
+    await state.open('campaign-a', 'session-a');
+    api.openPlayWorkspace.mockReturnValue(
+      of({ session: 'session-a', revision: 7, active: ['a', 'b'], used: [] }),
+    );
+    await state.initializeTable();
+    state.markUsed('a');
+    api.savePlayWorkspace.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    await state.play.flush();
+    const table = state.play.current();
+    state.edit({ notes: 'Discard these Preparation notes only' });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await state.reload();
+    expect(state.current()?.notes).toBe('');
+    expect(state.play.current()).toEqual(table);
+    expect(state.play.status()).toBe('failed');
+    expect(state.play.hasUnsaved()).toBe(true);
+    expect(api.savePlayWorkspace).toHaveBeenCalledTimes(1);
   });
   it('flushes notes before approval and pins both revisions while preserving edits during capture', async () => {
     await state.open('campaign-a', 'session-a');
@@ -192,6 +210,27 @@ describe('Session working state', () => {
     expect(await saved).toBe(true);
     expect(state.status()).toBe('saved');
     expect(state.current()?.revision).toBe(3);
+  });
+  it('ignores a late Preparation save without clearing the new session save lifecycle', async () => {
+    await state.open('campaign-a', 'session-a');
+    const oldResponse = new Subject<SessionData>(),
+      newResponse = new Subject<SessionData>();
+    api.saveSession.mockReturnValueOnce(oldResponse).mockReturnValueOnce(newResponse);
+    state.edit({ notes: 'Old notes' });
+    const oldSaving = state.flush();
+    state.bindCampaign('campaign-b');
+    const next = { ...session(), id: 'session-b', campaign: 'campaign-b' };
+    api.openSession.mockReturnValue(of(next));
+    await state.open('campaign-b', 'session-b');
+    state.edit({ notes: 'New notes' });
+    const newSaving = state.flush();
+    oldResponse.next({ ...session(), revision: 2, notes: 'Old notes' });
+    expect(await oldSaving).toBe(false);
+    expect(state.status()).toBe('saving');
+    expect(state.current()?.notes).toBe('New notes');
+    newResponse.next({ ...next, revision: 2, notes: 'New notes' });
+    expect(await newSaving).toBe(true);
+    expect(state.current()?.campaign).toBe('campaign-b');
   });
   it('retains failed edits, blocks navigation when discard is cancelled, and retries explicitly', async () => {
     await state.open('campaign-a', 'session-a');

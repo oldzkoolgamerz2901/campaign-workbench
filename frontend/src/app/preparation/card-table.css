@@ -22,9 +22,10 @@ section {
 .entry {
   flex: 0 0 320px;
   width: 320px;
+  max-width: 100%;
 }
 playing-card {
-  width: 320px;
+  width: 100%;
 }
 .card-menu {
   border: 0;
@@ -127,4 +128,15 @@ button:focus-visible {
 .empty {
   font-size: 0.85rem;
   align-self: center;
+}
+@media (max-width: 650px) {
+  .table-row {
+    flex-direction: column;
+  }
+  .used-pile {
+    flex-basis: auto;
+  }
+  .used-pile button {
+    min-height: 80px;
+  }
 }

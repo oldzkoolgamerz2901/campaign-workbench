@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 const typed = (title: string, body: string) =>
   `---\nworkbench:\n  schema: 1\n  id: ${randomUUID()}\n  title: ${title}\n  type: reference\n  purpose: session\n  status: current\n  summary: Authored reader summary.\n---\n${body}`;
 
-test('reads exact live and frozen subtrees with disclosure, outline and portable legacy/v2 material', async ({
+test('reads exact live and frozen subtrees with disclosure, outline and current portable material and rejects legacy archives', async ({
   page,
   request,
 }, testInfo) => {
@@ -297,24 +297,10 @@ ${'code-token'.repeat(160)}
         }),
       })),
     };
-    const legacy = await (
-      await request.post(`/api/campaigns/${campaign.id}/sessions/import`, { data: legacyArchive })
-    ).json();
-    await page.goto(
-      `/?campaign=${campaign.id}&session=${legacy.sessions[0].id}&mode=read&view=prepare`,
-    );
-    await page
-      .locator('.read-toolbar')
-      .getByLabel('Find in session', { exact: true })
-      .fill('Long reader');
-    await page
-      .locator('read-card-table')
-      .getByRole('article', { name: 'Read: Long reader', exact: true })
-      .click();
-    await expect(frozen.getByText('Secret opening.', { exact: true })).toBeVisible();
-    await expect(frozen.getByRole('button', { name: 'Show Background', exact: true })).toHaveCount(
-      0,
-    );
+    const legacy = await request.post(`/api/campaigns/${campaign.id}/sessions/import`, {
+      data: legacyArchive,
+    });
+    expect(legacy.status()).toBe(400);
     expect(errors).toEqual([]);
   } finally {
     await rm(root, { recursive: true, force: true });

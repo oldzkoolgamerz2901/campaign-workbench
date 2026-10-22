@@ -50,7 +50,10 @@ test('Read keeps a durable table and used pile separate from preparation', async
     const entry = (id: string) => table.locator(`.shelf > [data-item-id="${id}"]`);
     const saved = async () => {
       await expect(page.getByLabel('Session save status')).toHaveText('Saved');
-      return (await request.get(endpoint)).json();
+      return {
+        ...(await (await request.get(endpoint)).json()),
+        table: await (await request.get(`${endpoint}/workspace`)).json(),
+      };
     };
     const drag = async (
       source: import('@playwright/test').Locator,
@@ -115,7 +118,10 @@ test('Read keeps a durable table and used pile separate from preparation', async
     await page.getByRole('menuitem', { name: 'Move left', exact: true }).press('Enter');
     let state = await saved();
     expect(state.items.map((i: { id: string }) => i.id)).toEqual([one, two, three]);
-    expect(state.table).toEqual({ active: [three, one], used: [two] });
+    expect({ active: state.table.active, used: state.table.used }).toEqual({
+      active: [three, one],
+      used: [two],
+    });
     await page.getByLabel('Card group', { exact: true }).selectOption('npc');
     await expect(entries).toHaveCount(0);
     await expect(page.locator('.source-page')).toContainText('Full frozen text for Two.');
@@ -132,7 +138,7 @@ test('Read keeps a durable table and used pile separate from preparation', async
       .fill('');
     await page.getByLabel('Card group', { exact: true }).selectOption('');
     await table.getByRole('button', { name: 'Close used cards', exact: true }).click();
-    expect((await saved()).table).toEqual({ active: [three, one], used: [two] });
+    expect(await saved()).toMatchObject({ table: { active: [three, one], used: [two] } });
     await page.reload();
     await expect(entries.first()).toContainText('Three');
     await table.getByRole('button', { name: 'Used cards (1)', exact: true }).click();
@@ -207,8 +213,8 @@ test('Read keeps a durable table and used pile separate from preparation', async
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(4);
-    expect(archive.sessions[0].table.active).toEqual([four, one, three, two]);
+    expect(archive.version).toBe(6);
+    expect(archive.workspaces[0].workspace.active).toEqual([four, one, three, two]);
     expect(errors).toEqual([]);
   } finally {
     await rm(root, { recursive: true, force: true });

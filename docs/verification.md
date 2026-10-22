@@ -1,5 +1,186 @@
 # Verification evidence
 
+## P2G — Shared card geometry — 2026-10-22
+
+**Assessment: PASS within the assessed scope.** The shared renderer satisfies the approved 243:420 geometry and preserves the covered card interactions, artwork and reading paths. No acceptance-blocking defect was found. Owner visual acceptance and P3/later implementation remain separate decisions. Historical P2 assessments below are preserved; the owner accepted P2 before authorizing P2G.
+
+### Authorization and scope
+
+The owner explicitly authorized verification after P2G implementation handover. Reviewed the current uncommitted working tree based on `0d505b4` against the [approved geometry contract and P2G scope](playthrough-implementation-plan.md#card-geometry-contract), accepted presentation boundaries and implementation evidence. This is a separate verification pass by the implementing agent, not an independent reviewer. No application or repository test source was modified during this pass; only this assessment was added. Temporary probes used synthetic records in the isolated smoke database and files under the system temporary directory.
+
+### Fresh checks and evidence
+
+`WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed during verification:
+
+- **87 frontend tests across 13 files**, version checks, live OpenAPI client generation and production build passed.
+- **All 22 Chromium journeys** passed, including dense-content geometry, illustrated Write/Prepare/Play/recovery, frozen artwork and current-format archive round trips, drag reorder/Used return, reader selection, retry and navigation protection.
+- Isolated PostgreSQL restart/preservation passed and test services were cleaned up. Backend `test bootJar` succeeded with tasks up-to-date; no fresh backend-test execution is claimed.
+- A separate real Chromium probe at 390×844 opened three Used cards, measured all three at **320×553.078125px**, confirmed no overlap using positions captured at the same scroll offset, and clicked each full-document action to read its frozen document. Its independent smoke/backend/frontend lifecycle completed and cleaned up successfully. Screenshot: `/tmp/p2g-used-tray.png`.
+- Inspected fresh illustrated Write at 1440px, Play at 390px and the three-card Used-tray probe screenshot. Laptop card controls fit the preview; narrow Play retains vertical access to the card, Used target, reader and notes. Existing dense-browser screenshots document horizontal shelf scrolling after keyboard focus.
+
+The additional probe initially encountered sandbox browser-launch restrictions, then missed the main check's already-stopped backend. It was rerun with an isolated service lifecycle. Its first position comparison mixed scroll offsets; the corrected same-offset comparison above passed. Those unsuccessful probe attempts supply no product pass/fail evidence.
+
+### Acceptance assessment
+
+| Contract | Assessment |
+| --- | --- |
+| 243:420 outer shape, 320px default | Pass. Shared CSS specifies the ratio; real browser measurements cover scene, NPC and item fixtures at 1440/1280/390/320px viewport widths. Laptop default remains 320px; the additional Used-tray measurement gives approximately 553px height. |
+| Container-driven sizing and proportional presentation | Pass within tested containers. Renderer host uses its available width and an inline-size container; spacing and typography scale with readable minimums, and artwork keeps proportional height. Active and Used entries constrain card width; the narrow Used target stacks below the active shelf. |
+| Dense content and keyboard/full-document access | Pass. Dense summaries and 30 tags remain present in a focusable scrolling area. A long title scrolls using the keyboard. Browser checks keep the document action inside the card and open frozen text from Play and Prepare. Focus styles and existing selection/action boundaries remain in the renderer. |
+| Shared consumers, artwork and fallback | Pass within covered journeys. Write, draft chooser, prepared preview, Active/Used and Writing recovery use the same renderer. Illustrated card geometry/document actions, placeholders, failed-artwork retry and frozen images survive the covered workflows and archive transfers. |
+| Scope and module ownership | Pass. Geometry remains presentation-only in shared PlayingCard and the existing CardTable sizing consumer. No new backend/API/domain persistence, image service, dependencies, card fields, extraction or back/flipping behavior was introduced. |
+
+### Limits and exit
+
+Existing warnings remain: initial bundle 739.17 kB against 500 kB, workspace stylesheet 7.91 kB against 4 kB and prototype stylesheet budgets. Tested Chromium viewport layouts do not establish Safari/WebKit, real touch dragging, exhaustive accessibility/screen-reader behavior, extreme zoom or arbitrarily tiny embedding containers. Future multi-focus layouts belong to later increments and were not assessed. Writing recovery's existing long record list is unchanged. No development database reset or independent campaign-content edits occurred. `git diff --check` passed before recording this assessment.
+
+Recommend owner visual review and acceptance of P2G within these limits. Stop at the verification boundary; no corrective implementation, P3 or later increment is authorized by this result.
+
+## P2 corrective re-verification — V-P2-03 — 2026-10-22
+
+**Assessment: PASS for V-P2-03 within the assessed scope.** Navigation during a pending same-session Preparation reload now honors the originating workspace save/discard guard. This supersedes the V-P2-03 finding status in the assessment below; historical evidence is preserved. Together with the preceding V-P2-01/V-P2-02 re-verification, no recorded P2 acceptance-blocking finding remains open. Owner acceptance and later increments remain separate decisions.
+
+### Authorization and scope
+
+The owner authorized formal re-verification after the V-P2-03 corrective implementation handover. Reviewed the current uncommitted working tree based on `0d505b4`, including `app.routes.ts`, Preparation and Play workspace lifecycle/guard composition, and the real browser regressions in `frontend/e2e/preparation-recovery.spec.ts`. Assessed against P2's accepted scope, independent revisions/navigation protection and the six required correction behaviors from the implementation request. This is a separate verification pass by the implementing agent, not an independent reviewer. No application or test source was changed during this pass; only this assessment was added.
+
+### Fresh evidence
+
+`WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed in this verification pass:
+
+- All **87 frontend tests across 13 files**, production build, version checks and live OpenAPI generation passed.
+- All **21 Chromium browser journeys** passed, including the three delayed-reload regressions and the earlier Preparation recovery and independent workspace conflict/retry journeys.
+- Backend `test bootJar` succeeded with tasks up-to-date; this is not fresh backend-test execution. Isolated PostgreSQL restart/preservation passed and smoke services were cleaned up. No development database reset or campaign-content edit occurred.
+- `git diff --check` passed before recording this assessment.
+
+### Required behavior assessment
+
+| Required behavior | Finding and evidence |
+| --- | --- |
+| Pending Preparation reload cannot bypass workspace protection | Pass. The route guard grants the view-change shortcut only for a known matching campaign/session; null `current` reaches `SessionState.allowLeave()`, which invokes `play.allowLeave()` before departure. Fresh Chromium session and campaign switches required the workspace-specific dialog while the reload GET response was held. |
+| Navigation waits/blocks or invokes the originating guard | Pass. The existing workspace guard flushes retained edits or waits for its in-flight save before permitting departure; failed saves require explicit discard. Browser cases exercise the failed-save path with the originating workspace retained. |
+| Cancelling departure retains table changes | Pass. Cancelling keeps the origin route and table retry control. A separate journey then releases the reload and observes Used cards (1) and the retry control, while the saved backend workspace remains unchanged. |
+| Explicit workspace discard permits departure | Pass. Both session and campaign journeys first cancel, then explicitly accept the workspace discard dialog with the same Preparation response still pending and reach the destination. Accepting the earlier Preparation reload dialog alone does not authorize workspace discard. |
+| Late reload cannot replace or alter destination state | Pass within the tested schedules. After destination session opening, the held originating response is delivered; destination heading/route remain selected and the old table failure does not reappear. Code review confirms session open/campaign clear increments the epoch and stale success, failure and loading completion are rejected; UI recovery also checks its route epoch before initializing Play. |
+| Preparation reload preserves independent workspace edits | Pass. The cancellation journey retains the local Used change after reload completion. State regressions also preserve the failed workspace data/revision while discarding Preparation notes; separate-save tests keep workspace fields out of Preparation saves. |
+
+### Limits and exit
+
+No new acceptance-blocking defect was found in this bounded review. The browser reproductions use retained failed workspace edits with delayed successful Preparation reload responses. Pending successful workspace-save/reload interleavings are supported by existing serialized-save tests and code review, not a new exhaustive browser schedule. Safari/WebKit, touch, exhaustive accessibility/concurrency, worst-case resources and later increments remain unassessed. Existing initial bundle (738.55 kB against 500 kB), workspace stylesheet (7.91 kB against 4 kB) and prototype stylesheet warnings remain.
+
+Recommend owner acceptance of P2 within the combined recorded assessment limits. Stop at this verification boundary; no implementation, P2G or later increment is authorized by this result.
+
+## P2 corrective re-verification — V-P2-01 / V-P2-02 — 2026-10-22
+
+**Assessment: the original two findings are resolved within their assessed reproductions; P2 still requires correction for V-P2-03 below.** A related navigation defect can discard retained unsaved workspace changes during a pending Preparation reload. This assessment supersedes the initial P2 finding status for V-P2-01 and V-P2-02, while preserving that historical record below. It is not owner acceptance or authorization for another increment.
+
+### Scope, authority and fresh evidence
+
+The owner explicitly requested re-verification after corrective implementation handover. Reviewed the current uncommitted working tree based on `0d505b4`, including the new workspace recovery component/state/browser tests, against the prior findings, [P2's accepted scope](playthrough-implementation-plan.md#p2--frontend-workspace-integration), and accepted independent revisions/navigation protection. This is a separate review by the implementing agent, not an independent reviewer. No application or repository test source was changed; only this formal evidence record was written.
+
+- Fresh `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed: live OpenAPI generation, version checks, **87 frontend tests across 13 files**, production build, **all 18 Chromium browser journeys**, and isolated PostgreSQL restart/preservation. Backend `test bootJar` tasks were up-to-date; no fresh backend-test execution is claimed.
+- Re-ran the original temporary Chromium probe against the real Angular UI and packaged backend. On the same two-item failure sequences, successful Preparation retry and reload/discard each restored **two Active card entries**, with header **Saved** and no workspace error/recovery state. The queued-edit/503 sequence issued **one PUT**, instead of the previous two, without an explicit retry. Temporary scripts and synthetic campaign directories were outside application source; browser instances and owned smoke services were cleaned up.
+- Inspected and freshly ran regressions for both 409 and 503 workspace failures, explicit retry with original revision/retained local order, pending/failed workspace preservation through same-session Preparation reload, unsuccessful/cancelled recovery, and late recovery after campaign/session/mode/component changes. Existing illustrated archives, reader/artwork/table behavior, filters and explicit navigation/retry/discard journeys also pass.
+- A further controlled Chromium probe held the Preparation reload GET pending while navigating to a different session. It reproduced V-P2-03 below using only synthetic records in the smoke database.
+- `git diff --check` passed. Existing size warnings remain: initial bundle **738.56 kB** against 500 kB, unchanged workspace CSS **7.91 kB** against 4 kB, plus existing prototype CSS warnings. No budget was relaxed, development database reset, independent campaign repository edited, or commit created.
+
+### Resolution of original findings
+
+| Finding | Assessment and evidence |
+| --- | --- |
+| V-P2-01: Preparation recovery leaves Play empty | Resolved for both original paths. Recovery controls now use the workspace UI to resume initialization/reconciliation after successful Preparation retry/reload. Current route/mode/identity checks suppress late initialization, and recovery in Prepare does not initialize Play. Same-session Preparation reload preserves failed table edits instead of clearing them. Fresh browser reproductions restore both saved cards. The new preservation behavior exposes the separate pending-reload navigation defect below. |
+| V-P2-02: queued autosave survives failure | Resolved for the assessed timing. The workspace failure path cancels its pending timer. Fresh original Chromium reproduction observes only one PUT. Unit regressions cover 409 and 503, retaining local Active/Used order and expected revision until explicit retry; late old-identity failure cannot cancel a newer identity's timer because failure handling is epoch-guarded. |
+
+### Required correction: V-P2-03 — navigation during Preparation reload discards retained workspace edits
+
+**Severity: medium; acceptance-blocking for P2 navigation/save protection.** Unsaved table order/Used changes can be lost without the workspace save/discard guard. The saved backend table and frozen content remain intact; the lost change is the local runtime arrangement.
+
+Locations: `frontend/src/app/app.routes.ts:7`–`17`; `frontend/src/app/preparation/session-state.ts:101`–`111` and `:437`–`443`.
+
+Reproduced in Chromium:
+
+1. Open a prepared session in Play, mark its card Used, and force its workspace PUT to return 409. Keep the failed local Used change.
+2. Switch to Prepare, edit session notes, and force the Preparation PUT to return 503. Switch back to Play.
+3. Click **Reload / discard local edits** and accept the Preparation reload confirmation. Hold its GET session response pending. Same-session reload intentionally preserves the failed table edits, but `SessionState.open()` sets `current` to null while waiting.
+4. Open **Sessions / New session** and choose a different session before the held response completes.
+5. Release the old reload response and reopen the originating session.
+
+Observed: navigation to the other session succeeded. The only dialog was **Discard local edits and reload the saved session?** from step 3; no workspace retry/discard decision occurred during navigation. On returning, the card was Active, **Used cards (0)** was present, and **Retry table save** was absent: the retained local Used change had been cleared.
+
+Root cause: `protectWorkingSession` returns true whenever `state.current()` is null, without checking retained Play workspace edits or reload/loading state. The new same-session reload correctly preserves workspace state but temporarily nulls Preparation's current session. Navigating in that interval therefore bypasses `SessionState.allowLeave()`; opening/binding another session clears the retained workspace. Recovery completion's route/identity checks prevent an old response from reopening the wrong view, but cannot protect local changes already discarded by that navigation.
+
+Expected: navigation while reloading must either wait/block or honor the originating workspace save/discard guard, even while the Preparation reader has no current session value. The Preparation-discard choice must not silently become a later workspace-discard choice, since same-session reload intentionally retains that separate state.
+
+Recommend a bounded correction to guard composition/originating-session lifecycle, with real router/browser regressions for a delayed same-session reload plus failed or pending workspace edits and a session/campaign switch. Assert that cancel retains the originating local table, explicit workspace discard permits departure, and a late reload response cannot replace the selected destination. The current UI recovery tests change a mock current-session value after recovery starts; they do not exercise the real router's `!current` shortcut.
+
+### Limits and exit
+
+The existing P2 functionality and original recovery fixes pass the covered checks, but V-P2-03 prevents an overall P2 pass. Safari/WebKit, touch, exhaustive accessibility/concurrency, worst-case resources and later tabletop increments remain outside this assessment. No unrelated historical finding is implicitly closed.
+
+Stop at this verification boundary. Corrective implementation for V-P2-03 requires separate owner authorization; no fix was made during re-verification.
+
+## P2 — Frontend workspace integration — 2026-10-22
+
+**Assessment: correction required before P2 verification can pass.** The existing suites pass, but additional Chromium probes reproduce two recovery defects. No data loss or cross-campaign overwrite was observed. This is a separate verification pass by the implementing agent, not an independent reviewer assessment.
+
+### Scope, authorization and method
+
+The owner explicitly authorized P2 verification after implementation handover. Assessed the current uncommitted P2 working tree based on `0d505b4`, including untracked `frontend/src/app/playthroughs/` and `frontend/e2e/play-workspace.spec.ts`, against P2 in [the accepted plan](playthrough-implementation-plan.md#p2--frontend-workspace-integration), accepted ownership/concurrency rules in [the architecture](playthrough-domain-architecture.md), and existing preparation/save protections in [the product specification](product-specification.md). Card geometry, scene/focus, PlayNotes/history and later increments remain excluded.
+
+Reviewed the generated-client integration, workspace save lifecycle, Preparation save/membership lifecycle, route guards, recovery controls, shared CardTable/artwork/reader integration and current-format portable transfer controls. No application code or repository test source was changed. Only this formal evidence record was written. Temporary diagnostic scripts under `/private/tmp` created synthetic campaigns and records in the isolated smoke database; their browser/backend/frontend processes and Compose services were cleaned up and synthetic source directories removed. No development database reset, independent campaign-repository edit or commit was performed.
+
+### Fresh execution evidence
+
+- `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed: live OpenAPI client generation, version checks, **77 frontend tests across 12 files**, production build, **all 16 Chromium browser journeys**, and isolated PostgreSQL restart/preservation. Backend `test bootJar` succeeded with tasks up-to-date; this pass does not claim fresh execution of the 62 retained backend tests.
+- Existing browser journeys exercise illustrated Write → Prepare → Play, frozen notes/readers/artwork, actual drag/reorder/Used return, filtering/reopening, explicit workspace retry and stale-revision discard, current v6 portable ZIP round trips with remapped Used IDs, and obsolete archive rejection.
+- Additional Chromium probes used the real Angular UI and packaged backend, with controlled browser interception of selected PUT failures. They reproduced V-P2-01 and V-P2-02 below. The initial temporary probe needed a selector correction to choose session-level notes before filling them; the corrected probe completed all three scenarios and cleaned up successfully. No product change was made to obtain these results.
+- `git diff --check` passed. Existing production warnings remain: initial bundle **738.13 kB** against 500 kB; workspace CSS **7.91 kB** against 4 kB, plus existing prototype stylesheet warnings. No budget was relaxed.
+
+### Required correction: V-P2-01 — Preparation recovery leaves Play without an initialized workspace
+
+**Severity: medium; acceptance-blocking for P2 recovery/usability.** Prepared content remains saved, but the current Play view loses its usable table after ordinary recovery actions and offers no workspace recovery control.
+
+Locations: `frontend/src/app/preparation/session-state.ts:211` and `:433`; `frontend/src/app/preparation/workspace.ts:161`; `frontend/src/app/preparation/workspace.html:243` and `:319`.
+
+Two independently reproduced sequences with a saved two-item session:
+
+1. Open the session in Prepare in a fresh page. Force a Preparation PUT to return 503, edit session notes and wait for failure. Switch to Play; `initializeTable()` returns early because the Preparation flush fails. Restore the PUT endpoint and click **Retry save** while still in Play. Preparation saves, but workspace initialization is never resumed.
+2. Open Play successfully, switch to Prepare, fail a Preparation note save, then switch back to Play. Click **Reload / discard local edits** and accept discard. `SessionState.open()` clears the Play state while reloading Preparation; completing that reload does not reopen Play's workspace.
+
+For both sequences, the observed result was **zero Active card entries instead of two**, **zero workspace recovery buttons**, and header **Saved**. The CardTable is disabled because `play.current()` is null. Switching Prepare → Play restores the two saved cards, demonstrating a frontend lifecycle failure rather than missing backend membership.
+
+Expected: successful retry or discard/reload completes the current Play initialization/reconciliation, or exposes a clear recoverable workspace-opening state. A saved session in Play must not be left with an empty disabled table and no recovery action. Root cause: workspace initialization is triggered by route application, while these recovery controls only flush/reopen Preparation; they do not reapply the current Play lifecycle.
+
+Recommend a bounded lifecycle correction that preserves originating campaign/session identity, independent revisions and retained local workspace edits. Add regressions for both recovery paths, including late responses/navigation while recovery completes. Do not initialize unopened workspaces merely because a user recovered notes in Prepare.
+
+### Required correction: V-P2-02 — a queued autosave survives workspace save failure
+
+**Severity: medium; acceptance-blocking for the explicit failure/retry contract.** Working changes and optimistic revision remain intact; no silent rebase or overwrite was observed. The failure does not remain explicit until a recovery action as promised in P2's implementation handover.
+
+Location: `frontend/src/app/playthroughs/workspace-state.ts:92`–`100`, `:141`–`145` and `:179`.
+
+Reproduction: in a two-item Play table, mark the first card Used and hold its autosave PUT pending. While that request is in flight, mark the second card Used; this schedules another debounce timer. Release the first PUT with 503 before the new timer expires. Make no retry/navigation action and wait 800 ms.
+
+Observed: **two workspace PUT requests** occurred, although the owner only initiated the original save sequence. The pending timer calls `flush()` after the first failure, which clears the error and starts another save. The probe returned 503 for both requests and ended at **Save failed**; a successful second response could instead remove the failure state without an explicit retry. The existing test edits only after failure, when `edit()` correctly refuses to schedule a timer, so it misses this in-flight-edit timing.
+
+Expected: on failure, cancel or suppress queued automatic follow-up saves while retaining all local order changes and the original revision. Explicit **Retry table save**, reload/discard or an approved navigation recovery action may then proceed. Add a focused regression for a newer edit queued during a slow save that fails before its debounce expires; cover 409 and temporary errors without silently rebasing.
+
+### Other P2 acceptance findings and limits
+
+| Approved behavior | Assessment and evidence |
+| --- | --- |
+| Dedicated workspace state and independent revisions | Pass within reviewed/tested paths. Workspace requests use their own generated service/revision; Preparation payloads no longer contain table fields. Unit and browser checks confirm runtime table changes leave Preparation notes/revision unchanged. Frontend session state composes lifecycle/guards; backend Preparation ownership/dependencies remain unchanged. |
+| Existing table/card/reader/artwork behavior | Pass within existing Chromium journeys: preparation ordering remains separate, selection/full-document reading and frozen artwork survive Active/Used changes, filters do not mutate order, and reopening restores persisted workspace IDs. Shared geometry is unchanged, as required for P2. |
+| Slow saves, identities and navigation | Selected checks pass: serialized successful saves retain newer edits, old opens/saves cannot replace another campaign/session or clear its save queue, and failed table saves guard session departure. V-P2-01 and V-P2-02 prevent an overall recovery pass. This is not exhaustive interleaving evidence. |
+| Current-format portable controls | Pass within reviewed/tested paths: export waits for both frontend save lifecycles; ZIP import remains destination-scoped; illustrated round trip retains frozen content/notes/artwork and Used references with fresh identities. Old-format rejection matches the accepted disposable-data policy. |
+| Scope | No new backend persistence, compatibility adapter, image store, dependency, card geometry, scene/focus or PlayNotes feature was introduced. |
+
+Safari/WebKit, touch dragging, exhaustive accessibility, every failure/interleaving and worst-case archive/resource combinations remain unverified. No previous historical finding or later increment is implicitly accepted by passing regressions here.
+
+### Exit
+
+Recommend a bounded P2 corrective implementation for V-P2-01 and V-P2-02, followed by re-verification. Stop at this verification boundary. The repository workflow requires separate owner authorization for corrective application/test changes; this verification did not make those changes or authorize P2G.
+
 ## P1 — Playthrough workspace and current-format archives — 2026-10-22
 
 **Assessment: pass within the approved backend P1 scope; no blocking defect found.** This does not establish a releasable frontend application or acceptance of later tabletop capabilities. The owner explicitly approved P1's temporarily incompatible frontend interval. Formal verification was separately authorized after implementation handover. This assessment is by the implementing agent in a subsequent review pass, not an independent reviewer.

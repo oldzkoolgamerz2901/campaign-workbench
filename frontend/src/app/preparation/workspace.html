@@ -70,9 +70,7 @@
           <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
         }
       </select>
-      <small
-        >{{ activeCount() }} / {{ state.current()?.table?.active?.length ?? 0 }} on table</small
-      >
+      <small>{{ activeCount() }} / {{ state.play.current()?.active?.length ?? 0 }} on table</small>
     } @else {
       <small>{{ state.current()?.items?.length ?? 0 }} prepared</small>
     }
@@ -179,7 +177,7 @@
               >Import sessions into {{ campaign.name
               }}<input
                 type="file"
-                accept="application/zip,.zip,application/json,.json"
+                accept="application/zip,.zip"
                 [disabled]="!campaignReady() || busy()"
                 (change)="importFile($event)"
             /></label>
@@ -215,6 +213,24 @@
     </div>
   </section>
   <div class="workspace-messages">
+    @if (state.play.loading()) {
+      <p role="status">Opening Play workspace…</p>
+    }
+    @if (state.play.error()) {
+      <div role="alert" class="error">{{ state.play.error() }}</div>
+    }
+    @if (state.play.status() === 'failed') {
+      <div class="recovery">
+        <strong>{{
+          state.play.current() ? 'Your table changes are retained.' : 'Play workspace unavailable.'
+        }}</strong>
+        @if (state.play.current()) {
+          <button matButton (click)="state.play.flush()">Retry table save</button>
+        }
+        <button matButton (click)="state.play.reload()">Reload / discard table changes</button>
+      </div>
+    }
+
     @if (state.error()) {
       <div role="alert" class="error">{{ state.error() }}</div>
     }
@@ -224,8 +240,10 @@
     @if (state.status() === 'failed') {
       <div class="recovery">
         <strong>Your working edits are retained.</strong
-        ><button matButton (click)="state.flush()">Retry save</button
-        ><button matButton (click)="state.reload()">Reload / discard local edits</button>
+        ><button matButton (click)="recoverPreparation('retry')">Retry save</button
+        ><button matButton (click)="recoverPreparation('reload')">
+          Reload / discard local edits
+        </button>
       </div>
     }
     @if (state.notice() && !reading()) {
@@ -296,11 +314,11 @@
         [campaign]="session.campaign"
         [session]="session.id"
         [items]="session.items"
-        [table]="session.table ?? null"
+        [table]="state.play.current()"
         [query]="cardQuery()"
         [group]="cardGroup()"
         [selected]="state.selectedItem()"
-        [disabled]="!campaignReady() || busy()"
+        [disabled]="!campaignReady() || busy() || state.play.loading() || !state.play.current()"
         (selectItem)="selectPrepared($event)"
         (moveItem)="state.moveTable($event.id, $event.to)"
         (useItem)="state.markUsed($event)"

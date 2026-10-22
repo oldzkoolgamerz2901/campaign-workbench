@@ -24,7 +24,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
         ><span>CAMPAIGN WORKBENCH</span>
       </div>
       <artwork-image [source]="artwork()" [local]="localArtwork()" />
-      <h3>{{ title() || 'Untitled card' }}</h3>
+      <h3 tabindex="0">{{ title() || 'Untitled card' }}</h3>
       <div class="card-text" tabindex="0" aria-label="Card summary and tags">
         @if (summary().trim()) {
           <p>{{ summary() }}</p>
@@ -53,17 +53,18 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       display: block;
       width: min(100%, var(--card-width, 320px));
       margin: auto;
+      container-type: inline-size;
     }
     .card {
       position: relative;
-      aspect-ratio: 5/7;
+      aspect-ratio: 243 / 420;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      gap: 0.65rem;
-      padding: 1rem;
+      gap: clamp(0.4rem, 3.25cqi, 0.65rem);
+      padding: clamp(0.5rem, 5cqi, 1rem);
       border: 2px solid #aa9567;
-      border-radius: 1rem;
+      border-radius: clamp(0.5rem, 5cqi, 1rem);
       background: #e9dfc5;
       color: #28352b;
       box-shadow: 0 12px 28px #0004;
@@ -82,6 +83,12 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       outline: 3px solid #e8bf65;
       outline-offset: 3px;
     }
+    h3:focus-visible,
+    .card-text:focus-visible,
+    button:focus-visible {
+      outline: 2px solid #526b45;
+      outline-offset: 2px;
+    }
     .card-actions {
       position: absolute;
       top: 0.35rem;
@@ -94,8 +101,8 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
     .card-top {
       display: flex;
       justify-content: space-between;
-      gap: 0.5rem;
-      font-size: 0.6rem;
+      gap: clamp(0.25rem, 2.5cqi, 0.5rem);
+      font-size: clamp(0.55rem, 3cqi, 0.6rem);
       letter-spacing: 0.07em;
       text-transform: uppercase;
       flex-shrink: 0;
@@ -111,7 +118,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
     }
     h3 {
       font:
-        1.45rem Georgia,
+        clamp(1.1rem, 7.25cqi, 1.45rem) Georgia,
         serif;
       margin: 0;
       overflow-wrap: anywhere;
@@ -124,7 +131,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       flex: 1;
       overflow: auto;
       overflow-wrap: anywhere;
-      font-size: 0.85rem;
+      font-size: clamp(0.75rem, 4.25cqi, 0.85rem);
       line-height: 1.5;
       padding-right: 0.3rem;
     }
@@ -148,7 +155,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       border: 1px solid #a49d80;
       border-radius: 1rem;
       padding: 0.12rem 0.5rem;
-      font-size: 0.7rem;
+      font-size: clamp(0.65rem, 3.5cqi, 0.7rem);
       max-width: 100%;
       overflow-wrap: anywhere;
     }
@@ -161,7 +168,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       display: flex;
       justify-content: space-between;
       font: inherit;
-      font-size: 0.8rem;
+      font-size: clamp(0.75rem, 4cqi, 0.8rem);
       cursor: pointer;
       flex-shrink: 0;
     }

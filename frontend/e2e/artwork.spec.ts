@@ -24,6 +24,14 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     await expect
       .poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth))
       .toBeGreaterThan(0);
+    const card = image.locator('xpath=ancestor::playing-card/article');
+    if (await card.count()) {
+      const bounds = (await card.boundingBox())!;
+      expect(bounds.width / bounds.height).toBeCloseTo(243 / 420, 2);
+      const action = card.getByRole('button', { name: 'Open full document' });
+      await action.scrollIntoViewIfNeeded();
+      await expect(action).toBeVisible();
+    }
   };
   try {
     const campaign = await json('post', '/api/campaigns', {
@@ -83,11 +91,16 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],
+      [390, 844],
     ]) {
       await page.setViewportSize({ width, height });
-      await expect(page.locator('playing-card')).toHaveCSS('width', '320px');
+      const bounds = (await page.locator('playing-card article').boundingBox())!;
+      expect(bounds.width).toBeLessThanOrEqual(320);
+      if (width >= 1280) expect(bounds.width).toBe(320);
+      expect(bounds.width / bounds.height).toBeCloseTo(243 / 420, 2);
       await page.screenshot({ path: info.outputPath(`write-${width}.png`), fullPage: true });
     }
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
     await page.getByRole('button', { name: 'Drafts', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Drafts for session' });
@@ -109,10 +122,12 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],
+      [390, 844],
     ]) {
       await page.setViewportSize({ width, height });
       await page.screenshot({ path: info.outputPath(`prepare-${width}.png`), fullPage: true });
     }
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&mode=play&view=prepare`);
     await illustrated('read-card-table playing-card img');
     await page
@@ -139,6 +154,7 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],
+      [390, 844],
     ]) {
       await page.setViewportSize({ width, height });
       await page.screenshot({ path: info.outputPath(`play-${width}.png`), fullPage: true });
@@ -166,6 +182,7 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],
+      [390, 844],
     ]) {
       await page.setViewportSize({ width, height });
       await page.screenshot({ path: info.outputPath(`recovery-${width}.png`), fullPage: true });
@@ -185,12 +202,24 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
       'src',
       '/card-placeholder.svg',
     );
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&mode=play&view=prepare`);
     await illustrated('read-card-table playing-card img');
     const frozen = await (
       await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}`)
     ).json();
     expect(frozen.items[0].image.hash).toBe(originalHash);
+    const workspaceSaved = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'PUT' &&
+        r.url().endsWith(`/sessions/${session.id}/workspace`) &&
+        r.ok(),
+    );
+    await page
+      .getByRole('button', { name: 'Card actions: Illustrated captain', exact: true })
+      .click();
+    await page.getByRole('menuitem', { name: 'Mark used', exact: true }).click();
+    await workspaceSaved;
     const downloadingSession = page.waitForEvent('download');
     await page.getByRole('button', { name: 'More session actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Export session', exact: true }).click();
@@ -214,7 +243,15 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     expect(restored.items[0].notes).toBe('Frozen illustrated note');
     await page.getByRole('button', { name: 'Illustrated voyage', exact: true }).click();
     await page.goto(`/?campaign=${destination.id}&session=${imported.id}&mode=play&view=prepare`);
-    await illustrated('read-card-table playing-card img');
+    await expect(page.getByRole('button', { name: 'Used cards (1)', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Used cards (1)', exact: true }).click();
+    await illustrated('#used-card-tray playing-card img');
+    const restoredWorkspace = await (
+      await request.get(`/api/campaigns/${destination.id}/sessions/${imported.id}/workspace`)
+    ).json();
+    expect(restoredWorkspace.active).toEqual([]);
+    expect(restoredWorkspace.used).toEqual([restored.items[0].id]);
+    expect(restored.items[0].id).not.toBe(frozen.items[0].id);
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(other, { recursive: true, force: true });

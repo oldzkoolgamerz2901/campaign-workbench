@@ -9,11 +9,12 @@ const protectWorkingSession: CanActivateFn = (route) => {
     current = state.current();
   if (state.queueRunning()) return state.allowLeave();
   if (
-    !current ||
-    (route.queryParamMap.get('session') === current.id &&
-      route.queryParamMap.get('campaign') === current.campaign)
+    current &&
+    route.queryParamMap.get('session') === current.id &&
+    route.queryParamMap.get('campaign') === current.campaign
   )
     return true;
+  // Preparation reload temporarily clears current while retaining independent table edits.
   return state.allowLeave();
 };
 export const routes: Routes = [

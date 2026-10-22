@@ -13,7 +13,7 @@
 
 ## Card geometry contract
 
-The implemented shared PlayingCard currently uses 5:7 and a 320px default width. Change its outer ratio to **243:420** in P2G, retaining 320px default width (approximately 553px high at that width) and container-driven sizing for smaller screens and focus/inspection. Scale typography, spacing and artwork proportionally while keeping controls/text accessible. Long content retains an accessible overflow/full-document path instead of shrinking without a readability limit. Reuse existing artwork and placeholder/unavailable states. No geometry belongs in domain storage. Test scene, enemy/NPC and item-like synthetic fixtures, long titles, summaries/tags, artwork/no artwork, laptop and narrow layouts. Card backs are not part of acceptance.
+The shared PlayingCard used 5:7 before P2G. P2G changes its outer ratio to **243:420**, retaining 320px default width (approximately 553px high at that width) and container-driven sizing for smaller screens and focus/inspection. Scale typography, spacing and artwork proportionally while keeping controls/text accessible. Long content retains an accessible overflow/full-document path instead of shrinking without a readability limit. Reuse existing artwork and placeholder/unavailable states. No geometry belongs in domain storage. Test scene, enemy/NPC and item-like synthetic fixtures, long titles, summaries/tags, artwork/no artwork, laptop and narrow layouts. Card backs are not part of acceptance.
 
 ## P1 — Backend workspace ownership and complete archive foundation
 
@@ -123,4 +123,4 @@ Each increment needs explicit implementation authorization and its own developer
 | Q10w–Q10x mode continuity and simple removal | P3/P4/P7 |
 | Complete illustrated archives of all supported state | P1/P2, P3, P5; P8 regression |
 
-**Next gate:** P1 implementation is handed over with developer-check evidence in [the main implementation record](implementation-plan.md#p1--playthrough-workspace-and-current-format-archives--developer-evidence--2026-10-22). Formal verification or P2 implementation each requires separate owner authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.
+**Next gate:** P2 passed bounded corrective re-verification in [verification evidence](verification.md) and was accepted by the owner on 2026-10-22. P2G implementation has developer evidence in the main implementation record; its formal verification and owner visual acceptance remain separate gates. P3 and later increments require separate owner authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.

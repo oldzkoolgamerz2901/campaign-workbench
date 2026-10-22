@@ -62,7 +62,7 @@ export class Workspace implements OnDestroy {
     'reference',
   ];
   readonly activeCount = computed(() => {
-    const ids = new Set(this.state.current()?.table?.active ?? []);
+    const ids = new Set(this.state.play.current()?.active ?? []);
     const query = this.cardQuery().trim().toLowerCase();
     return (
       this.state
@@ -76,14 +76,26 @@ export class Workspace implements OnDestroy {
         ).length ?? 0
     );
   });
+  readonly saveStatus = computed(() => {
+    const statuses = [this.state.status(), this.state.play.status()];
+    return statuses.includes('failed')
+      ? 'failed'
+      : statuses.includes('saving')
+        ? 'saving'
+        : statuses.includes('pending')
+          ? 'pending'
+          : 'saved';
+  });
   readonly saveLabel = computed(() =>
-    this.state.status() === 'saved'
-      ? 'Saved'
-      : this.state.status() === 'failed'
-        ? 'Save failed'
-        : this.state.status() === 'saving'
-          ? 'Saving…'
-          : 'Unsaved changes',
+    this.state.play.loading()
+      ? 'Opening Play workspace…'
+      : this.saveStatus() === 'saved'
+        ? 'Saved'
+        : this.saveStatus() === 'failed'
+          ? 'Save failed'
+          : this.saveStatus() === 'saving'
+            ? 'Saving…'
+            : 'Unsaved changes',
   );
   private pendingPlay = false;
   readonly sessionDetailsOpen = signal(false);
@@ -221,6 +233,22 @@ export class Workspace implements OnDestroy {
       return;
     }
     void this.navigate(undefined, this.state.current() ? 'prepare' : 'library', mode);
+  }
+  async recoverPreparation(action: 'retry' | 'reload') {
+    const session = this.state.current(),
+      epoch = this.routeEpoch;
+    if (!session) return;
+    const recovered = action === 'retry' ? await this.state.flush() : await this.state.reload();
+    if (
+      recovered &&
+      epoch === this.routeEpoch &&
+      this.reading() &&
+      this.state.current()?.campaign === session.campaign &&
+      this.state.current()?.id === session.id &&
+      !this.state.play.hasUnsaved()
+    ) {
+      await this.state.initializeTable();
+    }
   }
   async create() {
     const campaign = this.library.selected();
