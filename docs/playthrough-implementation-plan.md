@@ -1,85 +1,126 @@
 # Playthroughs — implementation planning (2026-10-22)
 
-**Status:** Planning recorded; no implementation increment is authorized. Based on accepted [domain architecture](playthrough-domain-architecture.md), subsequently clarified by the owner. This plan supersedes that architecture document's *migration and backwards-compatibility assumptions only*, not its domain ownership or behavior. Do not implement multiple increments without separate approval.
+**Status:** Revised increment plan accepted by the owner, 2026-10-22. Requirements and architecture gap closures are accepted. No implementation, database reset or formal verification is authorized by this document. Accepted domain decisions live in [Playthrough architecture](playthrough-domain-architecture.md); requirements live in [product specification](product-specification.md#play-workspace-discovery--accepted-owner-decisions--2026-10-22).
 
-## Owner clarifications and decisions
+## Decisions and exclusions
 
-- Existing development database records and all exported session archives are disposable. A clean development DB reset is acceptable. **Do not implement data conversion or legacy archive import compatibility** solely to preserve those artifacts.
-- Continue using Flyway for reproducible schema evolution; do not rewrite applied migrations casually. Prefer new schema migrations and a documented reset procedure.
-- Preparation owns frozen prepared-item identity, content, and image originals/derivatives. Playthroughs owns runtime CardTable ordering/Active/Used, scene, focus, PlayNotes, and history. Use narrow public contracts, not cross-module JPA access.
-- Preserve user-visible functionality (not historical records): artwork, card fronts/backs, Active/Used order, autosave feedback, navigation guards, image fallback, portable export/import for the **new** format, and existing full-document readers.
-- The supplied `statblock_cards.html` is a **design reference**, not a commitment to import its entire standalone app or its example content. Its cards span characters, enemies, items, and other types. The complete illustrated card format, not just artwork, must remain usable across Playthrough surfaces.
+- Existing saved objects and archives are disposable, including across future increments. Do not build conversion, compatibility adapters or old-format importers to preserve them. Reset only explicitly identified development data after execution approval; never touch campaign directories or unrelated Docker volumes.
+- Keep Flyway and add migrations rather than editing applied history. Current highest migration is V14; reserve no number until implementation starts. Document the actual reset procedure against the development Compose project/volume before executing it.
+- Preparation owns frozen content, provenance, images, membership and preparation notes. Playthroughs owns workspace and PlayNotes. Use public module contracts and the existing containing-campaign transaction lock; no reverse Preparation dependency, cross-module repositories, events or dual table authority.
+- Preserve existing user-visible functionality: artwork, Active/Used behavior, full-document access, filtering, autosave/conflict feedback, navigation guards and portable transfer of the current supported format.
+- Card backs/flipping are excluded. Geometry is a separate increment using current fields; no new card-content authoring model, stat-block extraction, focal-position field, printing or reference-app import. The external HTML reference is inspiration; its complete app/content and fitting behavior are not dependencies.
+- Each increment introducing persisted state includes complete current-format archive round trips. Existing artifacts may become unsupported between increments; newly exported current-format archives must restore all currently supported state. Clearly reject incompatible versions; never silently drop unknown fields that represent unsupported state.
 
-## Card rendering and geometry contract
+## Card geometry contract
 
-Reference HTML declares `--card-w: 300px` (screen default), screen slider 200–620 px, `aspect-ratio: 243 / 420`, print width 70 mm, and `font-size: calc(var(--card-w) / 24)`. At 300px width the card is ~519px high. The front panel is bottom-aligned with `max-height: 64%`; the back panel fills the inset area. Artwork uses cover cropping and an optional per-card focal position (`artPos`). Cards flip front/back. Text, padding, border geometry, and panel layout scale from card width; dense text is fitted within a **fixed outer ratio**, not allowed to stretch the card. The reference's print sizing is informational, not authorization to implement printing.
+The implemented shared PlayingCard currently uses 5:7 and a 320px default width. Change its outer ratio to **243:420** in P2G, retaining 320px default width (approximately 553px high at that width) and container-driven sizing for smaller screens and focus/inspection. Scale typography, spacing and artwork proportionally while keeping controls/text accessible. Long content retains an accessible overflow/full-document path instead of shrinking without a readability limit. Reuse existing artwork and placeholder/unavailable states. No geometry belongs in domain storage. Test scene, enemy/NPC and item-like synthetic fixtures, long titles, summaries/tags, artwork/no artwork, laptop and narrow layouts. Card backs are not part of acceptance.
 
-The existing app currently uses 320px PlayingCards; preserve that default unless a separately approved UX change adjusts it. **Do not silently replace the existing 320px sizing with the reference HTML's 300px default.** Preserve the 243:420 aspect ratio and use container-driven sizing for table, focused and inspection views. Test multiple card types and content densities, both sides, artwork and placeholder cases, small screens and desktop, with no clipping or distortion. Reuse one presentation component; no pixel sizes in the Playthrough domain or database. Confirm compatibility of reference HTML's content-fit behavior with the existing Angular renderer during P2 rather than assuming direct CSS copy is safe.
+## P1 — Backend workspace ownership and complete archive foundation
 
-## Proposed implementation increments
+**Deliverable:** one Playthrough CardTable authority, independently revisioned workspace and a complete current-format session archive. Intermediate backend slice; existing frontend may remain incompatible until P2. This non-releasable interval requires explicit approval with P1 authorization.
 
-### P1 — Backend PlayWorkspace and CardTable ownership
+**Expected scope:** new `backend/src/main/kotlin/workbench/playthroughs/{domain,application,api,adapter}` and module wiring; Preparation public contracts, Session/domain/API/persistence; application-level session archive coordinator outside both modules; existing portable/image adapters; new Flyway migration after current V14; focused backend/module tests. No frontend implementation except contract generation/check evidence; no temporary compatibility layer.
 
-**Scope:** Establish `workbench.playthroughs` module with domain/application/API/persistence, independent optimistic revision, campaign-scoped authorization, prepared membership contract exposed by Preparation, lazy workspace initialization, Active/Used ordering and mutations, and reconciliation on Preparation changes. Remove Preparation as the authoritative CardTable owner; do not retain dual writes. Use Flyway schema additions with development DB reset. Maintain cross-module transaction/lock ordering and reject stale writes. Keep archived image ownership in Preparation.
+**Tasks and contracts:**
 
-**Expected areas:** backend Playthroughs module; Preparation public API/service and session persistence; REST adapters and client contracts; Flyway migration; architecture/module tests and PlayWorkspace integration tests. Exact filenames/migration number to be established from repository state at implementation time.
+1. Expose a Preparation-owned immutable session snapshot containing session/campaign/revision and ordered item IDs, frozen title/type, provenance/resource identity, anchors and relationships. Keep bytes and repositories private. Define the exact candidate-resolution contract using existing frozen-reader semantics, with its implementation completed in P4R.
+2. Add workspace persistence keyed by session with independent revision, nullable/uninitialized state distinct from an initialized table. Remove CardTable from Preparation's save authority and persistence contract; use an additive Flyway change to remove obsolete authority, without converting saved rows. Do not seed from old CardTable data.
+3. On workspace open/mutation, start a transaction, acquire Campaigns' existing row lock, validate containing session/campaign, load authoritative membership, initialize or reconcile, then validate the expected workspace revision. Preserve initial prepared order, prepend additions/returns and remove missing items. Reconciliation writes only if changed. Stale client commands cannot overwrite newer state; persist no partial mutation on failure.
+4. Keep Preparation free of Playthrough calls. Membership changes reconcile on next workspace access/mutation and export, under the shared campaign lock. Establish lock-first ordering for all new writes and archive snapshots; retain separate session revision.
+5. Move cross-module archive orchestration into the application composition boundary. Reuse ZIP staging, image stores/processors and strict validation. Current-format manifests include workspace null/order and independent state; reject unsupported versions. Snapshot both modules and stage originals in one locked transaction, then stream outside it. Import validates first, remaps IDs and commits items/images/workspace atomically. Do not carry legacy JSON/ZIP parsers solely for saved artifacts.
+6. Retain existing 256 MiB portable/extracted, 20 MiB session-manifest, 100-session, 1,000-item, 2 MiB text-field and transfer-staging limits. Derive a new explicit manifest version from the implemented codec at start; do not accept versions by coercion. Reserve no speculative format version for later increments.
 
-**Acceptance:** one CardTable authority; deterministic initial prepared order, prepends for newly prepared/returned items; no duplicate/missing membership; Used/Active ordering; campaign isolation; revision conflicts; prepared-item removal reconciliation; image references remain resolvable. Backend tests pass.
+**Acceptance and developer checks:** backend integration tests prove one authority, lazy initialization, no duplicate/missing membership, deterministic order/prepends, reconciliation, stale revisions, campaign isolation and continued scoped image resolution. Concurrent Prepare removal/addition versus workspace writes must serialize safely; invalid writes roll back. Round-trip initialized/uninitialized workspaces and illustrated sessions, fresh IDs with preserved origin references, invalid/oversized archives and unsupported versions, image integrity and atomic rollback on failure. Run backend `test bootJar`, including Modulith/ArchUnit checks; generate/inspect OpenAPI and record expected temporary frontend contract failures. Write scoped reset instructions without executing an unapproved reset.
 
-**Integration caveat:** existing frontend Preparation CardTable contract may be temporarily incompatible until P2. P1 is a *non-releasable intermediate increment*. Do not introduce a temporary compatibility adapter just for this slice unless evidence shows it is necessary. Owner must explicitly approve this caveat when authorizing P1.
+**Completion boundary:** backend and archive evidence recorded; stop before P2. A backend pass does not establish a usable frontend release.
 
-### P2 — Angular Playthrough integration and illustrated cards
+## P2 — Frontend workspace integration
 
-Separate Playthrough state, API, revision and save/guard lifecycle from Preparation. Reconnect existing CardTable, Active/Used drag/reorder, Used/return actions, filters and navigation. Reuse Preparation's frozen image endpoints and shared PlayingCard renderer, including front/back and formatted content. Follow the geometry contract above across table/focus/inspection-capable card presentation; do not invent a second card format. Preserve artwork crop/focal position where available, placeholder/unavailable states, and responsiveness.
+**Scope:** generated Angular client, dedicated Playthrough state/API/revision/save lifecycle, existing Preparation workspace/CardTable integration, image sources and navigation guards; targeted state/component/browser tests. Reconnect existing shared card presentation without changing geometry yet. Wire portable transfer controls to P1's current-format coordinator.
 
-**Acceptance:** illustrated Write → Prepare → Play journey; correct 243:420 scaling, 320px existing default, front/back and dense content; Active/Used/filter/reorder/autosave/conflict/navigation behavior; no broken end-to-end workflow after P2. Use Gus the Bull and at least one dense enemy and one item-like example for visual regression (test fixtures, not campaign content).
+**Acceptance:** Write → Prepare → Play remains usable with frozen artwork, preparation notes/full reader, Active/Used reorder/return and filters. Workspace edits do not overwrite Preparation revision/notes. Test slow/error/conflict saves, campaign/session switches and late responses, retry/discard guards, reopening and portable round trip. Run client generation, frontend checks/build and an isolated browser journey. P1+P2 are the first potentially releasable slice, only with complete archives and passing integration checks.
 
-### P3 — Active scene and ordered focus slots
+## P2G — Shared card geometry
 
-Persist explicit scene selection and up to three ordered focused prepared-item identities, with membership validation and reconciliation; separate persisted focus from transient inspection/expanded state. New prepared items and Used returns follow accepted ordering rules. Tests for removals, reorder, revisions and reload.
+**Scope:** shared PlayingCard renderer and necessary table/Write/Prepare/recovery sizing consumers; existing artwork component only if proportional layout requires it. No schema, API or authoring-field changes.
 
-### P4 — Focused tabletop presentation
+**Acceptance:** satisfy the geometry contract above across existing card surfaces, keyboard controls, focus outlines, dense content and narrow screens. Use synthetic fixtures, not independent campaign files. Run focused component checks, frontend build and browser/visual inspection. Frozen image selection, fallback and full-document access remain functional. Record visual evidence and any remaining owner visual acceptance.
 
-Show two to three focused cards with shared illustrated renderer; temporary inspection and expansion remain transient; accessible keyboard and smaller-viewport handling. No separate card persistence or artwork storage.
+## P3 — Scene and ordered focus state, including archives
 
-### P5 — PlayNotes and current-session chronology
+**Scope:** Playthrough domain/API/persistence and generated client, explicit scene activation, up to three unique ordered prepared IDs and frontend state integration. Preparation remains read-only to these operations.
 
-Individual Markdown notes, captured context and immutable resource/scene identity and display title, chronological position, optional association and pinning. Editing/pinning must not rewrite capture chronology. Keep Preparation notes distinct. Extend the new portable session archive to include workspace and notes in the same bounded, validated, atomic export/import.
+**Acceptance:** inspection never activates a scene; Used cards may stay focused; removals clear invalid focus/scene only; new items never steal focus. Persist/reopen scene/focus independently of Preparation revision. Test concurrent membership changes and stale writes. Extend current archive format/validation in this increment to remap and round-trip scene/focus and reject invalid references. Existing saved artifacts may be discarded; no upgrade converter.
 
-### P6 — Cross-session resource and scene history
+## P4 — Focused tabletop presentation
 
-Separate resource history from scene history; preserve chronological PlayNotes and captured titles; campaign-scoped lookup and Used-card contextual indicators. Test missing original resources and cross-campaign isolation.
+**Scope:** existing Play workspace/CardTable plus reusable focus/temporary-inspection presentation using the shared card and full-document reader. No duplicate card/document system.
 
-### P7 — Library inspection and explicit capture
+**Acceptance:** two or three focused cards, explicit slot replacement, temporary fourth-card inspection, one-action expansion/return; keyboard and laptop/narrow layouts. Same-session Play → Prepare → Play retains expanded focus; reopen restores persisted identities but closes temporary inspection. Notes remain independently accessible. Test removals, asynchronous navigation and retained selection. No new persisted state requiring another archive extension.
 
-Read-only temporary library inspection; only explicit addition to the current session changes prepared membership. Keep initial experience small; optional richer capture flow remains deferred.
+## P4R — Contextual relationship suggestions
 
-### P8 — Integrated verification
+**Scope:** Preparation public exact-target resolver sharing existing frozen-reader semantics, Playthrough read composition and focused-tabletop suggestions. No new relationship authoring/storage or AI ranking.
 
-Backend/frontend/browser and module-boundary checks, responsive visual review for multiple illustrated card types, image round trips, new-format archive export/import, invalid archive rejection and atomic rollback, concurrency/revision/reconciliation, navigation and autosave. Formal verification is a separate authorized phase, not automatic permission to change code.
+**Acceptance:** derive from active scene's frozen links; exact source capture/authored revision and section constraints, not UUID-only matching. Deterministic preparation-order matches; deduplicate repeated exact targets, retain Used indicators, require explicit choice between multiple copies. One-click focus only with room; otherwise temporary inspection/replacement. Label missing/unsafe/incompatible targets unavailable and unprepared targets for inspection/capture. Suggestions never reorder, return or activate cards. Test refreshed live sources, old revisions, sections, duplicates and ambiguity. P7 supplies the wider-library inspection/capture action; until P7, unprepared suggestions remain labelled with the action unavailable, so full suggestion acceptance is gated on P7. This is an explicit dependency, not a claim that all behavior ships in P4R.
 
-## Sequence and release gates
+## P5 — PlayNotes, context safety and archives
+
+**Scope:** Playthrough note persistence/API/state/editor using existing Markdown editing/rendering patterns; current-session chronology and pinned presentation; public snapshot-based associations; portable coordinator/codec validation. Keep Preparation session/item notes unchanged.
+
+**Acceptance:** freeform notes, immutable creation chronology with stable ID tie-break, optional primary resource and captured scene/title, pinning without removing chronological entries. Own note revision prevents lost edits/pins. Create requests carry operation ID and expected active-scene item (including null); changed scene returns a context conflict retaining text, unrelated reorder does not block creation. Identical retries return one note; changed payload with same operation ID conflicts. Preserve originating UI campaign/session.
+
+Test valid identity, untyped/duplicate metadata (title context without fabricated cross-session identity), sections, multiple copies and removed resources. Server captures snapshot evidence, not arbitrary client-supplied titles. Extend archives now for all note fields, revisions as restored-state policy requires, captured identities/titles/timestamps and fresh note/session/item IDs. Prevent imported retry IDs colliding with new creates. Test malformed references, rollback and existing byte limits; limit notes to 10,000 per session and 10,000 total per archive, in addition to the existing 2 MiB Markdown-field and 20 MiB total session-manifest limits. Validate counts before allocating records; reject excess without truncation. These are proposed operational bounds for owner review with this plan, not guarantees that maximum-sized records fit one archive.
+
+## P6 — Cross-session resource and scene history
+
+**Scope:** separate Playthrough primary-resource/scene query APIs, bounded pagination/indexes and card-history UI, reusing note records and current session navigation.
+
+**Acceptance:** newest-first immutable creation chronology plus stable ID tie-break, pinned notes remain in full history, no title/path/image merges. Sections share logical parent history; prepared copies remain independently selectable. Restrict results by containing campaign even for imported foreign origins. Missing originals remain readable; unresolved references provide session context only. Test deletion/rename, imported copies, pagination ties, campaign isolation and no automatic merges/deduplication of independent imports. No duplicate history storage or campaign-history workspace.
+
+## P7 — Wider-library inspection and explicit capture
+
+**Scope:** reuse Sources library/search/reader and existing capture/approval boundaries in Play; connect P4R's unprepared-target actions. No new source-image assignment.
+
+**Acceptance:** inspect without preparing/focusing/activating; explicit add captures the requested source or approved saved draft into the originating session, then reconciles workspace without stealing focus. Exact unavailable historical targets never silently become current content; current-library inspection/addition is clearly deliberate. Test stale captures/approvals, failures, duplicates, navigation context and Used behavior. Complete P4R's end-to-end acceptance here. Capture/session mutations retain existing revision/guard protections.
+
+## P8 — Integrated developer handover
+
+**Scope:** integrated checks and evidence for the completed authorized increments; in-scope corrections only under their implementation authorization. Formal Verification remains a separately authorized phase, not an implementation increment automatically authorized by this roadmap.
+
+**Acceptance:** backend/frontend/module checks; responsive visual review; illustrated Write → Prepare → Play; scene/focus/mode-switch restoration; suggestions and library capture; notes/history; current-format portable round trips and invalid import rollback; concurrency, retries, navigation and autosave. Map Q10f–Q10x to evidence and identify manual/untested areas. No deferred requirement becomes implicitly implemented or accepted.
+
+## Sequence and release rules
 
 ```mermaid
 flowchart LR
-  P1["P1 Playthrough backend + CardTable authority"] --> P2["P2 Frontend + illustrated cards"]
-  P2 --> P3["P3 Scene + focus state"]
+  P1["P1 Backend + archive foundation"] --> P2["P2 Frontend integration"]
+  P2 --> P2G["P2G Card geometry"]
+  P2G --> P3["P3 Scene/focus + archives"]
   P3 --> P4["P4 Focus UI"]
-  P4 --> P5["P5 PlayNotes + new archive"]
+  P4 --> P4R["P4R Contextual suggestions"]
+  P4R --> P5["P5 Notes + archives"]
   P5 --> P6["P6 History"]
-  P6 --> P7["P7 Library capture"]
-  P7 --> P8["P8 Verification"]
+  P6 --> P7["P7 Library inspection/capture"]
+  P7 --> P8["P8 Integrated handover"]
 ```
 
-P1/P2 form a release gate: P1 alone may leave frontend broken. P5 forms an archive-completeness gate: no new-format archive should silently omit persisted PlayNotes. Each increment needs its own implementation authorization and test report; formal verification needs separate authorization. Do not treat this document as execution permission.
+Each increment needs explicit implementation authorization and its own developer report. P1 alone is non-releasable; P2 restores the full existing application journey. No release may omit current persisted state from its archive. P3 and P5 extend archives alongside state, rather than deferring completeness. P4R's unprepared actions complete in P7 and must be reported as partial until then. Releasing a subset is not acceptance of the entire tabletop feature. Older saved objects/archives need no compatibility support at any boundary. Formal verification and owner acceptance are separate gates.
 
-## Risks and checks before P1 authorization
+## Requirement coverage and next gate
 
-1. Verify current migration numbering and Flyway reset strategy; reset must be explicit and limited to disposable development data.
-2. Trace concurrent Preparation and Playthrough writes; agree on lock order and atomic reconciliation.
-3. Determine exact public Preparation read/membership contract and module dependency direction.
-4. Confirm current card renderer can represent both sides and the reference HTML's content-fit/cropping; where it cannot, plan a bounded P2 adaptation rather than silently reducing fidelity.
-5. Decide the supported **new** session archive contract and tests without carrying legacy formats; preserve existing image byte/validation safeguards.
-6. Existing architecture document still describes legacy imports and data migration; those passages are **superseded by this planning decision** and should be updated when architecture documentation is next consolidated.
+| Requirement | Delivery/evidence owner |
+| --- | --- |
+| Existing table/artwork/reader/notes/save protections | P1/P2; final regression P8 |
+| Single-sided 243:420 cards, 320px default | P2G; reuse P4/P7 |
+| Q10f–Q10i scene, focus, temporary inspection | P3/P4/P4R |
+| Q10j wider library and explicit capture | P7 |
+| Q10k–Q10l notes-only improvisation/world changes | P5, no source writes |
+| Q10m–Q10o resource history, one association, pins | P5/P6 |
+| Q10p–Q10q reader and existing session review | P2/P4/P6 |
+| Q10r–Q10s restoration and expansion | P3/P4 |
+| Q10t–Q10v Used semantics, related Used, no scene history UI | P2/P4R; exclusions throughout |
+| Q10w–Q10x mode continuity and simple removal | P3/P4/P7 |
+| Complete illustrated archives of all supported state | P1/P2, P3, P5; P8 regression |
 
-**Next gate:** owner reviews and explicitly approves P1 scope, including the non-releasable frontend interval, before implementation.
+**Next gate:** P1 implementation is handed over with developer-check evidence in [the main implementation record](implementation-plan.md#p1--playthrough-workspace-and-current-format-archives--developer-evidence--2026-10-22). Formal verification or P2 implementation each requires separate owner authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.

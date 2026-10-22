@@ -37,7 +37,7 @@ class TypedPreparationIntegrationTest : StringSpec({
     val legacyText = "---\nworkbench: old unparsed envelope\n---\n# Before\nLegacy text"
     var context: ConfigurableApplicationContext? = null
     var other = UUID.randomUUID()
-    var typedArchive: Archive? = null
+    var typedArchive: workbench.sessionarchives.api.SessionTransfer? = null
     fun service() = context!!.getBean(PreparationService::class.java)
     fun mapper() = context!!.getBean(ObjectMapper::class.java)
     fun start() = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run(
@@ -71,7 +71,7 @@ class TypedPreparationIntegrationTest : StringSpec({
     }
     afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively(); destination.toFile().deleteRecursively() }
 
-    "V6 preserves old rows and version 1 imports retain raw legacy rendering without source lookups" {
+    "existing raw rows remain readable but old archive versions are explicitly rejected" {
         val p = service()
         val old = p.open(campaign, legacySession).getOrNull()!!
         old.revision shouldBe 7
@@ -85,22 +85,17 @@ class TypedPreparationIntegrationTest : StringSpec({
         val rendered = p.view(campaign, old.id).getOrNull()!!.items.single().source
         rendered.html shouldContain "old unparsed envelope"
         val v2 = p.export(campaign, ExportSessions(listOf(old.id))).getOrNull()!!
-        v2.version shouldBe 4
+        v2.version shouldBe 6
         val tree = mapper().valueToTree<ObjectNode>(v2)
         tree.put("version", 1)
         (tree.path("sessions")[0] as ObjectNode).remove("table")
         (tree.path("sessions")[0].path("items")[0] as ObjectNode).remove("capturedSource")
         (tree.path("sessions")[0].path("items")[0].path("provenance") as ObjectNode).remove(listOf("kind", "authored"))
-        val response = post(other, tree.toString())
-        response.statusCode() shouldBe 200
-        val imported = mapper().readValue(response.body(), SessionList::class.java).sessions.single().id
-        val copy = p.open(other, imported).getOrNull()!!
-        copy.items.single().capturedSource shouldBe null
-        copy.items.single().provenance shouldBe item.provenance
-        copy.items.single().markdown shouldBe legacyText
+        post(other, tree.toString()).statusCode() shouldBe 400
+        p.import(other, v2.copy(version = 1)).isLeft() shouldBe true
+        val imported = p.import(other, v2).getOrNull()!!.sessions.single().id
+        p.open(other, imported).getOrNull()!!.items.single().markdown shouldBe legacyText
         p.view(other, imported).getOrNull()!!.items.single().source shouldBe rendered
-        p.open(campaign, imported).isLeft() shouldBe true
-        p.import(other, v2.copy(version = 1)).isRight() shouldBe true // null snapshots are legacy in the application contract
     }
 
     "typed snapshots and links survive source refactors, notes, restart and portable v3 import" {
@@ -157,15 +152,16 @@ class TypedPreparationIntegrationTest : StringSpec({
         p.open(campaign, saved.id).getOrNull() shouldBe saved
         Files.list(root).use { it.forEach(Files::delete) }
         sources.refresh(campaign).isRight() shouldBe true
-        typedArchive = p.export(campaign, ExportSessions(listOf(saved.id))).getOrNull()!!
-        typedArchive!!.version shouldBe 4
+        typedArchive = context!!.getBean(workbench.sessionarchives.application.PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(saved.id))).getOrNull()!!
+        typedArchive!!.version shouldBe 6
         val oldWire = mapper().valueToTree<ObjectNode>(typedArchive)
         oldWire.put("version", 2)
         oldWire.path("sessions").forEach { session -> (session as ObjectNode).remove("table"); session.path("items").forEach { item ->
             (item.path("provenance") as ObjectNode).remove(listOf("kind", "authored"))
         } }
-        post(other, oldWire.toString()).statusCode() shouldBe 200
-        val response = post(other, mapper().writeValueAsString(typedArchive))
+        post(other, oldWire.toString()).statusCode() shouldBe 400
+        val current = context!!.getBean(workbench.sessionarchives.application.PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(saved.id))).getOrNull()!!
+        val response = post(other, mapper().writeValueAsString(current))
         response.statusCode() shouldBe 200
         val importedId = mapper().readValue(response.body(), SessionList::class.java).sessions.single().id
         val imported = p.open(other, importedId).getOrNull()!!
@@ -215,7 +211,7 @@ class TypedPreparationIntegrationTest : StringSpec({
             mutate { _, item, _ -> item.put("markdown", "Tampered") },
             mutate { _, item, _ -> item.put("notes", "x".repeat(2 * 1024 * 1024 + 1)) },
             mapper().writeValueAsString(archive) + "{}",
-            mapper().writeValueAsString(archive).replaceFirst("\"version\":4", "\"version\":4,\"version\":1")
+            mapper().writeValueAsString(archive).replaceFirst("\"version\":6", "\"version\":6,\"version\":1")
         )
         invalid.forEachIndexed { index, json ->
             val response = post(other, json)
@@ -242,7 +238,7 @@ class TypedPreparationIntegrationTest : StringSpec({
         val invalid = session.items.last().capturedSource!!.classification
         invalid.metadata shouldBe null
         invalid.issues.single().code shouldBe "metadata.yaml"
-        val archive = p.export(campaign, ExportSessions(listOf(session.id))).getOrNull()!!
+        val archive = context!!.getBean(workbench.sessionarchives.application.PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(session.id))).getOrNull()!!
         val response = post(other, mapper().writeValueAsString(archive))
         response.statusCode() shouldBe 200
         val id = mapper().readValue(response.body(), SessionList::class.java).sessions.single().id

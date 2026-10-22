@@ -47,6 +47,16 @@ class SetupIntegrationTest : StringSpec({
             HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path")).GET().build(),
             HttpResponse.BodyHandlers.ofString())
         get("/api/status").let { it.statusCode() shouldBe 200; it.body() shouldContain "ready" }
-        get("/v3/api-docs").let { it.statusCode() shouldBe 200; it.body() shouldContain "getStatus" }
+        get("/v3/api-docs").let {
+            it.statusCode() shouldBe 200
+            val mapper = context.getBean(tools.jackson.databind.ObjectMapper::class.java)
+            val contract = mapper.readTree(it.body())
+            java.nio.file.Files.writeString(java.nio.file.Path.of("build/openapi-p1.json"), it.body())
+            it.body() shouldContain "openPlayWorkspace"
+            it.body() shouldContain "savePlayWorkspace"
+            contract.path("components").path("schemas").path("SessionData").path("properties").has("table") shouldBe false
+            contract.path("components").path("schemas").path("SaveSession").path("properties").has("table") shouldBe false
+            contract.path("components").path("schemas").path("SessionTransfer").path("properties").has("workspaces") shouldBe true
+        }
     }
 })

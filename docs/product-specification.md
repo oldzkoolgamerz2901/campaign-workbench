@@ -90,13 +90,13 @@ Acceptance:
 
 Notes, discoveries, and scene outcomes save automatically through the local backend to the database, remain editable, and retain their campaign and session context. AI may suggest record updates, but applying them requires DM confirmation.
 
-Encountering a clue, learning a fact, and forming a theory are distinct. Marking a clue encountered must not automatically mark its underlying truth as understood.
+Encountering a clue, learning a fact, and forming a theory are distinct. For the initial Playthrough release, the DM expresses those distinctions in freeform Markdown PlayNotes; no structured discovery category, knowledge state or automatic inference is required. The Used pile means set aside, not discovered or understood.
 
 Acceptance:
 
 - Records survive closing and reopening the app and remain associated with their session.
 - The DM can correct a discovery or outcome.
-- Player theories remain distinguishable from confirmed revelations.
+- The DM can distinguish player theories from confirmed revelations in editable note text; structured classification is deferred.
 - AI suggestions do not change playthrough records before confirmation.
 
 ### R8 — Player material
@@ -522,6 +522,7 @@ Status: Accepted product direction from the DM playtest and owner interview. Thi
 
 ### Authoring and cards
 
+- **Gap-closure requirements approved 2026-10-22:** Card backs and front/back flipping are excluded from the initial Playthrough scope. The required card shape is 243:420, with proportional, container-driven sizing and the existing 320px default width. Full-document access remains available. Shape changes may be delivered in a separate presentation increment; changing shape does not authorize a new card-content model, automated extraction or richer authoring fields. This decision supersedes front/back requirements in the earlier Playthrough planning document. The current implemented renderer uses 5:7; 243:420 is a required change, not existing behavior.
 - Preserve the existing Campaign Writer approach: one resource has both a complete Markdown document and a separately authored playing-card presentation. Improve this dual editing experience rather than adding an independent card-authoring system. Documents remain the comprehensive source; cards are concise play-facing views, with full-document access preserved. The card and document should not silently overwrite one another.
 - Consider smarter authoring (e.g. assisted extraction of card text, card previews, content-change awareness, layouts appropriate to NPCs/scenes/items), but these are **investigation opportunities**, not accepted automation or data-model commitments. AI may assist only when explicitly requested; manual authoring must remain fully usable.
 
@@ -602,6 +603,8 @@ No application code, campaign source material or existing prepared sessions are 
 | Structured discoveries, automatic world changes, combat tracker, recent-scenes shortcut, new resource creation in Play | Deferred/excluded | No initial domain model or implementation |
 
 #### Domain questions intentionally left unresolved
+
+**Historical handoff:** These questions describe the interview's earlier state, not the current architecture backlog. The subsequently accepted [Playthrough architecture](playthrough-domain-architecture.md) resolves note ownership, identity failure rules, persistent/transient state, exact relationships, shared locking and separate preparation notes. R7 and the card requirements above incorporate the later approved notes-only and single-sided-card scope. The [revised implementation plan](playthrough-implementation-plan.md) maps delivery and evidence; neither link authorizes execution.
 
 1. **What is a Play note?** Existing session notes and per-prepared-item Markdown fields are not necessarily individual timestamped records. Determine the minimal way to support individual note timestamps, optional primary resource association, pinning and cross-session history without silently changing the meaning or storage of existing notes.
 2. **Who owns actual-play history?** Evaluate the documented Preparation vs Playthroughs boundary, including whether a small Playthroughs slice is warranted or whether reuse is feasible without violating ownership. The older R7 language about discoveries, theories and outcomes must be reconciled explicitly with the accepted notes-only initial scope; do not silently replace either.

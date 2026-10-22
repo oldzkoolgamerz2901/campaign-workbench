@@ -13,7 +13,7 @@ import workbench.campaigns.application.CampaignService
 import workbench.platform.api.*
 import workbench.preparation.api.*
 import workbench.preparation.application.PreparationService
-import workbench.preparation.adapter.web.SessionArchiveReader
+import workbench.sessionarchives.adapter.web.SessionArchiveReader
 import workbench.sources.application.SourceService
 import workbench.writing.api.*
 import workbench.writing.application.*
@@ -91,7 +91,7 @@ class AuthoredPreparationIntegrationTest : StringSpec({
         prep.open(campaign, session.id).getOrNull() shouldBe session
         prep.view(campaign, session.id).getOrNull() shouldBe before
         val archive = prep.export(campaign, ExportSessions(listOf(session.id))).getOrNull()!!
-        archive.version shouldBe 4
+        archive.version shouldBe 6
         val mapper = context!!.getBean(ObjectMapper::class.java)
         val reader = context!!.getBean(SessionArchiveReader::class.java)
         reader.read(mapper.writeValueAsBytes(archive)).getOrNull() shouldBe archive

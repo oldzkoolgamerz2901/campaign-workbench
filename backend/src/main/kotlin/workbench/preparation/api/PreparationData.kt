@@ -34,8 +34,7 @@ data class SessionData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val objective: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<PreparedItemData>,
-    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val table: CardTableData? = null
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<PreparedItemData>
 )
 
 data class SessionSummary(
@@ -64,8 +63,7 @@ data class SaveSession(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val objective: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<ItemNotes>,
-    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val table: CardTableData? = null
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<ItemNotes>
 )
 
 data class AddSource(
@@ -110,10 +108,4 @@ data class RenderedItem(
 data class SessionView(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: RenderedMarkdown,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<RenderedItem>
-)
-
-
-data class CardTableData(
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val active: List<UUID>,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val used: List<UUID>
 )

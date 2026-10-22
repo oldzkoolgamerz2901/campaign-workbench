@@ -13,7 +13,6 @@ import tools.jackson.databind.ObjectMapper
 class SessionEntity(
     @Id var id: UUID = UUID.randomUUID(), var campaign: UUID = UUID.randomUUID(), var revision: Long = 0,
     var title: String = "", var objective: String = "", var notes: String = "",
-    @Column(name = "card_table") var cardTable: String? = null,
     @OneToMany(cascade = [CascadeType.ALL], orphanRemoval = true)
     @JoinColumn(name = "session_id", nullable = false)
     @OrderColumn(name = "position")
@@ -39,14 +38,14 @@ interface SessionRepository : JpaRepository<SessionEntity, UUID> { fun findByCam
 @Repository
 class JpaSessionStore(private val repository: SessionRepository, private val em: EntityManager, private val mapper: ObjectMapper) : SessionStore {
     override fun archiveBytes(campaign: UUID, ids: List<UUID>): Long = (em.createNativeQuery("""
-        SELECT coalesce(sum(octet_length(s.title)+octet_length(s.objective)+octet_length(s.notes)+coalesce(octet_length(s.card_table),0)
+        SELECT coalesce(sum(octet_length(s.title)+octet_length(s.objective)+octet_length(s.notes)
             + coalesce((SELECT sum(octet_length(i.title)+octet_length(i.markdown)+octet_length(i.notes)+octet_length(i.path)
                 + coalesce(octet_length(i.captured_source),0)+coalesce(octet_length(i.authored_origin),0)+coalesce(octet_length(i.image),0)
                 + coalesce((SELECT sum(octet_length(a.original_anchor)+octet_length(a.local_anchor)) FROM preparation.anchor a WHERE a.item_id=i.id),0))
               FROM preparation.item i WHERE i.session_id=s.id),0)),0)
         FROM preparation.session s WHERE s.campaign=:campaign AND s.id IN (:ids)
     """, java.lang.Long::class.java).setParameter("campaign", campaign).setParameter("ids", ids).singleResult as Number).toLong()
-    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash, it.originKind, it.authoredOrigin?.let { json -> mapper.readValue(json, AuthoredOrigin::class.java) }), it.anchors.toMap(), it.notes, it.capturedSource?.let { json -> mapper.readValue(json, CapturedSource::class.java) }, it.image?.let { json -> mapper.readValue(json, workbench.platform.api.ImageMetadata::class.java) }) }, s.cardTable?.let { mapper.readValue(it, CardTable::class.java) })
+    private fun model(s: SessionEntity) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { PreparedItem(it.id, it.title, it.markdown, Provenance(it.sourceCampaign, it.capture, it.path, it.section, it.documentHash, it.contentHash, it.originKind, it.authoredOrigin?.let { json -> mapper.readValue(json, AuthoredOrigin::class.java) }), it.anchors.toMap(), it.notes, it.capturedSource?.let { json -> mapper.readValue(json, CapturedSource::class.java) }, it.image?.let { json -> mapper.readValue(json, workbench.platform.api.ImageMetadata::class.java) }) })
     override fun list(campaign: UUID) = repository.findByCampaignOrderByTitle(campaign).map(::model)
     override fun get(campaign: UUID, id: UUID) = repository.findById(id).orElse(null)?.takeIf { it.campaign == campaign }?.let(::model)
     override fun put(session: Session) {
@@ -55,7 +54,6 @@ class JpaSessionStore(private val repository: SessionRepository, private val em:
         em.flush(); em.clear()
         val entity = repository.findById(session.id).orElseGet { SessionEntity(id = session.id, campaign = session.campaign) }
         entity.revision = session.revision; entity.title = session.title; entity.objective = session.objective; entity.notes = session.notes
-        entity.cardTable = session.table?.let(mapper::writeValueAsString)
         entity.items.clear()
         entity.items.addAll(session.items.map { i -> ItemEntity(i.id, i.title, i.markdown, i.notes, i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.anchors.toMutableMap(), i.capturedSource?.let(mapper::writeValueAsString), i.provenance.kind, i.provenance.authored?.let(mapper::writeValueAsString), i.image?.let(mapper::writeValueAsString), i.image?.hash) })
         repository.saveAndFlush(entity)

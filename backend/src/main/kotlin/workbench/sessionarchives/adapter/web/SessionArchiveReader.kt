@@ -1,4 +1,4 @@
-package workbench.preparation.adapter.web
+package workbench.sessionarchives.adapter.web
 
 import arrow.core.Either
 import org.springframework.stereotype.Component
@@ -12,8 +12,38 @@ import java.util.UUID
 
 /** Version-specific wire validation happens before binding and before any database writes. */
 @Component
-class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.preparation.application.SessionArchiveCodec {
-    override fun write(archive: Archive): ByteArray {
+class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.sessionarchives.application.SessionArchiveCodec {
+    override fun writeTransfer(archive: workbench.sessionarchives.api.SessionTransfer): ByteArray = boundedWrite(archive)
+    override fun readTransfer(bytes: ByteArray): Either<Failure, workbench.sessionarchives.api.SessionTransfer> = try {
+        require(bytes.size <= MAX_ARCHIVE)
+        val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
+        fields(tree, "version", "sessions", "workspaces")
+        val records = tree.path("workspaces")
+        require(records.isArray && records.size() <= 100)
+        for (record in records) {
+            fields(record, "session", "workspace"); uuid(record.path("session"))
+            val workspace = record.path("workspace")
+            if (!workspace.isNull) {
+                fields(workspace, "session", "revision", "active", "used")
+                uuid(workspace.path("session"))
+                val revision = workspace.path("revision")
+                require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
+                for (name in listOf("active", "used")) {
+                    val ids = workspace.path(name)
+                    require(ids.isArray && ids.size() <= 1000); ids.forEach(::uuid)
+                }
+            }
+        }
+        val contents = tree.deepCopy() as tools.jackson.databind.node.ObjectNode
+        contents.remove("workspaces")
+        read(mapper.writeValueAsBytes(contents)).map {
+            mapper.treeToValue(tree, workbench.sessionarchives.api.SessionTransfer::class.java)
+        }
+    } catch (_: Exception) { Either.Left(Failure.Invalid("sessions.archive-format", "Invalid or unsupported current-format session archive. No sessions imported.")) }
+
+    override fun write(archive: Archive): ByteArray = boundedWrite(archive)
+    private fun boundedWrite(archive: Any): ByteArray {
         val out = object : java.io.ByteArrayOutputStream() {
             override fun write(b: Int) { require(count < MAX_ARCHIVE); super.write(b) }
             override fun write(b: ByteArray, off: Int, len: Int) { require(count.toLong() + len <= MAX_ARCHIVE); super.write(b, off, len) }
@@ -21,28 +51,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.prepara
         mapper.writeValue(out, archive)
         return out.toByteArray()
     }
-    override fun readIllustrated(bytes: ByteArray): Either<Failure, Archive> = try {
-        require(bytes.size <= MAX_ARCHIVE)
-        val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-            .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
-        require(tree.path("version").isIntegralNumber && tree.path("version").intValue() == 5)
-        val images = mutableListOf<workbench.platform.api.ImageMetadata?>()
-        val legacy = mapper.readTree(mapper.writeValueAsBytes(tree)) as tools.jackson.databind.node.ObjectNode
-        legacy.put("version", 4)
-        for (session in legacy.path("sessions")) for (item in session.path("items")) {
-            val image = item.path("image")
-            if (!image.isMissingNode) {
-                fields(image, "hash", "mime", "width", "height", "bytes")
-                strings(image, "hash", "mime"); listOf("width", "height", "bytes").forEach { integer(image.path(it)) }
-                images += mapper.treeToValue(image, workbench.platform.api.ImageMetadata::class.java)
-                (item as tools.jackson.databind.node.ObjectNode).remove("image")
-            } else images += null
-        }
-        read(mapper.writeValueAsBytes(legacy)).map { archive ->
-            var at = 0
-            archive.copy(version = 5, sessions = archive.sessions.map { s -> s.copy(items = s.items.map { it.copy(image = images[at++]) }) })
-        }
-    } catch (_: Exception) { Either.Left(Failure.Invalid("preparation.archive-format", "Invalid illustrated session manifest. No sessions imported.")) }
+    override fun readIllustrated(bytes: ByteArray) = read(bytes)
 
     override fun read(bytes: ByteArray): Either<Failure, Archive> = try {
         require(bytes.size <= MAX_ARCHIVE)
@@ -51,23 +60,13 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.prepara
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version in setOf(1, 2, 3, 4))
+        require(version == 6)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
         for (session in sessions) {
             val sessionFields = arrayOf("id", "campaign", "revision", "title", "objective", "notes", "items")
-            if (version == 4) {
-                fields(session, *sessionFields, "table")
-                val table = session.path("table")
-                if (!table.isNull) {
-                    fields(table, "active", "used")
-                    for (name in listOf("active", "used")) {
-                        require(table.path(name).isArray && table.path(name).size() <= 1000)
-                        table.path(name).forEach(::uuid)
-                    }
-                }
-            } else fields(session, *sessionFields)
+            fields(session, *sessionFields)
             uuid(session.path("id")); uuid(session.path("campaign"))
             val revision = session.path("revision")
             require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
@@ -77,25 +76,30 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.prepara
             count += items.size(); require(count <= 1000)
             for (item in items) {
                 val names = arrayOf("id", "title", "markdown", "provenance", "anchors", "notes")
-                if (version == 1) fields(item, *names) else fields(item, *names, "capturedSource")
+                fields(item, *(names + "capturedSource" + if (item.has("image")) arrayOf("image") else emptyArray()))
+                if (item.has("image")) {
+                    val image = item.path("image")
+                    fields(image, "hash", "mime", "width", "height", "bytes")
+                    strings(image, "hash", "mime"); listOf("width", "height", "bytes").forEach { integer(image.path(it)) }
+                }
                 uuid(item.path("id")); strings(item, "title", "markdown", "notes")
                 val anchors = item.path("anchors")
                 require(anchors.isObject)
                 anchors.properties().forEach { string(it.value); require(it.key.toByteArray(Charsets.UTF_8).size <= MAX_TEXT) }
                 val p = item.path("provenance")
                 val provenanceFields = arrayOf("campaign", "capture", "path", "section", "documentHash", "contentHash")
-                if (version >= 3) fields(p, *provenanceFields, "kind", "authored") else fields(p, *provenanceFields)
+                fields(p, *provenanceFields, "kind", "authored")
                 uuid(p.path("campaign"))
-                if (version >= 3 && p.path("kind").asString() == "authored") {
+                if (p.path("kind").asString() == "authored") {
                     require(p.path("capture").isNull)
                     authored(p.path("authored"))
                 } else {
                     uuid(p.path("capture"))
-                    if (version >= 3) require(p.path("kind").asString() == "source" && p.path("authored").isNull)
+                    require(p.path("kind").asString() == "source" && p.path("authored").isNull)
                 }
                 strings(p, "path", "documentHash", "contentHash")
                 nullableString(p.path("section"))
-                if (version >= 2 && !item.path("capturedSource").isNull) captured(item.path("capturedSource"))
+                if (!item.path("capturedSource").isNull) captured(item.path("capturedSource"))
             }
         }
         Either.Right(mapper.treeToValue(tree, Archive::class.java))

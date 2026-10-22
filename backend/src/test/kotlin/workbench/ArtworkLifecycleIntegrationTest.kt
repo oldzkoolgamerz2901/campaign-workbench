@@ -14,6 +14,7 @@ import workbench.campaigns.application.CampaignService
 import workbench.platform.api.*
 import workbench.preparation.api.*
 import workbench.preparation.application.*
+import workbench.sessionarchives.application.*
 import workbench.sources.application.SourceService
 import workbench.writing.api.*
 import workbench.writing.application.*
@@ -140,6 +141,9 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         val portable = context!!.getBean(PortableWritingService::class.java)
         val writingZip = bytes(portable.backup(campaign).getOrNull()!!)
         entries(writingZip).keys.filter { it.startsWith("images/") }.toSet() shouldBe setOf("images/${first.hash}", "images/${second.image!!.hash}")
+        val play = context!!.getBean(workbench.playthroughs.api.Playthroughs::class.java)
+        val workspace = play.open(campaign, session.id).getOrNull()!!
+        play.save(campaign, session.id, workbench.playthroughs.api.SaveWorkspace(workspace.revision, emptyList(), listOf(session.items.single().id))).isRight() shouldBe true
         val sessionZip = bytes(context!!.getBean(PortableSessionService::class.java).export(campaign, ExportSessions(listOf(session.id))).getOrNull()!!)
         entries(sessionZip).keys.toSet() shouldBe setOf("manifest.json", "images/${first.hash}")
         writing().delete(campaign, d.id, second.revision).isRight() shouldBe true
@@ -159,6 +163,8 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         val imported = context!!.getBean(PortableSessionService::class.java).import(other, sessionZip.inputStream()).getOrNull()!!
         var importedSession = prep().open(other, imported.sessions.single().id).getOrNull()!!
         importedSession.items.single().image shouldBe first
+        play.open(other, importedSession.id).getOrNull()!!.used shouldBe listOf(importedSession.items.single().id)
+        play.open(other, importedSession.id).getOrNull()!!.active shouldBe emptyList()
         (importedSession.items.single().id != session.items.single().id) shouldBe true
         context!!.close(); context = start()
         request("/api/campaigns/$other/sessions/${importedSession.id}/items/${importedSession.items.single().id}/artwork/DISPLAY").statusCode() shouldBe 200
@@ -213,7 +219,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         val campaigns = c.getBean(workbench.campaigns.api.Campaigns::class.java)
         val brokenPreparation = PreparationService(campaigns, c.getBean(workbench.sources.api.Sources::class.java), failing, tx,
             c.getBean(PreparationMarkdown::class.java), c.getBean(SessionDrafts::class.java), images)
-        val brokenSessions = PortableSessionService(brokenPreparation, images, transfer, c.getBean(SessionArchiveCodec::class.java), processor, tx, campaigns)
+        val brokenSessions = PortableSessionService(PreparationTransferFacade(brokenPreparation, images), c.getBean(workbench.playthroughs.api.WorkspaceTransfers::class.java), transfer, c.getBean(SessionArchiveCodec::class.java), processor, tx, campaigns)
         brokenSessions.import(target, sessionZip.inputStream()).isLeft() shouldBe true
         prep().list(target).getOrNull()!!.sessions.size shouldBe 0
         jdbc().queryForObject("SELECT count(*) FROM preparation.image_original WHERE owner_id=?", Long::class.java, target) shouldBe 0L
