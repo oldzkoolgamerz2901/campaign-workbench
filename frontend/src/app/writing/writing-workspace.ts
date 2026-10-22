@@ -1,3 +1,5 @@
+import { ArtworkImage } from '../shared/artwork/artwork-image';
+import { WritingArtwork } from '../writing/artwork-sources';
 import {
   Component,
   HostListener,
@@ -27,6 +29,7 @@ import { WritingState } from './writing-state';
 @Component({
   selector: 'writing-workspace',
   imports: [
+    ArtworkImage,
     FormsModule,
     MatButtonModule,
     MatMenuModule,
@@ -41,6 +44,7 @@ import { WritingState } from './writing-state';
   styleUrl: './writing-workspace.css',
 })
 export class WritingWorkspace implements OnDestroy {
+  readonly artwork = inject(WritingArtwork);
   readonly state = inject(WritingState);
   readonly library = inject(LibraryState);
   readonly router = inject(Router);
@@ -188,6 +192,11 @@ export class WritingWorkspace implements OnDestroy {
     requestAnimationFrame(() =>
       this.exportPanel()?.nativeElement.scrollIntoView({ block: 'start' }),
     );
+  }
+  chooseArtwork(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files?.[0]) this.state.selectArtwork(input.files[0]);
+    input.value = '';
   }
   async create() {
     await this.state.create(this.newType, this.template);

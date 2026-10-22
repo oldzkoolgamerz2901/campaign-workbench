@@ -1,3 +1,4 @@
+import { PortableWritingControllerService } from '../../api/generated';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { RecoveryState } from './recovery-state';
@@ -50,6 +51,7 @@ function setup(api: object, flush = vi.fn().mockResolvedValue(true)) {
   TestBed.configureTestingModule({
     providers: [
       { provide: RecoveryControllerService, useValue: api },
+      { provide: PortableWritingControllerService, useValue: api },
       { provide: WritingState, useValue: { campaign: () => 'origin', flush } },
     ],
   });
@@ -103,26 +105,30 @@ describe('Writing recovery', () => {
   });
   it('blocks backup after save failure and retains explicit retry state after download errors', async () => {
     const api = {
-      downloadWritingArchive: vi.fn().mockReturnValue(throwError(() => new Error('offline'))),
+      downloadPortableWritingArchive: vi
+        .fn()
+        .mockReturnValue(throwError(() => new Error('offline'))),
     };
     const { state, flush } = setup(api, vi.fn().mockResolvedValue(false));
     await state.backup('origin');
     expect(flush).toHaveBeenCalled();
-    expect(api.downloadWritingArchive).not.toHaveBeenCalled();
+    expect(api.downloadPortableWritingArchive).not.toHaveBeenCalled();
     expect(state.error()).toContain('Download failed');
     flush.mockResolvedValue(true);
     await state.backup('origin');
-    expect(api.downloadWritingArchive).toHaveBeenCalledTimes(1);
+    expect(api.downloadPortableWritingArchive).toHaveBeenCalledTimes(1);
     expect(state.busy()).toBe(false);
   });
   it('rejects oversized upload before sending and reloads after an uncertain import result', async () => {
     const api = {
-      restoreWritingArchive: vi.fn().mockReturnValue(throwError(() => new Error('lost response'))),
+      restorePortableWritingArchive: vi
+        .fn()
+        .mockReturnValue(throwError(() => new Error('lost response'))),
       listRecoveryWorkspaces: vi.fn().mockReturnValue(of({ workspaces: [] })),
     };
     const { state } = setup(api);
-    await state.restore({ size: 64 * 1024 * 1024 + 1 } as File);
-    expect(api.restoreWritingArchive).not.toHaveBeenCalled();
+    await state.restore({ size: 256 * 1024 * 1024 + 1 } as File);
+    expect(api.restorePortableWritingArchive).not.toHaveBeenCalled();
     await state.restore(new File(['{}'], 'archive.json'));
     expect(api.listRecoveryWorkspaces).toHaveBeenCalled();
     expect(state.error()).toContain('uncertain');
@@ -131,7 +137,7 @@ describe('Writing recovery', () => {
   it('keeps transfer protection active while refreshing after a successful import', async () => {
     const refreshed = new Subject<{ workspaces: RecoveryIndex['workspace'][] }>();
     const api = {
-      restoreWritingArchive: vi.fn().mockReturnValue(of(index('saved').workspace)),
+      restorePortableWritingArchive: vi.fn().mockReturnValue(of(index('saved').workspace)),
       listRecoveryWorkspaces: vi.fn().mockReturnValue(refreshed),
       getRecoveryWorkspace: vi.fn().mockReturnValue(of(index('saved'))),
     };
@@ -140,7 +146,7 @@ describe('Writing recovery', () => {
     await Promise.resolve();
     expect(state.busy()).toBe(true);
     await state.restore(new File(['{}'], 'duplicate.json'));
-    expect(api.restoreWritingArchive).toHaveBeenCalledTimes(1);
+    expect(api.restorePortableWritingArchive).toHaveBeenCalledTimes(1);
     refreshed.next({ workspaces: [index('saved').workspace] });
     refreshed.complete();
     await importing;

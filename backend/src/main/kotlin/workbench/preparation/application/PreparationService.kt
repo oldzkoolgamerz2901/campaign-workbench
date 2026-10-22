@@ -10,13 +10,13 @@ import workbench.preparation.domain.*
 import java.util.UUID
 import java.security.MessageDigest
 
-class PreparationService(private val campaigns: Campaigns, private val sources: Sources, private val store: SessionStore, private val tx: Transactions, private val markdown: PreparationMarkdown, private val writing: workbench.writing.api.SessionDrafts) {
+class PreparationService(private val campaigns: Campaigns, private val sources: Sources, private val store: SessionStore, private val tx: Transactions, private val markdown: PreparationMarkdown, private val writing: workbench.writing.api.SessionDrafts, private val images: PreparationImageStore) {
     private fun invalid(message: String) = Failure.Invalid("preparation.invalid", message)
     private fun text(value: String) = value.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024
     private fun valid(s: SessionData): Boolean = s.title.isNotBlank() && s.title.length <= 200 && text(s.objective) && text(s.notes) && s.revision >= 0 &&
         (s.table == null || CardTable(s.table.active, s.table.used).valid(model(s).items)) &&
         s.items.map { it.id }.distinct().size == s.items.size && s.items.all { i ->
-            i.title.length <= 4096 && text(i.markdown) && text(i.notes) && i.provenance.path.isNotBlank() && i.provenance.path.length <= 4096 &&
+            (i.image == null || i.provenance.kind == "authored") && i.title.length <= 4096 && text(i.markdown) && text(i.notes) && i.provenance.path.isNotBlank() && i.provenance.path.length <= 4096 &&
                 i.provenance.documentHash.matches(Regex("[a-f0-9]{64}")) && i.provenance.contentHash == hash(i.markdown) && (i.provenance.section != null || i.provenance.documentHash == i.provenance.contentHash) &&
                 i.anchors.all { (original, local) -> text(original) && text(local) } && validCapture(i) && validOrigin(i)
         }
@@ -55,6 +55,7 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
     fun addDraft(campaign: UUID, id: UUID, request: AddDraft): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
         val approved = writing.retain(campaign, request.draft, request.draftRevision).bind()
         val d = approved.snapshot
+        writing.image(campaign, d.id, d.revision).bind()?.let { images.put(campaign, it) }
         val metadata = ensureNotNull(approved.preview.classification.metadata) { invalid("Draft is not ready for approval.") }
         val bodyStart = approved.markdown.length - d.fields.body.length
         val origin = d.origin
@@ -66,7 +67,7 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
             metadata.purpose, metadata.status, metadata.tags, metadata.summary), emptyList())
         s.copy(items = s.items + PreparedItem(UUID.randomUUID(), metadata.title, approved.markdown,
             Provenance(campaign, null, d.fields.path, null, approved.hash, approved.hash, "authored", authored),
-            approved.preview.anchors.keys.associateWith { it }, "", CapturedSource(1, bodyStart, classification, emptyList())))
+            approved.preview.anchors.keys.associateWith { it }, "", CapturedSource(1, bodyStart, classification, emptyList()), d.image))
     } }
     private fun mutate(campaign: UUID, id: UUID, revision: Long, change: (Session) -> Either<Failure, Session>): Either<Failure, SessionData> = tx.run { either {
         // Campaign's public configuration operation locks the campaign row across this transaction.
@@ -76,23 +77,30 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
         val changed = change(before).bind()
         val after = changed.copy(revision = before.revision + 1, table = changed.table?.reconcile(changed.items))
         ensure(valid(data(after)) && after.items.size <= 1000) { invalid("Session text or item limits exceeded.") }
-        store.put(after); data(after)
+        store.put(after); images.prune(campaign); data(after)
     } }
-    fun export(campaign: UUID, request: ExportSessions): Either<Failure, Archive> = tx.run { either {
+    fun export(campaign: UUID, request: ExportSessions, illustrated: Boolean = false): Either<Failure, Archive> = tx.run { either {
         campaigns.configuration(campaign).bind()
         ensure(request.sessions.isNotEmpty() && request.sessions.size <= 100 && request.sessions.distinct().size == request.sessions.size) { invalid("Select between 1 and 100 distinct sessions.") }
-        val archive = Archive(4, request.sessions.map { data(load(campaign, it).bind()) })
+        ensure(store.archiveBytes(campaign, request.sessions) <= 20L * 1024 * 1024) { invalid("Session text exceeds the 20 MiB manifest limit; select fewer sessions.") }
+        val archive = Archive(if (illustrated) 5 else 4, request.sessions.map { data(load(campaign, it).bind()) })
+        ensure(illustrated || archive.sessions.all { s -> s.items.all { it.image == null } }) { invalid("Artwork requires portable ZIP export.") }
         ensure(archive.sessions.sumOf { it.items.size } <= 1000) { invalid("An archive may contain at most 1,000 items.") }
         archive
     } }
-    fun import(campaign: UUID, archive: Archive): Either<Failure, SessionList> = tx.run { either {
-        campaigns.configuration(campaign).bind()
-        ensure(archive.version in setOf(1, 2, 3, 4) && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
+    fun validateArchive(archive: Archive, illustrated: Boolean = false): Either<Failure, Unit> = either {
+        ensure((archive.version in setOf(1, 2, 3, 4) || (illustrated && archive.version == 5)) && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
             archive.sessions.map { it.id }.distinct().size == archive.sessions.size &&
-            (archive.version == 4 || archive.sessions.all { it.table == null }) &&
+            (archive.version >= 4 || archive.sessions.all { it.table == null }) &&
             (archive.version < 3 || archive.sessions.flatMap { it.items }.let { items -> items.map { it.id }.distinct().size == items.size }) && archive.sessions.all(::valid) &&
             (archive.version >= 3 || archive.sessions.all { s -> s.items.all { it.provenance.kind == "source" } }) &&
             (archive.version != 1 || archive.sessions.all { s -> s.items.all { it.capturedSource == null } })) { invalid("Invalid or unsupported session archive. No sessions imported.") }
+        ensure(illustrated || archive.sessions.all { s -> s.items.all { it.image == null } }) { invalid("Artwork requires a portable archive.") }
+    }
+    fun import(campaign: UUID, archive: Archive, illustrated: Boolean = false): Either<Failure, SessionList> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        validateArchive(archive, illustrated).bind()
+        ensure(archive.sessions.flatMap { it.items }.all { i -> i.image?.let { illustrated && images.metadata(campaign, it.hash) == it } ?: true }) { invalid("Artwork references are unavailable or inconsistent.") }
         val sessions = archive.sessions.map { source ->
             val original = model(source)
             val ids = original.items.associate { it.id to UUID.randomUUID() }
@@ -111,6 +119,6 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
         val captured = markdown.captured(model(s).items)
         SessionView(markdown.render(s.notes), s.items.map { RenderedItem(it.id, captured.getValue(it.id), markdown.render(it.notes)) })
     }
-    private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.data()), i.anchors, i.notes, i.capturedSource?.data()) }, s.table?.let { CardTableData(it.active, it.used) })
-    private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.model()), i.anchors, i.notes, i.capturedSource?.model()) }, s.table?.let { CardTable(it.active, it.used) })
+    private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.data()), i.anchors, i.notes, i.capturedSource?.data(), i.image) }, s.table?.let { CardTableData(it.active, it.used) })
+    private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.model()), i.anchors, i.notes, i.capturedSource?.model(), i.image) }, s.table?.let { CardTable(it.active, it.used) })
 }

@@ -6,6 +6,7 @@ import workbench.preparation.api.RenderedMarkdown
 import java.util.UUID
 
 interface SessionStore {
+    fun archiveBytes(campaign: UUID, ids: List<UUID>): Long
     fun list(campaign: UUID): List<Session>
     fun get(campaign: UUID, id: UUID): Session?
     fun put(session: Session)

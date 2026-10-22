@@ -12,8 +12,39 @@ import java.util.UUID
 
 /** Version-specific wire validation happens before binding and before any database writes. */
 @Component
-class SessionArchiveReader(private val mapper: ObjectMapper) {
-    fun read(bytes: ByteArray): Either<Failure, Archive> = try {
+class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.preparation.application.SessionArchiveCodec {
+    override fun write(archive: Archive): ByteArray {
+        val out = object : java.io.ByteArrayOutputStream() {
+            override fun write(b: Int) { require(count < MAX_ARCHIVE); super.write(b) }
+            override fun write(b: ByteArray, off: Int, len: Int) { require(count.toLong() + len <= MAX_ARCHIVE); super.write(b, off, len) }
+        }
+        mapper.writeValue(out, archive)
+        return out.toByteArray()
+    }
+    override fun readIllustrated(bytes: ByteArray): Either<Failure, Archive> = try {
+        require(bytes.size <= MAX_ARCHIVE)
+        val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
+        require(tree.path("version").isIntegralNumber && tree.path("version").intValue() == 5)
+        val images = mutableListOf<workbench.platform.api.ImageMetadata?>()
+        val legacy = mapper.readTree(mapper.writeValueAsBytes(tree)) as tools.jackson.databind.node.ObjectNode
+        legacy.put("version", 4)
+        for (session in legacy.path("sessions")) for (item in session.path("items")) {
+            val image = item.path("image")
+            if (!image.isMissingNode) {
+                fields(image, "hash", "mime", "width", "height", "bytes")
+                strings(image, "hash", "mime"); listOf("width", "height", "bytes").forEach { integer(image.path(it)) }
+                images += mapper.treeToValue(image, workbench.platform.api.ImageMetadata::class.java)
+                (item as tools.jackson.databind.node.ObjectNode).remove("image")
+            } else images += null
+        }
+        read(mapper.writeValueAsBytes(legacy)).map { archive ->
+            var at = 0
+            archive.copy(version = 5, sessions = archive.sessions.map { s -> s.copy(items = s.items.map { it.copy(image = images[at++]) }) })
+        }
+    } catch (_: Exception) { Either.Left(Failure.Invalid("preparation.archive-format", "Invalid illustrated session manifest. No sessions imported.")) }
+
+    override fun read(bytes: ByteArray): Either<Failure, Archive> = try {
         require(bytes.size <= MAX_ARCHIVE)
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)

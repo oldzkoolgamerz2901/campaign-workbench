@@ -10,7 +10,7 @@ import java.util.UUID
 internal class RecoveryValidation(private val authoring: Authoring) {
     fun encoded(d: DraftData) = d.fields.let { authoring.encode(AuthoredDocument(d.card, it.title, it.type, it.status, it.tags, it.summary, it.body), d.origin?.retainedEnvelope.orEmpty()) }
     fun validate(a: WritingArchive) {
-        require(a.format == "workbench-writing-recovery" && a.version == 1)
+        require(a.format == "workbench-writing-recovery" && a.version in setOf(1, 2))
         require(a.name.isNotBlank() && a.name.length <= 200)
         time(a.savedAt)
         require(a.drafts.size <= 1000 && a.approved.size + a.exports.size <= 10000)
@@ -19,6 +19,7 @@ internal class RecoveryValidation(private val authoring: Authoring) {
         require(a.exports.map { it.id }.distinct().size == a.exports.size)
         require(a.exports.groupingBy { it.snapshot.id }.eachCount().values.all { it <= 1000 })
         val snapshots = a.drafts + a.approved.map { it.snapshot } + a.exports.map { it.snapshot }
+        require(a.version == 2 || snapshots.all { it.image == null })
         snapshots.distinct().forEach { d ->
             require(d.campaign == a.campaign && d.revision >= 0 && withinWorkingLimits(d.fields))
             d.recovery?.let { require(it.revision >= 0) }

@@ -14,7 +14,15 @@ interface ApprovedRevisionStore {
 }
 class SessionDraftService(private val campaigns: Campaigns, private val drafts: DraftStore,
     private val revisions: ApprovedRevisionStore, private val authoring: Authoring, private val sources: Sources,
-    private val tx: Transactions) : SessionDrafts {
+    private val tx: Transactions, private val images: WritingImageStore) : SessionDrafts {
+    override fun image(campaign: UUID, draft: UUID, revision: Long): Either<Failure, ProcessedImage?> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val approved = ensureNotNull(revisions.get(campaign, draft, revision)) { Failure.NotFound("writing.approval-not-found", "Approved revision not found.") }
+        val m = approved.snapshot.image ?: return@either null
+        ensureNotNull(images.bundle(WritingImageOwner.Campaign(campaign), m.hash)) { Failure.Unreadable("image.unavailable", "Retained artwork is unavailable.") }.also {
+            ensure(it.metadata == m) { Failure.Unreadable("image.unavailable", "Retained artwork differs from its approved descriptor.") }
+        }
+    } }
     override fun retain(campaign: UUID, draft: UUID, revision: Long): Either<Failure, ApprovedDraft> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val d = ensureNotNull(drafts.get(campaign, draft)) { Failure.NotFound("writing.not-found", "Draft not found in this campaign.") }

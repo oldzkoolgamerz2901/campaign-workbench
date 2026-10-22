@@ -1,3 +1,4 @@
+import { PortableSessionControllerService } from '../../api/generated';
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
@@ -24,7 +25,7 @@ describe('Session working state', () => {
     addSessionDraft: vi.fn(),
     listSessions: vi.fn(),
     createSession: vi.fn(),
-    importSessions: vi.fn(),
+    importPortableSessions: vi.fn(),
   };
   beforeEach(() => {
     vi.useFakeTimers();
@@ -34,7 +35,11 @@ describe('Session working state', () => {
     api.previewMarkdown.mockReturnValue(of({ html: '', links: [] }));
     api.listSessions.mockReturnValue(of({ sessions: [] }));
     TestBed.configureTestingModule({
-      providers: [SessionState, { provide: PreparationControllerService, useValue: api }],
+      providers: [
+        SessionState,
+        { provide: PreparationControllerService, useValue: api },
+        { provide: PortableSessionControllerService, useValue: api },
+      ],
     });
     state = TestBed.inject(SessionState);
   });
@@ -297,7 +302,7 @@ describe('Session working state', () => {
   it('does not repopulate a different campaign with a late import result', async () => {
     await state.open('campaign-a', 'session-a');
     const late = new Subject<{ sessions: [] }>();
-    api.importSessions.mockReturnValue(late);
+    api.importPortableSessions.mockReturnValue(late);
     const file = { size: 2, text: async () => '{"version":1,"sessions":[]}' } as File;
     const imported = state.import('campaign-a', file);
     await Promise.resolve();
@@ -313,24 +318,11 @@ describe('Session working state', () => {
     const file = { size: 2, text: vi.fn() } as unknown as File;
     await state.import('campaign-a', file);
     expect(file.text).not.toHaveBeenCalled();
-    expect(api.importSessions).not.toHaveBeenCalled();
-  });
-  it('does not send an import if the campaign changes while reading the file', async () => {
-    state.bindCampaign('campaign-a');
-    let finishRead!: (text: string) => void;
-    const text = new Promise<string>((resolve) => {
-      finishRead = resolve;
-    });
-    const imported = state.import('campaign-a', { size: 2, text: () => text } as File);
-    state.bindCampaign('campaign-b');
-    finishRead('{"version":1,"sessions":[]}');
-    await imported;
-    expect(api.importSessions).not.toHaveBeenCalled();
-    expect(state.notice()).toBe('');
+    expect(api.importPortableSessions).not.toHaveBeenCalled();
   });
   it('does not show an old import notice after switching during the list reload', async () => {
     state.bindCampaign('campaign-a');
-    api.importSessions.mockReturnValue(of({ sessions: [] }));
+    api.importPortableSessions.mockReturnValue(of({ sessions: [] }));
     const list = new Subject<{ sessions: [] }>();
     api.listSessions.mockReturnValue(list);
     const imported = state.import('campaign-a', {

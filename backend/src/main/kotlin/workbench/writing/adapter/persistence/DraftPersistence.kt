@@ -14,7 +14,7 @@ import java.util.UUID
 @Table(name = "draft", schema = "writing")
 class DraftEntity(
     @Id var id: UUID = UUID.randomUUID(), var campaign: UUID = UUID.randomUUID(), var card: UUID = UUID.randomUUID(), var revision: Long = 0,
-    var title: String = "", var type: String = "", var status: String = "draft", var tags: String = "[]", var summary: String = "", var body: String = "", var path: String = "", var origin: String? = null, var recovery: String? = null
+    var title: String = "", var type: String = "", var status: String = "draft", var tags: String = "[]", var summary: String = "", var body: String = "", var path: String = "", var origin: String? = null, var recovery: String? = null, var image: String? = null, @Column(name = "image_hash") var imageHash: String? = null
 )
 interface DraftRepository : JpaRepository<DraftEntity, UUID> {
     fun findAllByCampaign(campaign: UUID): List<DraftEntity>
@@ -22,9 +22,9 @@ interface DraftRepository : JpaRepository<DraftEntity, UUID> {
 }
 @Repository
 class JpaDraftStore(private val repository: DraftRepository, private val mapper: ObjectMapper) : DraftStore {
-    private fun model(d: DraftEntity) = Draft(d.id, d.campaign, d.card, d.revision, d.title, d.type, d.status, mapper.readValue(d.tags, Array<String>::class.java).toList(), d.summary, d.body, d.path, d.origin?.let { mapper.readValue(it, DraftOrigin::class.java) }, d.recovery?.let { mapper.readValue(it, RecoveryOrigin::class.java) })
+    private fun model(d: DraftEntity) = Draft(d.id, d.campaign, d.card, d.revision, d.title, d.type, d.status, mapper.readValue(d.tags, Array<String>::class.java).toList(), d.summary, d.body, d.path, d.origin?.let { mapper.readValue(it, DraftOrigin::class.java) }, d.recovery?.let { mapper.readValue(it, RecoveryOrigin::class.java) }, d.image?.let { mapper.readValue(it, workbench.platform.api.ImageMetadata::class.java) })
     override fun list(campaign: UUID) = repository.findAllByCampaign(campaign).map(::model).sortedWith(compareBy({ it.title.lowercase() }, { it.id }))
     override fun get(campaign: UUID, id: UUID) = repository.findByCampaignAndId(campaign, id)?.let(::model)
     override fun delete(campaign: UUID, id: UUID) { repository.findByCampaignAndId(campaign, id)?.let { repository.delete(it); repository.flush() } }
-    override fun put(draft: Draft) { with(draft) { repository.saveAndFlush(DraftEntity(id, campaign, card, revision, title, type, status, mapper.writeValueAsString(tags), summary, body, path, origin?.let(mapper::writeValueAsString), recovery?.let(mapper::writeValueAsString))) } }
+    override fun put(draft: Draft) { with(draft) { repository.saveAndFlush(DraftEntity(id, campaign, card, revision, title, type, status, mapper.writeValueAsString(tags), summary, body, path, origin?.let(mapper::writeValueAsString), recovery?.let(mapper::writeValueAsString), image?.let(mapper::writeValueAsString), image?.hash)) } }
 }

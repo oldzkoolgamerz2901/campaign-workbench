@@ -468,11 +468,23 @@ Read uses compact campaign/session chooser controls, save status, Return to Prep
 
 ### Deferred increment — per-card images — owner direction 2026-10-20
 
-Status: The owner requested a separate later increment for per-card images and authorized documenting that deferral. It is outside the current UI cleanup and has no implementation authorization or assigned increment number.
+Status: Originally deferred outside the UI cleanup on 2026-10-20. The owner approved the per-card image requirements below on 2026-10-21 and authorized architecture work. Implementation remains unauthorized and no increment number is assigned.
 
 Goal: associate a selected image with a card and reuse it for that card's presentation in Write, Prepare and Play (formerly Read), including compact material-library thumbnails. Show the existing application placeholder when no image is selected. The owner identified the illustrated Prepare concept `exec-9d5145fc-95ac-4099-91e6-42d07ec7fa3d.png` as a desirable visual direction; that mockup does not establish an asset-storage or content-import contract.
 
-Before implementation, settle image selection/acquisition, ownership and identity, frozen prepared-copy behavior, replacement/removal, archive/recovery portability, supported formats and size limits, and missing-image behavior. Compact thumbnails and an optional text-only shelf are recommendations for that increment, not yet approved acceptance criteria. Existing source/reader image omission and placeholder behavior remain in effect until the later increment is designed and implemented.
+The requirements below supersede the deferred selection and behavior questions. Architecture and implementation still require their own approvals. An optional text-only shelf remains a proposal outside this increment.
+
+#### Per-card images — accepted requirements — 2026-10-21
+
+The owner approved these requirements and authorized architecture work. No increment number or implementation scope has yet been approved.
+
+- Select one local image file per Writing card in **Write**, then carry its saved artwork into **Prepare** and **Play**. Accept static JPEG, PNG and WebP files up to 10 MiB; reject unsupported, animated or oversized inputs with a clear message. URL fetching, image generation and galleries are deferred. A successfully saved image no longer depends on the original file.
+- Allow replacement and removal in Write; removal restores the existing placeholder. Artwork changes are draft edits using existing save status and revision checks. Failed uploads retain the previous image and offer retry. Approval captures successfully saved text and artwork together.
+- Freeze the artwork alongside the approved draft revision in Prepare. Later replacement/removal in Write does not change existing prepared copies or their Play presentation. Direct source-card image assignment is outside this increment.
+- Show artwork in Write's card preview, draft/prepared thumbnails in Prepare, and active/used cards in Play. Use centered cropping in the existing card/image dimensions and compact thumbnails. Manual crop/focal-point controls are deferred. Full-document readers retain their existing text presentation and Markdown image omission.
+- Session archives and Writing recovery archives include the image data needed to retain artwork after restoration. Older archives restore without artwork using placeholders. New archives with missing or invalid referenced image data fail validation before any import writes. Cards with no selected image remain valid. Archive capacity must accommodate the supported illustrated-card volume; concrete aggregate limits remain an architecture decision.
+- Reviewed Markdown downloads remain text-only. Illustrated Markdown export and asset packaging are deferred.
+- Resizing for display is permitted while leaving the user's original file untouched. Retain sufficient image quality for reasonable future enlargement. Keep card and image dimensions unchanged now, but allow a future increment to adjust them without requiring users to reselect artwork; size controls are deferred. The retention/quality tradeoff must be explicit in architecture.
 
 ### Play naming and group lookup — owner direction 2026-10-20
 
@@ -487,3 +499,18 @@ Proposed filter behavior, pending approval: place a compact Group chooser beside
 The owner approved the proposed common two-row shell and per-mode cleanup, including previously proposed Play filter details. Use Write / Prepare / Play navigation, a shared campaign chooser/save-status/More header, consistent contextual tools and global dark menus. Automatically check backend availability at startup and foreground return; display failures with retry, without a permanent healthy indicator. Save confirmation remains independent. Retain all existing save/discard/conflict guards.
 
 Write exposes Markdown early, expandable card metadata, draft-title search combined with the existing type/tag filters, compact New draft choices and on-demand export inspection/history. Prepare uses compact multi-type/filter controls, full-document-first viewing and the same application-owned placeholder image on source result/document and draft tiles; image assignment remains deferred. Preserve source searches, diagnostics, capture/approval validation and explicit material assembly. Play uses All or one existing primary card type combined with text find across active/used cards, matching/total counts and local filter state. Filtering leaves selected text and saved arrangements intact; clear filters before reordering. Readers place metadata/provenance/summary behind details, preserving authored Markdown and access to all information. No source-owned image loading or new asset storage is included.
+
+
+### TODO — Align Prepare's Drafts view with Sources — 2026-10-21
+
+Owner-requested follow-up: improve the **Drafts view within Prepare** so it fits the Sources view's layout, visual styling and interaction patterns. The current draft chooser presents its own list and preview, with **Approve revision … and add** below the preview; the owner needed help locating that action while trying to prepare illustrated drafts.
+
+Proposed points to resolve in the follow-up:
+
+- Match Sources' compact browsing controls, material tiles, thumbnail treatment, selection styling, spacing and typography; provide consistent draft finding/filtering where useful.
+- Present the selected draft in a consistent reader area with familiar Card/Document controls, keeping artwork visible in the appropriate thumbnail/card views.
+- Make the destination session and **Approve revision … and add** action easy to find beside the selected draft; explain disabled approval and validation issues without hiding the action below a long document.
+- Clarify the difference between a source copy, a working draft and an approved prepared copy, including that artwork travels with the approved draft and does not update similarly named source entries automatically.
+- Preserve explicit approval of the exact saved revision, frozen text/artwork, validation and existing save/navigation protection. Review keyboard access, scrolling and the 1280×800 / 1440×900 layouts.
+
+Status: TODO captured; exact layout, action placement, labels, filtering and implementation scope remain to be agreed. This records the requested improvement and discussion points, not an approved design or implementation increment.

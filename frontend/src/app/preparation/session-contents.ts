@@ -1,5 +1,8 @@
+import { ArtworkImage } from '../shared/artwork/artwork-image';
+import { PreparedArtwork } from '../preparation/artwork-sources';
 import {
   Component,
+  inject,
   ElementRef,
   ViewChild,
   computed,
@@ -14,11 +17,14 @@ import { PreparedItemData } from '../../api/generated';
 
 @Component({
   selector: 'session-contents',
-  imports: [FormsModule, MatButtonModule],
+  imports: [ArtworkImage, FormsModule, MatButtonModule],
   templateUrl: './session-contents.html',
   styleUrl: './session-contents.css',
 })
 export class SessionContents {
+  readonly artwork = inject(PreparedArtwork);
+  readonly campaign = input('');
+  readonly session = input('');
   readonly items = input<PreparedItemData[]>([]);
   readonly selected = input<string | null>(null);
   readonly reading = input(false);
@@ -57,7 +63,8 @@ export class SessionContents {
   }
   context(item: PreparedItemData) {
     const origin = item.provenance.authored;
-    if (origin) return `${item.capturedSource?.classification?.metadata?.type ?? 'Card'} · Draft revision ${origin.revision}`;
+    if (origin)
+      return `${item.capturedSource?.classification?.metadata?.type ?? 'Card'} · Draft revision ${origin.revision}`;
     return item.provenance.section
       ? (item.capturedSource?.classification?.metadata?.title ?? item.provenance.path)
       : (item.capturedSource?.classification?.metadata?.type ?? 'Document');
@@ -67,8 +74,11 @@ export class SessionContents {
     const selected = list?.querySelector<HTMLElement>('[aria-current="page"]');
     if (!list || !selected || !this.expanded()) return;
     // Scroll only this list, without disturbing the source reader or document.
-    if (selected.offsetTop < list.scrollTop) list.scrollTop = selected.offsetTop;
-    else if (selected.offsetTop + selected.offsetHeight > list.scrollTop + list.clientHeight)
-      list.scrollTop = selected.offsetTop + selected.offsetHeight - list.clientHeight;
+    const top =
+      selected.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    const bottom = top + selected.getBoundingClientRect().height;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight)
+      list.scrollTop = bottom - list.clientHeight;
   }
 }

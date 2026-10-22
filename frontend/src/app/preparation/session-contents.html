@@ -27,8 +27,19 @@
     <ol>
       @for (entry of visible(); track entry.item.id) {
         @let item = entry.item;
-        <li [value]="entry.number">
+        <li [value]="entry.number" style="position: relative">
           <span class="number">{{ entry.number }}</span>
+          <artwork-image
+            class="item-thumbnail"
+            [source]="artwork.item(campaign(), session(), item, 'THUMBNAIL')"
+            style="
+              position: absolute;
+              left: calc(1.2rem + 8px);
+              top: 9px;
+              width: var(--prepared-thumbnail-width, 30px);
+              height: var(--prepared-thumbnail-height, 36px);
+            "
+          />
           <button
             class="item-select"
             [title]="item.title + ' · ' + context(item)"
@@ -37,8 +48,8 @@
             [attr.aria-current]="selected() === item.id ? 'page' : null"
             [disabled]="disabled()"
             (click)="selectItem.emit(item.id)"
+            style="padding-left: calc(var(--prepared-thumbnail-width, 30px) + 14px)"
           >
-            <img src="/card-placeholder.svg" alt="" class="item-thumbnail" width="30" height="36" />
             <strong>{{ item.title }}</strong
             ><small>{{ context(item) }}</small>
           </button>

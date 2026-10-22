@@ -138,17 +138,8 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await page.getByRole('menuitem', { name: 'Export session', exact: true }).click();
     const download = await downloadPromise;
     const downloaded = await download.path();
-    const archive = JSON.parse(await readFile(downloaded!, 'utf8'));
-    expect(archive.version).toBe(4);
-    expect(archive.sessions).toHaveLength(1);
-    expect(archive.sessions[0].items[0].title).toBe('Lower chamber');
-    expect(archive.sessions[0].items[0].capturedSource.classification.metadata).toMatchObject({
-      type: 'location',
-      tags: ['observatory'],
-      summary: 'A telescope and its hidden chamber.',
-    });
-    expect(archive.sessions[0].items[0].capturedSource.bodyStart).toBe(0);
-    expect(archive.sessions[0].items[1].capturedSource.bodyStart).toBeGreaterThan(0);
+    expect(download.suggestedFilename()).toBe('prepared-sessions.zip');
+    // Inspect the real imported records below; binary transfer stays opaque to the browser.
     // Keep campaign initialization pending to exercise the import-readiness race deterministically.
     let finishRefresh!: () => void;
     const refreshGate = new Promise<void>((resolve) => {

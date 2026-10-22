@@ -2,6 +2,8 @@ package workbench.preparation.api
 
 import io.swagger.v3.oas.annotations.media.Schema
 import java.util.UUID
+import workbench.platform.api.ImageMetadata
+import com.fasterxml.jackson.annotation.JsonInclude
 
 data class ProvenanceData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val campaign: UUID,
@@ -21,7 +23,8 @@ data class PreparedItemData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val provenance: ProvenanceData,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val anchors: Map<String, String>,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val capturedSource: CapturedSourceData? = null
+    @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val capturedSource: CapturedSourceData? = null,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val image: ImageMetadata? = null
 )
 
 data class SessionData(

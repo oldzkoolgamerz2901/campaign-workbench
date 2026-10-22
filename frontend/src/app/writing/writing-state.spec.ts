@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
 import {
   WritingControllerService,
+  ArtworkControllerService,
   DraftData,
   DraftPreview,
   ExportInspection,
@@ -29,9 +30,41 @@ const draft = (campaign = 'a'): DraftData => ({
 });
 
 describe('Writing generated-client transport', () => {
+  it('sends atomic artwork replacement through the generated multipart operation with JSON success media type', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:transport');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: BASE_PATH, useValue: '' },
+      ],
+    });
+    const state = TestBed.inject(WritingState),
+      http = TestBed.inject(HttpTestingController);
+    state.current.set(draft());
+    const file = new File(['image'], 'portrait.png', { type: 'image/png' });
+    state.selectArtwork(file);
+    const saving = state.flush();
+    const request = http.expectOne('/api/campaigns/a/drafts/draft-a/artwork');
+    expect(request.request.headers.get('Accept')).toBe('application/json');
+    expect(request.request.body.get('image')).toBe(file);
+    expect(JSON.parse(request.request.body.get('metadata'))).toMatchObject({
+      revision: 0,
+      fields: draft().fields,
+      imageAction: 'replace',
+    });
+    request.flush({ ...draft(), revision: 1, image: { hash: 'acknowledged' } });
+    expect(await saving).toBe(true);
+    expect(state.current()?.image?.hash).toBe('acknowledged');
+    state.deactivate();
+    http.verify();
+    vi.restoreAllMocks();
+  });
   it('requests successful JSON rather than the Problem Details response media type', async () => {
     TestBed.configureTestingModule({
       providers: [
+        provideHttpClient(),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: BASE_PATH, useValue: '' },
@@ -60,6 +93,7 @@ describe('Writing working edits', () => {
     openDraft: vi.fn(),
     createDraft: vi.fn(),
     saveDraft: vi.fn(),
+    replaceDraftArtwork: vi.fn(),
     previewDraft: vi.fn(),
     listDraftExports: vi.fn(),
     forkDraft: vi.fn(),
@@ -80,7 +114,11 @@ describe('Writing working edits', () => {
     api.openDraft.mockReturnValue(of(draft()));
     api.previewDraft.mockReturnValue(of(preview()));
     TestBed.configureTestingModule({
-      providers: [{ provide: WritingControllerService, useValue: api }],
+      providers: [
+        provideHttpClient(),
+        { provide: WritingControllerService, useValue: api },
+        { provide: ArtworkControllerService, useValue: api },
+      ],
     });
     state = TestBed.inject(WritingState);
     await state.selectCampaign('a');
@@ -90,6 +128,124 @@ describe('Writing working edits', () => {
     state.deactivate();
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+  it('acknowledges an image separately from text edited during upload and releases its preview', async () => {
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pending');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const upload = new Subject<DraftData>();
+    const text = new Subject<DraftData>();
+    api.replaceDraftArtwork.mockReturnValue(upload);
+    api.saveDraft.mockReturnValue(text);
+    const file = new File(['image'], 'local.png', { type: 'image/png' });
+    state.selectArtwork(file);
+    expect(state.localArtwork()).toBe('blob:pending');
+    const saving = state.flush();
+    state.edit({ body: 'Text entered during upload' });
+    const image = { hash: 'saved-image' };
+    upload.next({ ...draft(), revision: 1, image });
+    upload.complete();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.current()?.image).toEqual(image);
+    expect(state.current()?.fields.body).toBe('Text entered during upload');
+    expect(state.pendingArtwork()).toBe('keep');
+    expect(revoke).toHaveBeenCalledWith('blob:pending');
+    expect(api.saveDraft.mock.calls[0][2]).toMatchObject({ revision: 1, imageAction: 'keep' });
+    text.next({ ...draft(), revision: 2, image });
+    text.complete();
+    expect(await saving).toBe(true);
+    expect(api.replaceDraftArtwork).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+  it('retains a newer selection and removal while an older image is saving', async () => {
+    vi.spyOn(URL, 'createObjectURL')
+      .mockReturnValueOnce('blob:one')
+      .mockReturnValueOnce('blob:two');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const upload = new Subject<DraftData>();
+    const removal = new Subject<DraftData>();
+    api.replaceDraftArtwork.mockReturnValue(upload);
+    api.saveDraft.mockReturnValue(removal);
+    state.selectArtwork(new File(['one'], 'one.png'));
+    const saving = state.flush();
+    state.selectArtwork(new File(['two'], 'two.webp'));
+    expect(revoke).toHaveBeenCalledWith('blob:one');
+    state.removeArtwork();
+    expect(revoke).toHaveBeenCalledWith('blob:two');
+    upload.next({ ...draft(), revision: 1, image: { hash: 'one' } });
+    upload.complete();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.pendingArtwork()).toBe('remove');
+    expect(api.saveDraft.mock.calls[0][2]).toMatchObject({ revision: 1, imageAction: 'remove' });
+    removal.next({ ...draft(), revision: 2, image: null });
+    removal.complete();
+    expect(await saving).toBe(true);
+    expect(state.current()?.image).toBeNull();
+  });
+  it('rejects oversized files and retains a failed upload for retry and guarded discard', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:retry');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    state.selectArtwork({ name: 'large.png', size: 10 * 1024 * 1024 + 1 } as File);
+    expect(state.artworkError()).toContain('10 MiB');
+    expect(state.status()).toBe('saved');
+    const file = new File(['image'], 'valid.png');
+    state.selectArtwork(file);
+    api.replaceDraftArtwork.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 503 })),
+    );
+    expect(await state.flush()).toBe(false);
+    expect(state.localArtwork()).toBe('blob:retry');
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    expect(await state.allowLeave()).toBe(false);
+    expect(state.pendingArtwork()).toBe('replace');
+    api.replaceDraftArtwork.mockReturnValue(of({ ...draft(), revision: 1, image: { hash: 'ok' } }));
+    expect(await state.flush()).toBe(true);
+    expect(api.replaceDraftArtwork.mock.calls.at(-1)?.[3]).toBe(file);
+    expect(revoke).toHaveBeenCalledWith('blob:retry');
+  });
+  it('uploads a newer file only after the first acknowledgement, then ignores a departed context', async () => {
+    vi.spyOn(URL, 'createObjectURL')
+      .mockReturnValueOnce('blob:old')
+      .mockReturnValueOnce('blob:new');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const first = new Subject<DraftData>(),
+      second = new Subject<DraftData>();
+    api.replaceDraftArtwork.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    state.selectArtwork(new File(['old'], 'old.png'));
+    const saving = state.flush();
+    const newer = new File(['new'], 'new.png');
+    state.selectArtwork(newer);
+    first.next({ ...draft(), revision: 1, image: { hash: 'old' } });
+    first.complete();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.localArtwork()).toBe('blob:new');
+    expect(api.replaceDraftArtwork.mock.calls[1][3]).toBe(newer);
+    expect(JSON.parse(api.replaceDraftArtwork.mock.calls[1][2]).revision).toBe(1);
+    state.deactivate();
+    second.next({ ...draft(), revision: 2, image: { hash: 'new' } });
+    second.complete();
+    expect(await saving).toBe(false);
+    expect(state.current()).toBeNull();
+    expect(state.localArtwork()).toBeNull();
+  });
+  it('keeps a conflicted image until explicit reload discards it', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:conflict');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    state.selectArtwork(new File(['image'], 'conflict.png'));
+    api.replaceDraftArtwork.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 409 })),
+    );
+    expect(await state.flush()).toBe(false);
+    expect(state.conflict()).toBe(true);
+    expect(state.localArtwork()).toBe('blob:conflict');
+    expect(await state.flush()).toBe(false);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await state.reload();
+    expect(state.status()).toBe('saved');
+    expect(state.pendingArtwork()).toBe('keep');
+    expect(revoke).toHaveBeenCalledWith('blob:conflict');
   });
   it('serializes slow saves and never acknowledges newer edits as saved', async () => {
     const first = new Subject<DraftData>(),

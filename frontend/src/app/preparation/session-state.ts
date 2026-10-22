@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { transferError } from '../shared/transfer-error';
 import { firstValueFrom } from 'rxjs';
 import {
   PreparationControllerService,
@@ -7,7 +8,7 @@ import {
   SessionSummary,
   RenderedMarkdown,
   SessionView,
-  Archive,
+  PortableSessionControllerService,
 } from '../../api/generated';
 
 export interface SourceSelection {
@@ -22,6 +23,8 @@ export interface AdditionProgress extends SourceSelection {
 @Injectable({ providedIn: 'root' })
 export class SessionState {
   private readonly api = inject(PreparationControllerService);
+  private readonly portable = inject(PortableSessionControllerService);
+  readonly transferBusy = signal(false);
   readonly sessions = signal<SessionSummary[]>([]);
   readonly current = signal<SessionData | null>(null);
   readonly selectedItem = signal<string | null>(null);
@@ -49,7 +52,9 @@ export class SessionState {
   private mutation?: Promise<void>;
 
   hasUnsaved() {
-    return this.dirty || !!this.saving || this.mutating() || this.queueRunning();
+    return (
+      this.transferBusy() || this.dirty || !!this.saving || this.mutating() || this.queueRunning()
+    );
   }
   bindCampaign(campaign: string) {
     if (this.activeCampaign === campaign) return;
@@ -425,8 +430,8 @@ export class SessionState {
     return completed;
   }
   async allowLeave(): Promise<boolean> {
-    if (this.mutating() || this.queueRunning()) {
-      this.error.set('Wait for the source capture to finish before leaving.');
+    if (this.transferBusy() || this.mutating() || this.queueRunning()) {
+      this.error.set('Wait for the current operation to finish before leaving.');
       return false;
     }
     if (!this.hasUnsaved() || (await this.flush())) return true;
@@ -452,42 +457,42 @@ export class SessionState {
     await this.open(s.campaign, s.id);
   }
   async export(campaign: string, ids: string[]) {
-    if (!(await this.flush())) return;
+    if (this.transferBusy() || campaign !== this.activeCampaign) return;
+    this.transferBusy.set(true);
+    const epoch = this.epoch;
     try {
-      const archive = await firstValueFrom(
-        this.api.exportSessions(campaign, { sessions: ids }, 'body', false, {
-          httpHeaderAccept: 'application/json',
+      if (!(await this.flush()) || epoch !== this.epoch || campaign !== this.activeCampaign) return;
+      const file = await firstValueFrom(
+        this.portable.exportPortableSessions(campaign, { sessions: ids }, 'body', false, {
+          httpHeaderAccept: 'application/zip',
         }),
       );
-      const file = new Blob([JSON.stringify(archive)], { type: 'application/json' });
-      if (file.size > 20 * 1024 * 1024) {
-        this.error.set('Archive exceeds 20 MiB; select fewer sessions.');
-        return;
-      }
+      if (epoch !== this.epoch || campaign !== this.activeCampaign) return;
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'prepared-sessions.json';
+      a.download = 'prepared-sessions.zip';
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       this.notice.set('Saved sessions exported.');
     } catch (e) {
-      this.fail(e);
+      const detail = await transferError(e);
+      if (epoch === this.epoch) this.error.set(detail);
+    } finally {
+      this.transferBusy.set(false);
     }
   }
   async import(campaign: string, file: File) {
-    if (campaign !== this.activeCampaign) return;
+    if (campaign !== this.activeCampaign || this.transferBusy()) return;
     const epoch = this.epoch;
-    if (file.size > 20 * 1024 * 1024) {
-      this.error.set('Archive exceeds 20 MiB.');
+    if (file.size > 256 * 1024 * 1024) {
+      this.error.set('Archive exceeds 256 MiB.');
       return;
     }
+    this.transferBusy.set(true);
     try {
-      const archive = JSON.parse(await file.text()) as Archive;
-      if (epoch !== this.epoch || campaign !== this.activeCampaign) return;
-      // Generated API binding is used after the file adapter reads the archive.
       const result = await firstValueFrom(
-        this.api.importSessions(campaign, archive, 'body', false, {
+        this.portable.importPortableSessions(campaign, file, 'body', false, {
           httpHeaderAccept: 'application/json',
         }),
       );
@@ -498,7 +503,16 @@ export class SessionState {
         `Imported ${result.sessions.length} new session(s). Existing sessions are preserved.`,
       );
     } catch (e) {
-      if (epoch === this.epoch && campaign === this.activeCampaign) this.fail(e);
+      const detail = await transferError(e);
+      if (epoch === this.epoch && campaign === this.activeCampaign) {
+        this.error.set(
+          detail +
+            ' Import result may be uncertain. Reload sessions before retrying; another import creates new sessions.',
+        );
+        await this.list(campaign);
+      }
+    } finally {
+      this.transferBusy.set(false);
     }
   }
   private async renderSources() {

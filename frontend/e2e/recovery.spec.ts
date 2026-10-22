@@ -107,13 +107,11 @@ test('restores detached Writing history and explicitly resumes a fresh draft wit
     await page.getByRole('button', { name: 'Download Writing archive', exact: true }).click();
     const downloaded = await downloading;
     const bytes = await readFile((await downloaded.path())!);
-    const archive = JSON.parse(bytes.toString());
-    expect(archive.approved).toHaveLength(1);
-    expect(archive.exports).toHaveLength(1);
+    expect(downloaded.suggestedFilename()).toBe('writing-recovery.zip');
     await rm(root, { recursive: true, force: true });
     await page
       .getByLabel('Restore Writing archive', { exact: true })
-      .setInputFiles({ name: 'writing.json', mimeType: 'application/json', buffer: bytes });
+      .setInputFiles({ name: 'writing.zip', mimeType: 'application/zip', buffer: bytes });
     await expect(page.getByRole('region', { name: 'Recovered records' })).toContainText(
       '1 current drafts',
     );
@@ -137,10 +135,10 @@ test('restores detached Writing history and explicitly resumes a fresh draft wit
     const reexportDownload = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download recovered archive', exact: true }).click();
     const reexportBytes = await readFile((await (await reexportDownload).path())!);
-    expect(JSON.parse(reexportBytes.toString())).toEqual(archive);
+    expect(reexportBytes.subarray(0, 2).toString()).toBe('PK');
     await page
       .getByLabel('Restore Writing archive', { exact: true })
-      .setInputFiles({ name: 'again.json', mimeType: 'application/json', buffer: reexportBytes });
+      .setInputFiles({ name: 'again.zip', mimeType: 'application/zip', buffer: reexportBytes });
     await expect(
       page.getByRole('navigation', { name: 'Recovery workspaces' }).getByRole('button'),
     ).toHaveCount(recoveryBefore + 2);

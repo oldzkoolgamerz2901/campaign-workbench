@@ -1,3 +1,4 @@
+import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { DraftData, DraftPreview, WritingControllerService } from '../../api/generated';
@@ -39,7 +40,7 @@ describe('Session draft chooser', () => {
       previewDraft: vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second),
     };
     TestBed.configureTestingModule({
-      providers: [{ provide: WritingControllerService, useValue: api }],
+      providers: [provideHttpClient(), { provide: WritingControllerService, useValue: api }],
     });
     const fixture = TestBed.createComponent(DraftChooser);
     fixture.componentRef.setInput('campaign', 'campaign-a');
@@ -88,7 +89,7 @@ describe('Session draft chooser', () => {
         ),
     };
     TestBed.configureTestingModule({
-      providers: [{ provide: WritingControllerService, useValue: api }],
+      providers: [provideHttpClient(), { provide: WritingControllerService, useValue: api }],
     });
     const fixture = TestBed.createComponent(DraftChooser);
     fixture.componentRef.setInput('campaign', 'campaign-a');

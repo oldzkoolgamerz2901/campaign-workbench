@@ -14,7 +14,7 @@ import java.util.UUID
 @RestControllerAdvice
 class UnexpectedFailures {
     private val log = LoggerFactory.getLogger(javaClass)
-    @ExceptionHandler(HttpMessageNotReadableException::class, MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException::class, HttpMessageNotReadableException::class, MethodArgumentTypeMismatchException::class, MissingServletRequestParameterException::class)
     fun malformed(ex: Exception) = ResponseEntity.badRequest().body(problem(400, "request.invalid", "Invalid request fields."))
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun conflict(ex: Exception) = ResponseEntity.status(409).body(problem(409, "record.conflict", "The record conflicts with an existing or newer record."))

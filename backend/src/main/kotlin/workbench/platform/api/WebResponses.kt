@@ -12,7 +12,7 @@ fun <T> Either<Failure, T>.response(): ResponseEntity<*> = fold({ failure ->
         is Failure.Conflict -> 409
         is Failure.Unreadable -> 422
     }
-    ResponseEntity.status(status).body(ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(status), failure.message).apply {
+    ResponseEntity.status(status).contentType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON).body(ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(status), failure.message).apply {
         title = failure.code
         setProperty("code", failure.code)
     })

@@ -179,7 +179,7 @@
               >Import sessions into {{ campaign.name
               }}<input
                 type="file"
-                accept="application/json,.json"
+                accept="application/zip,.zip,application/json,.json"
                 [disabled]="!campaignReady() || busy()"
                 (change)="importFile($event)"
             /></label>
@@ -293,6 +293,8 @@
     />
     @if (reading() && contentsOpen() && state.current(); as session) {
       <read-card-table
+        [campaign]="session.campaign"
+        [session]="session.id"
         [items]="session.items"
         [table]="session.table ?? null"
         [query]="cardQuery()"
@@ -306,6 +308,8 @@
       />
     }
     <session-contents
+      [campaign]="state.current()?.campaign ?? ''"
+      [session]="state.current()?.id ?? ''"
       class="contents"
       [hidden]="reading() || !contentsOpen() || !state.current()"
       [expanded]="contentsOpen()"
@@ -370,6 +374,7 @@
           </nav>
           @if (cardOpen()) {
             <playing-card
+              [artwork]="artwork.item(state.current()!.campaign, state.current()!.id, prepared)"
               [title]="card.title ?? prepared.title"
               [type]="card.type ?? ''"
               [tags]="card.tags ?? []"

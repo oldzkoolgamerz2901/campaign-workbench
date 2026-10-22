@@ -1,5 +1,7 @@
+import { PreparedArtwork } from '../preparation/artwork-sources';
 import {
   Component,
+  inject,
   computed,
   input,
   output,
@@ -46,6 +48,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
               [attr.data-item-id]="item.id"
             >
               <playing-card
+                [artwork]="artwork.item(campaign(), session(), item)"
                 [title]="title(item)"
                 [type]="metadata(item)?.type ?? ''"
                 [summary]="metadata(item)?.summary ?? ''"
@@ -159,6 +162,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
                 [attr.data-item-id]="item.id"
               >
                 <playing-card
+                  [artwork]="artwork.item(campaign(), session(), item)"
                   [title]="title(item)"
                   [type]="metadata(item)?.type ?? ''"
                   [summary]="metadata(item)?.summary ?? ''"
@@ -203,6 +207,9 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
   styleUrl: './card-table.css',
 })
 export class CardTable {
+  readonly artwork = inject(PreparedArtwork);
+  readonly campaign = input('');
+  readonly session = input('');
   readonly items = input<PreparedItemData[]>([]);
   readonly table = input<CardTableData | null>(null);
   readonly selected = input<string | null>(null);

@@ -1,3 +1,5 @@
+import { ArtworkImage } from '../shared/artwork/artwork-image';
+import { WritingArtwork } from '../writing/artwork-sources';
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { WritingControllerService, DraftData, DraftPreview } from '../../api/generated';
@@ -6,7 +8,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
 
 @Component({
   selector: 'session-draft-chooser',
-  imports: [PlayingCard, DraftReader],
+  imports: [ArtworkImage, PlayingCard, DraftReader],
   template: `
     <section aria-label="Drafts for session">
       <h3>Drafts · {{ destination() || 'Open a session to prepare a draft' }}</h3>
@@ -30,13 +32,17 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
       }
       <ul>
         @for (draft of visible(); track draft.id) {
-          <li>
+          <li style="position:relative">
+            <artwork-image
+              [source]="artwork.draft(draft, 'THUMBNAIL')"
+              style="position:absolute;left:8px;top:8px;width:var(--draft-thumbnail-width, 64px);height:var(--draft-thumbnail-height, 80px)"
+            />
             <button
               (click)="select(draft)"
               [disabled]="busy()"
               [attr.aria-pressed]="selected()?.id === draft.id"
+              style="padding-left:calc(var(--draft-thumbnail-width, 64px) + 24px)"
             >
-              <img src="/card-placeholder.svg" alt="Default card artwork" width="64" height="80" />
               {{ draft.fields.title || 'Untitled draft' }} · {{ draft.fields.type }} · revision
               {{ draft.revision }}
             </button>
@@ -57,6 +63,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
           <draft-reader [preview]="preview()?.preview ?? null" />
         } @else {
           <playing-card
+            [artwork]="artwork.draft(draft)"
             [title]="draft.fields.title"
             [type]="draft.fields.type"
             [tags]="draft.fields.tags"
@@ -128,6 +135,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
   `,
 })
 export class DraftChooser {
+  readonly artwork = inject(WritingArtwork);
   private readonly api = inject(WritingControllerService);
   readonly campaign = input.required<string>();
   readonly destination = input('');

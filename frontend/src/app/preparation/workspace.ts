@@ -1,3 +1,4 @@
+import { PreparedArtwork } from '../preparation/artwork-sources';
 import {
   Component,
   HostListener,
@@ -47,6 +48,7 @@ import { MarkdownView } from './markdown-view';
   styleUrl: './workspace.css',
 })
 export class Workspace implements OnDestroy {
+  readonly artwork = inject(PreparedArtwork);
   readonly cardQuery = signal('');
   readonly cardGroup = signal('');
   readonly cardTypes = [
@@ -92,7 +94,9 @@ export class Workspace implements OnDestroy {
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly adventure = signal<SourceDocument | null>(null);
-  readonly busy = computed(() => this.state.mutating() || this.state.queueRunning());
+  readonly busy = computed(
+    () => this.state.transferBusy() || this.state.mutating() || this.state.queueRunning(),
+  );
   readonly reading = signal(false);
   readonly showingLibrary = signal(true);
   readonly campaignReady = signal(false);

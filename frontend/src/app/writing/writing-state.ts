@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   WritingControllerService,
+  ArtworkControllerService,
   DraftData,
   DraftFields,
   DraftPreview,
@@ -14,6 +15,40 @@ import {
 @Injectable({ providedIn: 'root' })
 export class WritingState {
   private readonly api = inject(WritingControllerService);
+  private readonly artworkApi = inject(ArtworkControllerService);
+  readonly pendingArtwork = signal<'keep' | 'replace' | 'remove'>('keep');
+  readonly localArtwork = signal<string | null>(null);
+  readonly artworkError = signal('');
+  private artworkFile: File | null = null;
+  private artworkChange = 0;
+  private clearArtwork() {
+    const url = this.localArtwork();
+    if (url) URL.revokeObjectURL(url);
+    this.localArtwork.set(null);
+    this.artworkFile = null;
+    this.pendingArtwork.set('keep');
+    this.artworkError.set('');
+  }
+  selectArtwork(file: File) {
+    if (!this.current() || this.deleting()) return;
+    if (file.size > 10 * 1024 * 1024) {
+      this.artworkError.set('Choose a JPEG, PNG or WebP file of at most 10 MiB.');
+      return;
+    }
+    this.clearArtwork();
+    this.artworkFile = file;
+    this.localArtwork.set(URL.createObjectURL(file));
+    this.pendingArtwork.set('replace');
+    this.artworkChange++;
+    this.edit({});
+  }
+  removeArtwork() {
+    if (!this.current() || this.deleting()) return;
+    this.clearArtwork();
+    this.pendingArtwork.set('remove');
+    this.artworkChange++;
+    this.edit({});
+  }
   private readonly json = { httpHeaderAccept: 'application/json' as const };
   readonly campaign = signal<string | null>(null);
   readonly drafts = signal<DraftData[]>([]);
@@ -75,6 +110,7 @@ export class WritingState {
     this.artifacts.set([]);
     const token = ++this.generation;
     this.clearTimers();
+    this.clearArtwork();
     this.campaign.set(campaign);
     this.current.set(null);
     this.drafts.set([]);
@@ -160,6 +196,7 @@ export class WritingState {
     this.artifacts.set([]);
     this.exportError.set('');
     this.exportNotice.set('');
+    this.clearArtwork();
     this.persisted = draft;
     this.current.set(draft);
     this.drafts.update((ds) => ds.map((d) => (d.id === draft.id ? draft : d)));
@@ -206,24 +243,32 @@ export class WritingState {
       this.status.set('saving');
       this.error.set('');
       try {
+        const imageChange = this.artworkChange;
+        const imageAction = this.pendingArtwork();
+        const metadata = { revision: draft.revision, fields: draft.fields, imageAction };
         const saved = await firstValueFrom(
-          this.api.saveDraft(
-            draft.campaign,
-            draft.id,
-            {
-              revision: draft.revision,
-              fields: draft.fields,
-            },
-            'body',
-            false,
-            this.json,
-          ),
+          imageAction === 'replace' && this.artworkFile
+            ? this.artworkApi.replaceDraftArtwork(
+                draft.campaign,
+                draft.id,
+                JSON.stringify(metadata),
+                this.artworkFile,
+                'body',
+                false,
+                this.json,
+              )
+            : this.api.saveDraft(draft.campaign, draft.id, metadata, 'body', false, this.json),
         );
         if (token !== this.generation || this.current()?.id !== draft.id) return false;
         this.persisted = saved;
-        this.current.update((d) => (d ? { ...d, revision: saved.revision } : d));
+        if (imageChange === this.artworkChange) this.clearArtwork();
+        this.current.update((d) =>
+          d ? { ...d, revision: saved.revision, image: saved.image } : d,
+        );
         this.drafts.update((ds) =>
-          ds.map((d) => (d.id === saved.id ? { ...d, revision: saved.revision } : d)),
+          ds.map((d) =>
+            d.id === saved.id ? { ...d, revision: saved.revision, image: saved.image } : d,
+          ),
         );
         if (edit === this.editNumber) {
           this.status.set('saved');
@@ -274,6 +319,7 @@ export class WritingState {
       this.clearTimers();
       this.invalidateExport();
       this.drafts.update((ds) => ds.filter((d) => d.id !== draft.id));
+      this.clearArtwork();
       this.current.set(null);
       this.persisted = null;
       this.preview.set(null);
@@ -334,10 +380,13 @@ export class WritingState {
     this.status.set('saved');
     this.conflict.set(false);
     this.deleteFailed.set(false);
+    this.clearArtwork();
+    this.generation++;
     this.current.set(null);
     return true;
   }
   deactivate() {
+    this.clearArtwork();
     this.deleteFailed.set(false);
     this.invalidateExport();
     this.generation++;

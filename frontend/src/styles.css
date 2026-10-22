@@ -158,3 +158,15 @@ button.danger,
     width: 180px;
   }
 }
+
+/* Shared artwork dimensions; a later sizing increment can change these tokens. */
+:root {
+  --card-width: 320px;
+  --card-artwork-height: 35%;
+  --writing-thumbnail-width: 40px;
+  --writing-thumbnail-height: 48px;
+  --draft-thumbnail-width: 64px;
+  --draft-thumbnail-height: 80px;
+  --prepared-thumbnail-width: 30px;
+  --prepared-thumbnail-height: 36px;
+}

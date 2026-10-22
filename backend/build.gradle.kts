@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.commonmark.core)
     implementation(libs.commonmark.tables)
     implementation(libs.snakeyaml.engine)
+    implementation(libs.imageio.webp)
     implementation(libs.springdoc)
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -57,6 +58,18 @@ tasks.register<JavaExec>("generateFrontendClient") {
         providers.gradleProperty("openapiInput").getOrElse("http://127.0.0.1:8080/v3/api-docs"),
         "-o", "../frontend/src/api/generated", "--additional-properties",
         "ngVersion=${libs.versions.angular.asProvider().get()},providedInRoot=true,hideGenerationTimestamp=true")
+}
+
+tasks.register<JavaExec>("checkPackagedImages") {
+    group = "verification"
+    description = "Decode real WebP fixtures using only the image processor/codecs packaged in bootJar."
+    dependsOn(tasks.named("bootJar"), tasks.named("testClasses"))
+    classpath = files(tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar").flatMap { it.archiveFile })
+    mainClass.set("org.springframework.boot.loader.launch.PropertiesLauncher")
+    systemProperty("loader.main", "workbench.ImagePackagedProbe")
+    systemProperty("loader.path", layout.buildDirectory.dir("classes/kotlin/test").get().asFile.absolutePath)
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get())) })
+    args(layout.projectDirectory.dir("src/test/resources/images").asFile.absolutePath)
 }
 
 // Development orchestration is isolated from application classes and the production jar.

@@ -18,6 +18,7 @@ interface RecoveryStore {
 }
 interface RecoveryCodec {
     fun read(bytes: ByteArray): WritingArchive
+    fun readIllustrated(bytes: ByteArray): WritingArchive
     fun write(archive: WritingArchive): ByteArray
 }
 const val RECOVERY_BYTES = 64 * 1024 * 1024

@@ -1,3 +1,4 @@
+import { WritingArtwork } from '../writing/artwork-sources';
 import { Component, inject, OnDestroy, HostListener } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -20,8 +21,8 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
       </p>
       <p>
         Archives contain saved drafts, retained approved revisions, exports and source evidence.
-        Sessions and unsaved edits are excluded. Limit: 64 MiB, 1,000 drafts, 10,000 retained
-        records.
+        Sessions and unsaved edits are excluded. Portable ZIP (or legacy JSON). Limit: 256 MiB,
+        1,000 drafts, 10,000 retained records.
       </p>
       <button (click)="router.navigate(['/writing'])" [disabled]="state.busy()">
         Return to Writing
@@ -46,7 +47,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
           >Restore Writing archive<input
             aria-label="Restore Writing archive"
             type="file"
-            accept="application/json,.json"
+            accept="application/zip,.zip,application/json,.json"
             (change)="upload($event)"
             [disabled]="state.busy()"
         /></label>
@@ -160,6 +161,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
             </details>
           }
           <playing-card
+            [artwork]="artwork.recovered(state.index()!.workspace.id, d.record.key, d.snapshot)"
             [title]="d.snapshot.fields.title"
             [type]="d.snapshot.fields.type"
             [tags]="d.snapshot.fields.tags"
@@ -253,6 +255,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
   `,
 })
 export class RecoveryWorkspace implements OnDestroy {
+  readonly artwork = inject(WritingArtwork);
   readonly state = inject(RecoveryState);
   readonly router = inject(Router);
   readonly campaigns = signal<{ id: string; name: string }[]>([]);

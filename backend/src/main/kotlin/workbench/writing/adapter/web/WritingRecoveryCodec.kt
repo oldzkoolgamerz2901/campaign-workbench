@@ -13,7 +13,9 @@ import java.nio.charset.CodingErrorAction
 
 @Component
 class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
-    override fun read(bytes: ByteArray): WritingArchive {
+    override fun read(bytes: ByteArray): WritingArchive = readVersion(bytes, 1)
+    override fun readIllustrated(bytes: ByteArray): WritingArchive = readVersion(bytes, 2)
+    private fun readVersion(bytes: ByteArray, version: Int): WritingArchive {
         require(bytes.size <= RECOVERY_BYTES)
         Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes))
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
@@ -21,6 +23,8 @@ class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
         require(tree.path("drafts").isArray && tree.path("drafts").size() <= 1000)
         require(tree.path("approved").isArray && tree.path("exports").isArray && tree.path("approved").size() + tree.path("exports").size() <= 10000)
         val archive = mapper.treeToValue(tree, WritingArchive::class.java)
+        require(archive.version == version)
+        if (version == 1) require((archive.drafts + archive.approved.map { it.snapshot } + archive.exports.map { it.snapshot }).all { it.image == null })
         // Round-trip shape comparison rejects unknown/missing fields, scalar coercions, noncanonical UUIDs
         // and nulls supplied for primitive fields; never accepts an entity's incidental schema.
         fun same(a: JsonNode, b: JsonNode): Boolean = when {

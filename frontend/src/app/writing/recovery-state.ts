@@ -2,16 +2,19 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
   RecoveryControllerService,
+  PortableWritingControllerService,
   RecoverySummary,
   RecoveryIndex,
   RecoveryDetail,
   DraftData,
 } from '../../api/generated';
+import { transferError } from '../shared/transfer-error';
 import { WritingState } from './writing-state';
 
 @Injectable({ providedIn: 'root' })
 export class RecoveryState {
   private readonly api = inject(RecoveryControllerService);
+  private readonly portable = inject(PortableWritingControllerService);
   private readonly writing = inject(WritingState);
   private readonly json = { httpHeaderAccept: 'application/json' as const };
   readonly workspaces = signal<RecoverySummary[]>([]);
@@ -88,8 +91,8 @@ export class RecoveryState {
   }
   async restore(file: File) {
     if (this.busy()) return;
-    if (file.size > 64 * 1024 * 1024) {
-      this.error.set('Archive exceeds 64 MiB. No workspace created.');
+    if (file.size > 256 * 1024 * 1024) {
+      this.error.set('Archive exceeds 256 MiB. No workspace created.');
       return;
     }
     this.busy.set(true);
@@ -98,16 +101,18 @@ export class RecoveryState {
     const epoch = this.epoch;
     try {
       const saved = await firstValueFrom(
-        this.api.restoreWritingArchive(file, 'body', false, this.json),
+        this.portable.restorePortableWritingArchive(file, 'body', false, this.json),
       );
       if (epoch !== this.epoch) return;
       this.notice.set('Recovery workspace saved. Original work is unchanged.');
       await this.load();
       await this.openWorkspace(saved.id);
-    } catch {
+    } catch (e) {
+      const detail = await transferError(e);
       if (epoch === this.epoch) {
         this.error.set(
-          'Restore failed or its result is uncertain. Reload workspaces before retrying; another upload creates a separate workspace.',
+          detail +
+            ' Restore failed or its result is uncertain. Reload workspaces before retrying; another upload creates a separate workspace.',
         );
         await this.load();
       }
@@ -155,11 +160,11 @@ export class RecoveryState {
       if (this.writing.campaign() === campaign && !(await this.writing.flush()))
         throw new Error('save');
       return firstValueFrom(
-        this.api.downloadWritingArchive(campaign, 'body', false, {
-          httpHeaderAccept: 'application/octet-stream',
+        this.portable.downloadPortableWritingArchive(campaign, 'body', false, {
+          httpHeaderAccept: 'application/zip',
         }),
       );
-    }, 'writing-recovery.json');
+    }, 'writing-recovery.zip');
   }
   async reexport() {
     const id = this.index()?.workspace.id;
@@ -167,11 +172,11 @@ export class RecoveryState {
       await this.download(
         () =>
           firstValueFrom(
-            this.api.downloadRecoveredArchive(id, 'body', false, {
-              httpHeaderAccept: 'application/octet-stream',
+            this.portable.downloadPortableRecoveredArchive(id, 'body', false, {
+              httpHeaderAccept: 'application/zip',
             }),
           ),
-        'recovered-writing.json',
+        'recovered-writing.zip',
       );
   }
   async markdown() {
@@ -202,10 +207,13 @@ export class RecoveryState {
       anchor.download = name;
       anchor.click();
       URL.revokeObjectURL(url);
-    } catch {
+    } catch (e) {
+      const detail = await transferError(e);
       if (epoch === this.epoch)
         this.error.set(
-          'Download failed. Check save state and retry; recovery records remain available.',
+          'Download failed. ' +
+            detail +
+            ' Check save state and retry; recovery records remain available.',
         );
     } finally {
       this.busy.set(false);

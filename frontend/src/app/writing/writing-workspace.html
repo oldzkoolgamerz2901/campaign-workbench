@@ -164,11 +164,22 @@
         </datalist>
         <ul class="draft-list">
           @for (draft of state.filtered(); track draft.id) {
-            <li>
+            <li style="position: relative">
+              <artwork-image
+                [source]="artwork.draft(draft, 'THUMBNAIL')"
+                style="
+                  position: absolute;
+                  left: 8px;
+                  top: 8px;
+                  width: var(--writing-thumbnail-width, 40px);
+                  height: var(--writing-thumbnail-height, 48px);
+                "
+              />
               <button
                 [disabled]="!ready() || state.loading() || state.deleting()"
                 [attr.aria-current]="state.current()?.id === draft.id ? 'page' : null"
                 (click)="state.open(draft.id)"
+                style="padding-left: calc(var(--writing-thumbnail-width, 40px) + 16px)"
               >
                 <strong>{{ draft.fields.title || 'Untitled ' + draft.fields.type }}</strong
                 ><small>{{ draft.fields.type }} · {{ draft.fields.status }}</small>
@@ -223,6 +234,30 @@
             (toggle)="detailsOpen.set($any($event.target).open)"
           >
             <summary>Card details · {{ draft.fields.type }} · {{ draft.fields.status }}</summary>
+            <label
+              >Card artwork<input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                (change)="chooseArtwork($event)"
+            /></label>
+            <p class="hint">
+              JPEG, PNG or WebP · at most 10 MiB. Artwork is separate from the Markdown document.
+            </p>
+            <button
+              type="button"
+              (click)="state.removeArtwork()"
+              [disabled]="!draft.image && !state.localArtwork()"
+            >
+              Remove artwork
+            </button>
+            @if (state.pendingArtwork() !== 'keep') {
+              <p role="status">
+                Unsaved artwork {{ state.pendingArtwork() === 'remove' ? 'removal' : 'selection' }}
+              </p>
+            }
+            @if (state.artworkError()) {
+              <p role="alert">{{ state.artworkError() }}</p>
+            }
             <div class="metadata-row">
               <label
                 >Content type<select
@@ -316,6 +351,8 @@
           }
           @if (!full()) {
             <playing-card
+              [artwork]="state.pendingArtwork() === 'remove' ? null : artwork.draft(draft)"
+              [localArtwork]="state.localArtwork()"
               [title]="draft.fields.title"
               [type]="draft.fields.type"
               [tags]="state.preview()?.preview?.classification?.metadata?.tags ?? draft.fields.tags"

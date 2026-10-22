@@ -14,7 +14,7 @@ import java.util.UUID
 @Table(name = "export_artifact", schema = "writing")
 class ExportEntity(
     @Id var id: UUID = UUID.randomUUID(), var campaign: UUID = UUID.randomUUID(), var draft: UUID = UUID.randomUUID(),
-    var revision: Long = 0, @Column(name = "created_at") var createdAt: String = "", var payload: String = "", var summary: String = ""
+    var revision: Long = 0, @Column(name = "created_at") var createdAt: String = "", var payload: String = "", var summary: String = "", @Column(name = "image_hash") var imageHash: String? = null
 )
 interface ExportRepository : JpaRepository<ExportEntity, UUID> {
     @Query("select e.summary from ExportEntity e where e.campaign = :campaign and e.draft = :draft order by e.createdAt desc")
@@ -29,6 +29,6 @@ class JpaExportStore(private val repository: ExportRepository, private val mappe
     override fun put(artifact: ExportArtifact) {
         check(!repository.existsById(artifact.id)) { "Immutable export identity already exists" }
         val entry = ExportEntry(artifact.id, artifact.snapshot.revision, artifact.createdAt, artifact.snapshot.path, artifact.hash, artifact.warnings, artifact.fingerprint, artifact.acknowledged)
-        repository.saveAndFlush(ExportEntity(artifact.id, artifact.snapshot.campaign, artifact.snapshot.id, artifact.snapshot.revision, artifact.createdAt, mapper.writeValueAsString(artifact), mapper.writeValueAsString(entry)))
+        repository.saveAndFlush(ExportEntity(artifact.id, artifact.snapshot.campaign, artifact.snapshot.id, artifact.snapshot.revision, artifact.createdAt, mapper.writeValueAsString(artifact), mapper.writeValueAsString(entry), artifact.snapshot.image?.hash))
     }
 }

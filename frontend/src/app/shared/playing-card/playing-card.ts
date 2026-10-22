@@ -1,7 +1,9 @@
 import { Component, input, output } from '@angular/core';
+import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
 
 @Component({
   selector: 'playing-card',
+  imports: [ArtworkImage],
   template: `
     <article
       class="card"
@@ -21,11 +23,7 @@ import { Component, input, output } from '@angular/core';
         <span>{{ type() || 'Untyped' }}</span
         ><span>CAMPAIGN WORKBENCH</span>
       </div>
-      <img
-        src="/card-placeholder.svg"
-        draggable="false"
-        alt="Default card illustration: a compass over distant mountains"
-      />
+      <artwork-image [source]="artwork()" [local]="localArtwork()" />
       <h3>{{ title() || 'Untitled card' }}</h3>
       <div class="card-text" tabindex="0" aria-label="Card summary and tags">
         @if (summary().trim()) {
@@ -53,7 +51,7 @@ import { Component, input, output } from '@angular/core';
   styles: `
     :host {
       display: block;
-      width: min(100%, 320px);
+      width: min(100%, var(--card-width, 320px));
       margin: auto;
     }
     .card {
@@ -102,10 +100,10 @@ import { Component, input, output } from '@angular/core';
       text-transform: uppercase;
       flex-shrink: 0;
     }
-    img {
+    artwork-image {
       display: block;
       width: 100%;
-      height: 35%;
+      height: var(--card-artwork-height, 35%);
       object-fit: cover;
       border: 1px solid #aa9567;
       border-radius: 0.3rem;
@@ -170,6 +168,8 @@ import { Component, input, output } from '@angular/core';
   `,
 })
 export class PlayingCard {
+  readonly artwork = input<ArtworkSource | null>(null);
+  readonly localArtwork = input<string | null>(null);
   readonly title = input('');
   readonly type = input('');
   readonly summary = input('');

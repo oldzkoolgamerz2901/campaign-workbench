@@ -8,6 +8,7 @@ import java.util.UUID
 
 /** Called inside Preparation's transaction; never approves a different working revision. */
 interface SessionDrafts {
+    fun image(campaign: UUID, draft: UUID, revision: Long): Either<Failure, workbench.platform.api.ProcessedImage?>
     fun retain(campaign: UUID, draft: UUID, revision: Long): Either<Failure, ApprovedDraft>
 }
 data class ApprovedDraft(val snapshot: DraftData, val markdown: String, val hash: String, val preview: AuthoredPreview,

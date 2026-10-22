@@ -1,3 +1,4 @@
+import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { CardTable } from './card-table';
 import { PreparedItemData } from '../../api/generated';
@@ -11,6 +12,7 @@ const item = (id: string, type?: string): PreparedItemData =>
   }) as PreparedItemData;
 describe('Play groups', () => {
   it('combines type and text across active/used without changing input order or guessing legacy types', async () => {
+    TestBed.configureTestingModule({ providers: [provideHttpClient()] });
     const fixture = TestBed.createComponent(CardTable);
     const table = { active: ['scene', 'npc', 'legacy'], used: ['used-npc'] };
     fixture.componentRef.setInput('items', [
