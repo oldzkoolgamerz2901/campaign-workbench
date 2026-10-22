@@ -1,5 +1,47 @@
 # Verification evidence
 
+## P1 — Playthrough workspace and current-format archives — 2026-10-22
+
+**Assessment: pass within the approved backend P1 scope; no blocking defect found.** This does not establish a releasable frontend application or acceptance of later tabletop capabilities. The owner explicitly approved P1's temporarily incompatible frontend interval. Formal verification was separately authorized after implementation handover. This assessment is by the implementing agent in a subsequent review pass, not an independent reviewer.
+
+### Scope, authority and method
+
+Assessed the current uncommitted working tree based on `904665b`, including untracked Playthroughs/session-archives modules, against P1 in `docs/playthrough-implementation-plan.md`, accepted ownership/invariants in `docs/playthrough-domain-architecture.md`, the approved single-sided-card/notes scope and the owner's disposable-data decision. Reviewed domain/service/persistence/controller/codec code, V15, public module contracts, Spring transaction/campaign-lock behavior and the relevant integration tests. Historical saved objects/archives have no conversion or compatibility obligation. Scene/focus, PlayNotes/history, card geometry and frontend integration are outside P1.
+
+No application or repository test source was changed during verification. A temporary diagnostic script outside the repository exercised the packaged backend over HTTP against its own disposable PostgreSQL container and synthetic campaign directories. Its backend process/container were cleaned up; no development database reset, campaign-repository mutation or commit was performed. Only this formal evidence record was changed.
+
+### Fresh execution evidence
+
+- `cd backend && ./gradlew test bootJar --rerun-tasks`: passed with all nine tasks executed, rather than relying on up-to-date developer results. XML reports total **62 tests, zero failures, errors or skips**. The packaged backend was rebuilt. Non-fatal Kotlin warnings remain.
+- Modulith/ArchUnit checks pass. New cross-module access is through named public API packages; Preparation does not depend on Playthroughs. Domain/application dependency rules remain intact.
+- The startup integration test fetched fresh live OpenAPI into ignored `backend/build/openapi-p1.json`, checking workspace operation IDs, the absence of `table` from Preparation session/save schemas and the workspace-containing archive schema.
+- An isolated packaged-backend HTTP probe passed real GET/PUT workspace operations, unchanged-open stability, Preparation/workspace revision independence, stale-write **409**, invalid-membership **400**, foreign-campaign **404**, and required-revision omission **400**.
+- The same probe exported unopened workspaces as explicit null, then round-tripped initialized Active/Used state through current-format ZIP and image-less JSON. It confirmed new item/session identities, correctly remapped pile membership, retained frozen text/provenance and successful reading after original synthetic source files were removed and their library refreshed.
+- HTTP invalid-import probes rejected version 5, omitted workspace records, duplicate/missing table membership, unknown future runtime fields and bare JSON sent to the ZIP endpoint with **400**. The destination session count remained unchanged after these failures.
+- `git diff --check` passed.
+
+### P1 acceptance assessment
+
+| Approved behavior | Assessment and evidence |
+| --- | --- |
+| One authoritative CardTable owner | Pass. Playthroughs owns workspace persistence/API. Preparation Session, SessionData, SaveSession and persistence mapping no longer contain table state. V15 creates the new workspace table and drops the old column without conversion or dual writes; integration checks confirm the column is gone. |
+| Lazy initialization and stable order | Pass. First open follows prepared order; subsequent unchanged opens preserve revision/order. Reconciliation prepends new items and removes missing IDs while retaining surviving Active/Used order. Explicit full-table requests represent reorder, Used and return-to-front. No automatic rearrangement based on current source content. |
+| Membership and independent optimistic revisions | Pass. Active/Used must be unique, disjoint and jointly cover current prepared membership. Play mutations leave Preparation revision/notes untouched. Reconciliation precedes stale-revision validation; invalid/stale writes do not partially persist. Missing session/campaign access is rejected. |
+| Consistency under concurrent Prepare/Play/export | Pass within tested schedules. Each operation joins the containing-campaign transaction and acquires the existing pessimistic row lock before snapshots/writes. Integration latches hold a Prepare transaction while workspace writes and exports wait; after commit, export observes the committed notes/membership and the stale workspace command fails. Locks remain database-owned across JPA context clearing. This is not evidence of exhaustive race freedom. |
+| Frozen public Preparation read contract | Pass. Campaign-scoped snapshot exposes ordered IDs, frozen content/classification, provenance, anchors and relationships through Preparation's API. Exact-target candidate states and anchors are declared for later P4R; no resolver or live-source substitution is falsely claimed implemented in P1. |
+| Complete current-format archives | Pass within assessed cases. Version 6 requires one workspace record per session and preserves null versus initialized state. The coordinator snapshots both modules and stages required originals under one campaign lock, then packs/streams outside it. Import validates before persistent changes, assigns fresh session/item identities, remaps workspace references and resets concurrency revisions to zero. Origins remain historical, not rebound to the destination campaign. |
+| Strict validation and atomic restore | Pass. Exact wire fields, canonical UUIDs, bounded numeric/string/count fields, duplicate-key/trailing-token rejection and workspace coverage checks are present. Current-version malformed-data tests and HTTP probes pass. A failure after the workspace restore rolls back Preparation and Playthrough rows together; image-owner failure tests also prove image/record rollback. |
+| Artwork preservation and resource safeguards | Pass within existing processor/staging limits and covered cases. Illustrated ZIP tests preserve frozen artwork and an initialized Used pile through ID remapping/restart. Existing tests exercise missing/extra/tampered image data, canonical ZIP membership, actual byte counters, malformed/truncated containers and staging cleanup. Original/derivative ownership remains in Preparation; no new image store was added. |
+| Scope and disposable-data handling | Pass. No old-format converter/adapter, source-file writing, scene/focus/note implementation, card geometry or frontend integration was added. Reset instructions identify the development Compose volume and require separate execution authorization; verification did not execute them. Writing recovery behavior remains covered by regression tests. |
+
+### Limits and exit
+
+The frontend remains incompatible with the new Preparation contract until P2. Its previously recorded generated-client build failure is an approved P1 limitation, not a backend acceptance failure; no frontend/browser/visual pass is claimed here. Client generation passed during implementation; this verification refreshed and inspected the live schema but did not rerun generation or the frontend build. The shared card shape and all later tabletop UX remain unassessed.
+
+The assessment reuses and freshly executes implementation tests plus an external HTTP probe; it does not provide independent-reviewer context. Extreme manifest/count combinations, sustained load, every interleaving, OS crash/disk exhaustion and every possible image/archive input were not exhaustively tested. Archive authenticity is not established, and archives are not full database backups. No existing historical verification finding is implicitly closed by this P1 assessment.
+
+Recommend owner acceptance of P1 within this bounded scope. Stop at this verification boundary; corrective implementation, P2 or another increment requires separate authorization.
+
 ## Increment 5 UI follow-up — shared Write / Prepare / Play — 2026-10-20
 
 **Assessment: pass within the assessed scope; no blocking defect found.** Assessed the accepted “Shared mode UI and Prepare placeholders” requirements and “Shared Write / Prepare / Play UI” bounded plan, including the retained card-table interactions. This is a separate verification pass by the implementing agent, not an independent reviewer assessment. It does not reassess or close historical findings from other increments below.
