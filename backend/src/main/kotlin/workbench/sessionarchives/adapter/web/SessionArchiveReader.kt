@@ -25,11 +25,13 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             fields(record, "session", "workspace"); uuid(record.path("session"))
             val workspace = record.path("workspace")
             if (!workspace.isNull) {
-                fields(workspace, "session", "revision", "active", "used")
+                fields(workspace, "session", "revision", "active", "used", "activeSceneItemId", "focusedItemIds")
                 uuid(workspace.path("session"))
                 val revision = workspace.path("revision")
                 require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
-                for (name in listOf("active", "used")) {
+                if (!workspace.path("activeSceneItemId").isNull) uuid(workspace.path("activeSceneItemId"))
+                require(workspace.path("focusedItemIds").isArray && workspace.path("focusedItemIds").size() <= 3)
+                for (name in listOf("active", "used", "focusedItemIds")) {
                     val ids = workspace.path(name)
                     require(ids.isArray && ids.size() <= 1000); ids.forEach(::uuid)
                 }
@@ -60,7 +62,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version == 6)
+        require(version == 7)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0

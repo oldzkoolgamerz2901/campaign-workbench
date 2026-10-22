@@ -1,5 +1,158 @@
 # Verification evidence
 
+## P4 corrective re-verification — V-P4-01 — 2026-10-22
+
+**Assessment: PASS within the assessed scope. V-P4-01 is resolved.** A newer frozen-reader selection survives the delayed same-session workspace response and is reconciled as temporary inspection or expanded focus. Normal expansion restoration still works when there is no intervening selection. Combined with the other P4 findings below, no acceptance-blocking P4 defect remains identified. Recommend owner acceptance within the recorded limits; owner visual acceptance and later increments remain separate. The original failed assessment is preserved.
+
+### Authorization and scope
+
+The owner explicitly requested verification following the bounded V-P4-01 corrective handover. Reviewed the current uncommitted working tree based on `a447900`, the [correction evidence](implementation-plan.md#p4-correction--v-p4-01--developer-evidence--2026-10-22), original reproduction and [accepted P4 scope](playthrough-implementation-plan.md#p4--focused-tabletop-presentation). This is a separate verification pass by the implementing agent, not an independent reviewer. Only this formal assessment was added to repository source/documents; no application, test or configuration source was changed. Temporary probes used synthetic campaign directories and the isolated smoke database. No development reset, external campaign-content edit or commit occurred.
+
+### Fresh evidence
+
+- `npm test` passed: **96 frontend tests across 14 files**.
+- `npm run test:e2e -- focused-tabletop.spec.ts` passed: **all seven focused-tabletop Chromium journeys**. These freshly cover the main focus/inspection/notes/layout/Prepare/removal flow, failed workspace edits and explicit discard, late response after session departure, and four controlled same-session delayed-response cases.
+- The four correction regressions confirm: normal Scene expansion restoration even after a different Prepare selection; newer Fourth selection opening temporary inspection; newer focused NPC selection becoming expanded focus; and Fourth → Scene navigation retaining the final explicit choice. Complete persisted workspace state remains unchanged in each case. Explicitly closing Fourth inspection returns to the previous expanded Scene.
+- Reran the original separate browser reproduction against the corrected application. Before releasing the delayed GET, Fourth was selected. After delivery the reader remained **Temporary document inspection / Fourth / Complete frozen Fourth document.**, with the Fourth inspection visible. The original probe now reports `ORIGINAL_REPRODUCTION_RESOLVED true`. Complete workspace and Preparation responses equal their pre-probe values. Following the same link after loading still works, and Escape explicitly returns to expanded Scene.
+- Evidence: `/tmp/p4-reverification.log`, `/tmp/p4-reverification-late-selection.png`; temporary harness: `/tmp/p4-reverification.sh` and `/tmp/p4-reverification-probe.mjs`. The isolated backend, frontend and database lifecycle completed successfully and cleaned up. `git diff --check` passed.
+
+### Resolution and boundaries
+
+The correction stays with the frontend workspace that owns reader selection and mode restoration. Explicit reader intent is tracked separately from route identity, so same-route navigation can supersede automatic restoration, including navigation away and back to the original ID. After initialization, the latest choice is reconciled against loaded focus/membership; existing route/session guards still reject departed-context callbacks. No persistence, API or archive version change was introduced.
+
+The full **30-journey**, production-build and PostgreSQL restart check in the corrective developer handover was **not repeated** in this bounded re-verification. Fresh evidence is the 96 frontend tests, seven P4 journeys and separate original reproduction above. Backend tests were not rerun; this correction changes no backend behavior. Existing bundle/style warnings and the original assessment's limits for other browsers, real touch, exhaustive accessibility/zoom and concurrency schedules remain. This does not assess contextual suggestions, PlayNotes or later increments.
+
+Stop at verification handover. This result does not itself accept P4 or authorize P4R.
+
+## P4 — Focused tabletop presentation — 2026-10-22
+
+**Assessment: FAIL — required correction V-P4-01.** The covered focus, inspection, layout, persistence and mode-continuity journeys pass, but a delayed same-session workspace response overwrites a newer document selection. This fails P4's asynchronous navigation/retained-selection criterion. Recommend a bounded correction and re-verification before acceptance.
+
+### Authorization, scope and method
+
+The owner requested verification after the P4 implementation handover. Assessed the current uncommitted working tree based on `a447900` against the [P4 scope](playthrough-implementation-plan.md#p4--focused-tabletop-presentation), accepted product requirements Q10f/g/i/r/s/w/x and [domain invariants](playthrough-domain-architecture.md#invariants-and-decisions). This is a separate verification pass by the implementing agent, not an independent reviewer. Formal assessment is the only repository documentation change in this pass; no application, configuration or test source was edited. Temporary browser probes used synthetic campaigns in temporary directories and the isolated smoke database. No development reset, external campaign edit or commit occurred.
+
+### Fresh evidence
+
+- `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed: live OpenAPI client generation, version checks, **96 frontend tests across 14 files**, production build and **26 Chromium journeys**. PostgreSQL installation-state preservation across restart passed and services were cleaned up. Log: `/tmp/p4-verification-setup.log`.
+- Backend `test bootJar` succeeded with tasks up-to-date. The retained 65-test backend reports are prior evidence, not fresh backend test execution in this verification; P4 changes no backend behavior.
+- The three focused-tabletop journeys freshly cover ordered three-card focus, Used retention, explicit scene activation and slot replacement, fourth-card inspection without workspace mutation, notes access/scope, keyboard expansion/return, 1280/390/320px geometry, Prepare addition and return, reopened inspection closure, membership removal, failed replacement/discard and late responses after session departure.
+- Reviewed fresh `focus-320.png` and `inspection-1280.png` under `frontend/test-results/focused-tabletop-focus-fou-f99e7-sion-and-Prepare-continuity/`: narrow notes use the available width; laptop inspection retains three focused cards and separate notes access. Automated layout assertions establish no page-wide horizontal overflow at the tested widths. Owner visual acceptance remains separate.
+- A separate temporary Chromium probe reproduced V-P4-01 in **two isolated service lifecycles**. The confirmation additionally proved the complete persisted workspace unchanged and the same link behaving correctly after loading. Logs: `/tmp/p4-verification-browser.log` and `/tmp/p4-verification-browser-confirmation.log`; harness: `/tmp/p4-verification-browser.sh`, `/tmp/p4-verification-probe.mjs`; screenshot: `/tmp/p4-verification-late-selection.png`. Both lifecycles cleaned up successfully.
+
+### Required correction: V-P4-01 — delayed reopen overwrites newer reader selection
+
+**Severity: medium; blocks P4 acceptance.** The reader's frozen links remain actionable while the Play workspace reloads. Following a link updates the selected document, but inspection is rejected while workspace state is loading. Once the older request completes, `openPlayContext()` restores the previous expanded item without checking whether the owner selected another document during the wait.
+
+Reproduction with a synthetic frozen Scene containing `[Visit Fourth](Fourth.md)` and a prepared Fourth document:
+
+1. Persist Scene/NPC/Relic as the three focused cards and Scene as active. Expand Scene using the actual UI.
+2. Switch to Prepare, then back to Play, holding the resulting workspace GET response before delivery. The same Scene reader remains available.
+3. Click **Visit Fourth** in that reader. The reader displays **Complete frozen Fourth document.**
+4. Release the delayed successful workspace response.
+5. **Expected:** the newer explicit Fourth selection remains readable; completing the older open must not silently restore Scene over it. Preserve valid expanded context and reconcile temporary inspection with the loaded workspace.
+6. **Observed in both runs:** the reader changes back to **Expanded focused card / Scene / Complete frozen Scene document.** The probe reports `FOURTH_RETAINED false`.
+
+The confirmation then follows the identical link after loading: Fourth remains selected and the temporary inspection opens. Escape explicitly restores expanded Scene as expected. The complete saved workspace equals its pre-probe value, so this is transient navigation loss, not persisted data corruption.
+
+Owning paths: [openPlayContext](../frontend/src/app/preparation/workspace.ts#L259) checks route/session identity but unconditionally selects the expanded item after awaiting initialization; [followCaptured](../frontend/src/app/preparation/workspace.ts#L411) changes reader selection without changing that route epoch; [inspect](../frontend/src/app/playthroughs/workspace-state.ts#L159) drops inspection intent while loading. The existing late-response journey tests departure to a different session and does not exercise this same-session interaction.
+
+**Recommended bounded correction:** preserve the latest explicit reader intent across same-session initialization, reconcile it against the returned workspace, and prevent automatic expansion restoration from overwriting a subsequent selection. Add a controlled delayed-response regression using a frozen reader link, including the normal no-intervening-selection expansion-restoration case. Keep route/session guards, persisted state and archive v7 unchanged. No correction was made during verification.
+
+### Other acceptance findings and limits
+
+| P4 criterion | Assessment |
+| --- | --- |
+| Two/three focused cards, Used retention, explicit replacement and fourth-card inspection | Pass in covered state/component/browser checks. Inspection does not mutate scene, focus or table. |
+| Shared card and full-document presentation; one-action expansion/return | Pass. Composition reuses PlayingCard, PreparedArtwork and the existing frozen Markdown reader; no parallel renderer or persistence model. |
+| Keyboard access, laptop/narrow layouts and independently accessible notes | Pass within tested Chromium controls and viewports; screenshot review and geometry assertions support the bounded layout assessment. |
+| Same-session Prepare continuity, new membership and removals | Pass in covered journeys: expansion restores after adding material; new cards do not steal focus/scene; removal prunes only affected focus/scene and retains notes/Used. |
+| Reopen and transient/persisted boundaries | Pass. Persisted identities restore; temporary inspection closes; expansion/inspection stay outside workspace saves and archive state. |
+| Asynchronous navigation and retained selection | **Fail: V-P4-01.** Cross-session late-response guards pass, but same-session newer reader intent is overwritten. |
+
+Build warnings remain: initial bundle **757.79 kB** against 500 kB, workspace stylesheet **7.94 kB** against 4 kB, and existing prototype stylesheet warnings. No budget was raised. This assessment does not establish other browsers, real touch behavior, exhaustive accessibility/zoom, every conflict/concurrency schedule or later increments such as contextual suggestions and PlayNotes. `git diff --check` passed.
+
+Stop at verification handover. Owner authorization is required for the bounded correction; this assessment does not authorize implementation or P4R.
+
+## P3 corrective re-verification — V-P3-01 — 2026-10-22
+
+**Assessment: PASS within the assessed scope. V-P3-01 is resolved.** Missing required scene input now rejects without mutation, while explicit null and valid Scene selection retain their intended behavior. Combined with the other P3 findings in the original assessment below, no acceptance-blocking P3 defect remains identified. Owner acceptance and P4 remain separate decisions; the original failed assessment is preserved.
+
+### Authorization and scope
+
+The owner explicitly requested verification after the bounded V-P3-01 corrective implementation handover. Reviewed the current uncommitted working tree based on `a447900`, the [recorded correction evidence](implementation-plan.md#p3-correction--v-p3-01--developer-evidence--2026-10-22), original finding and [accepted P3 scope](playthrough-implementation-plan.md#p3--scene-and-ordered-focus-state-including-archives). This is a separate verification pass by the implementing agent, not an independent reviewer. No application, configuration or repository test source was changed; only this assessment was added. Temporary probes used synthetic records in the isolated smoke database and temporary campaign directories. No development reset, independent campaign-content edits or commit occurred.
+
+### Fresh evidence
+
+- `cd backend && ./gradlew test --tests workbench.WorkspaceHttpIntegrationTest --rerun-tasks` passed: **one freshly executed real-HTTP/database regression**, zero failures/errors/skips. The test covers missing-field rejection, unchanged complete workspace/Preparation state, explicit null clearing without focus/table changes, valid alternate Scene selection and live OpenAPI required/nullable semantics. Relevant compilation and test tasks were rerun. `./gradlew bootJar` then succeeded with tasks up-to-date.
+- A separate backend/database lifecycle reran the original independent API probe and added correction-specific requests: **all 30 checks passed, zero failures**. In the original missing-scene reproduction, HTTP now returns **400**, workspace revision remains **1 → 1**, and the saved scene remains `59640c78-893a-465b-95ee-57948230e5f2`. An additional request containing exactly `revision`, `active`, `used` and `focusedItemIds` returns 400 `request.invalid` with the complete saved state unchanged.
+- Explicit `activeSceneItemId: null` returns 200, clears only the scene and advances the workspace revision once; focus, Active/Used order and Preparation remain unchanged. A valid alternate Scene ID then returns 200, changes only scene/revision and retains focus/table/Preparation. The probe also repeats invalid focus/type/stale-write checks, eleven malformed archive rejections without imports, v7 JSON/ZIP scene/focus remapping, same-revision concurrent writes and membership-removal reconciliation.
+- Live OpenAPI still lists `activeSceneItemId` as required with `string | null` types. The current generated Angular `SaveWorkspace` retains a required `activeSceneItemId: string | null` property. Test services were cleaned up successfully. Evidence: `/tmp/p3-reverification.log`, `/tmp/p3-reverification-probe-results.json`, `/tmp/p3-reverification-openapi.json`; temporary harness: `/tmp/p3-reverification.sh` and `/tmp/p3-reverification-probe.py`.
+
+The full 65-backend / 89-frontend / 23-Chromium developer run recorded in the implementation handover was **not repeated** in this bounded re-verification. Those counts are prior implementation evidence, not newly executed verification results. The fresh checks above directly assess the request-binding correction and repeat the independent P3 API probes; previous browser/persistence/concurrency assessment limits remain applicable.
+
+### Resolution and scope assessment
+
+| Required behavior | Assessment |
+| --- | --- |
+| Omitted required scene field rejects before mutation | Pass. HTTP 400 `request.invalid`; saved scene, focus, table, workspace revision and Preparation are unchanged. Both the original returned-workspace-style payload and a minimal save payload were tested. |
+| Explicit null remains a deliberate clear | Pass. HTTP 200 with exactly one workspace revision increment; only the scene clears. Focus, table and Preparation remain intact. |
+| Valid Scene activation and required/nullable contract survive | Pass. Alternate frozen Scene selection succeeds without clearing focus; live OpenAPI and the generated client agree on required nullable input. |
+| Correction stays at the owning boundary | Pass. The constructor-property presence annotation is confined to `SaveWorkspace` request binding. No global mapper setting, domain rule, persistence or archive version change is introduced. The HTTP regression exercises the actual Spring boundary rather than only constructing DTOs. |
+
+### Limits and exit
+
+No new acceptance-blocking defect was found. Existing compiler warnings and previously recorded frontend bundle/style budget warnings remain; frontend builds and visual/browser checks were not rerun in this bounded pass. This assessment does not extend to exhaustive malformed-input combinations, all concurrency schedules, other browsers/touch/accessibility, P4 presentation or later functionality. Earlier increments' outstanding acceptance gates are unchanged. `git diff --check` passed.
+
+Recommend owner acceptance of P3 within the combined recorded assessment limits. Stop at verification handover; this result does not authorize P4 or further implementation.
+
+## P3 — Scene and ordered focus state, including archives — 2026-10-22
+
+**Assessment: FAIL — required correction V-P3-01.** The assessed domain, persistence, frontend state and archive paths satisfy the covered P3 criteria, but the workspace HTTP boundary accepts an omitted required scene field and clears the saved scene. Passing automated suites do not resolve this independently reproduced contract defect. Recommend corrective implementation and bounded re-verification before P3 acceptance.
+
+### Authorization, scope and method
+
+The owner explicitly requested verification after the P3 implementation handover. Reviewed the current uncommitted working tree based on `a447900` against the [P3 plan](playthrough-implementation-plan.md#p3--scene-and-ordered-focus-state-including-archives), [accepted interaction requirements](product-specification.md) and [domain invariants](playthrough-domain-architecture.md#invariants-and-decisions). This is a separate verification pass by the implementing agent, not an independent reviewer. No application, configuration or repository test source was changed during verification; only this assessment was added. Temporary Python HTTP probes and synthetic campaign directories used the isolated smoke database and system temporary directory. No development reset or independent campaign-content edits occurred.
+
+### Fresh execution evidence
+
+- `cd backend && ./gradlew test bootJar --rerun-tasks` passed: **64 freshly executed backend tests**, zero failures/errors/skips, including Modulith/ArchUnit, database concurrency/rollback, persistence/restart and scene/focus domain tests. All relevant build tasks were rerun, rather than relying on retained execution results.
+- `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed live OpenAPI client generation, version checks, **89 frontend tests across 13 files**, production build, **all 23 Chromium browser journeys**, and isolated PostgreSQL restart/preservation. Its backend tasks were up-to-date against the fresh run above. Test services were cleaned up. Run log: `/tmp/p3-verification-setup.log`.
+- Independently exercised the live HTTP boundary with four frozen prepared cards (two Scenes, one NPC, one item). The final probe recorded **26 passing checks and one failing check**. Checks covered initial null/empty state, Used scene/focus, unchanged Preparation, rejected duplicate/foreign/four-card focus and non-Scene activation, stale writes, JSON/ZIP completeness, eleven malformed archive variants rejected without new sessions, fresh imported IDs, same-revision concurrent saves (one 200 and one 409), and membership removal with stale-write rejection and ordered focus pruning.
+- Reproduced the missing-scene-field defect in two separate synthetic sessions. Final probe evidence: `/tmp/p3-verification-probe-results.json`; temporary probe: `/tmp/p3-verification-probe.py`. The initial probe expected 409/422 for domain-invalid input, while this application's `Failure.Invalid` maps to 400. Correcting that probe expectation made those four checks pass; these were probe errors, not additional product findings.
+
+### Required correction: V-P3-01 — omitted scene field silently clears saved context
+
+**Severity: medium; blocks P3 acceptance.** The public `SaveWorkspace` contract declares `activeSceneItemId` required and nullable in live OpenAPI and the generated client. Its Kotlin nullable property has documentation metadata but no runtime presence enforcement: [request field](../backend/src/main/kotlin/workbench/playthroughs/api/Playthroughs.kt#L20). An omitted property binds to null, and [the save command](../backend/src/main/kotlin/workbench/playthroughs/application/PlaythroughService.kt#L37) persists that as an explicit clear.
+
+Reproduction against the actual Spring HTTP endpoint:
+
+1. Prepare a valid frozen Scene and open its workspace. Explicitly save that Scene as active, with three ordered focused cards; the Scene may be in Used. The saved workspace revision is 1.
+2. PUT `/api/campaigns/{campaign}/sessions/{session}/workspace` with that current revision, unchanged `active`, `used` and `focusedItemIds`, **omitting `activeSceneItemId`**. For example, construct the body from those four keys of the saved workspace.
+3. **Expected:** 400 for an omitted required field, with scene, focus, table and revision unchanged. An explicit `"activeSceneItemId": null` remains the supported clear command.
+4. **Observed:** 200; revision advances **1 → 2** and `activeSceneItemId` becomes null. GET confirms the cleared scene. In the final reproduction the previous scene was `201d1265-3867-4c1c-aeb0-cddbfe1ff783`, session `8be479dc-52e5-4137-8841-60e7bb6b2485`, containing campaign `15d8edfc-50c7-47f8-b0b0-95447832e401` in the isolated smoke database. Omitting `focusedItemIds` or `revision` instead returned 400 without advancing the saved revision.
+
+This violates the required wire contract and permits loss of explicitly selected scene context through an incomplete save. The current generated frontend includes the field, so this was not observed in the covered browser workflows. Existing service tests pass constructed DTOs directly and therefore do not exercise this missing-property binding case.
+
+**Recommended bounded correction:** enforce presence of the nullable scene field at the HTTP request boundary while preserving explicit null as a valid clear. Add a real HTTP regression proving omitted field → 400 with no mutation, explicit null → deliberate clear without changing focus, and valid scene ID → normal save. Recheck generated contract consistency. No domain redesign, new persistence or archive version change is indicated by this finding. No correction was made during verification.
+
+### Other P3 acceptance findings
+
+| Contract | Assessment |
+| --- | --- |
+| Explicit scene, separate inspection and focus | Partial: ordinary selection/inspection does not activate a scene; frontend activation/focus commands are separate, and server validation requires frozen valid Scene classification. Required-field omission fails as V-P3-01. |
+| Up to three unique ordered prepared focus IDs; Used allowed | Pass in covered state/domain/API tests and independent HTTP probes. Four distinct valid members, duplicate IDs and foreign IDs reject without mutation; Used scene/focus remains valid. |
+| Reconciliation and mode/reopen continuity | Pass within P3 state scope. Removals prune only absent focus IDs and clear removed/invalid scenes; remaining order is retained, new members prepend without stealing focus, unchanged reconciliation is idempotent. Database-backed tests reopen persisted scene/focus after application restart. P4 presentation and expanded/temporary inspection state remain outside this increment. |
+| Revision, ownership and concurrency | Pass in covered schedules. Preparation is read through its public snapshot and its revision/notes remain independent. Campaign locking precedes snapshots/writes; stale saves and concurrent membership changes reject safely. Independent concurrent same-revision focus saves produced one success and one conflict. No reverse module dependency or duplicate table authority was introduced. |
+| Current archives complete and strict | Pass in covered transfers. v7 JSON and ZIP preserve/remap scene and ordered focus with fresh item/session IDs, including Used focus; illustrated browser round trip preserves frozen artwork and notes. Unopened workspaces stay null. Wrong/foreign scene or focus, four/duplicate focus IDs, missing/null fields, unsupported state and old/fractional versions reject atomically. Existing import rollback and image safeguards pass. |
+| Frontend save lifecycle and existing functionality | Pass within covered journeys. Full workspace saves carry both new fields; use/return/reorder retains them. Slow-save/newer-edit and conflict tests retain scene/focus, with existing identity guards and recovery. Browser table saves/reopen/discard preserve seeded scene/focus. Writing, preparation notes, artwork, geometry, filters and reading regressions pass. |
+
+### Limits and exit
+
+Existing warnings remain: initial bundle 739.68 kB against 500 kB, workspace stylesheet 7.91 kB against 4 kB, prototype stylesheet budgets and existing Kotlin compile warnings. Chromium and bounded concurrency checks do not establish Safari/WebKit, real touch, exhaustive accessibility, resource maxima or every interleaving. No new visual UI was introduced or visually accepted by P3; P4 controls and temporary inspection, later suggestions/PlayNotes/history and previous increments' outstanding acceptance gates are not certified here. `git diff --check` passed before recording the assessment.
+
+Stop at verification handover. V-P3-01 corrective implementation and subsequent re-verification require separate owner authorization; this result does not authorize application changes or P4.
+
 ## P2G — Shared card geometry — 2026-10-22
 
 **Assessment: PASS within the assessed scope.** The shared renderer satisfies the approved 243:420 geometry and preserves the covered card interactions, artwork and reading paths. No acceptance-blocking defect was found. Owner visual acceptance and P3/later implementation remain separate decisions. Historical P2 assessments below are preserved; the owner accepted P2 before authorizing P2G.

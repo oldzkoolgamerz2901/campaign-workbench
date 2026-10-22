@@ -267,6 +267,7 @@
   <div
     class="working-area"
     [class.reading-table]="reading()"
+    [class.has-tabletop]="reading() && hasTabletop()"
     [class.drafts-open]="libraryVisible() && material() === 'drafts'"
     [class.library-hidden]="!libraryVisible() || material() === 'drafts'"
     [class.contents-hidden]="!contentsOpen() || !state.current()"
@@ -309,17 +310,46 @@
       (openSource)="browse()"
       (requestSession)="sessionsOpen.set(true)"
     />
+    @if (reading() && state.current(); as session) {
+      @if (state.play.current(); as workspace) {
+        @if (hasTabletop() || workspace.activeSceneItemId) {
+          <play-tabletop
+            [campaign]="session.campaign"
+            [session]="session.id"
+            [items]="session.items"
+            [workspace]="workspace"
+            [expanded]="state.play.expandedItemId()"
+            [inspection]="state.play.inspectionItemId()"
+            [disabled]="!campaignReady() || busy() || state.play.loading()"
+            (focusItem)="focusPrepared($event)"
+            (removeFocus)="state.play.unfocus($event)"
+            (replaceFocus)="state.play.replaceFocus($event.slot, $event.id)"
+            (activateScene)="state.play.activateScene($event)"
+            (expandItem)="expandPrepared($event)"
+            (returnToCards)="state.play.expand(null)"
+            (openDocument)="openPreparedDocument($event)"
+            (closeInspection)="closeInspection()"
+          />
+        }
+      }
+    }
     @if (reading() && contentsOpen() && state.current(); as session) {
       <read-card-table
         [campaign]="session.campaign"
         [session]="session.id"
         [items]="session.items"
         [table]="state.play.current()"
+        [focused]="state.play.current()?.focusedItemIds ?? []"
+        [activeScene]="state.play.current()?.activeSceneItemId ?? null"
         [query]="cardQuery()"
         [group]="cardGroup()"
         [selected]="state.selectedItem()"
         [disabled]="!campaignReady() || busy() || state.play.loading() || !state.play.current()"
         (selectItem)="selectPrepared($event)"
+        (openDocument)="openPreparedDocument($event)"
+        (focusItem)="focusPrepared($event)"
+        (removeFocus)="state.play.unfocus($event)"
+        (activateScene)="state.play.activateScene($event)"
         (moveItem)="state.moveTable($event.id, $event.to)"
         (useItem)="state.markUsed($event)"
         (restoreItem)="state.returnToTable($event)"
@@ -344,6 +374,11 @@
     />
     <article class="source-page" [hidden]="showingLibrary()" aria-label="Prepared source">
       @if (item(); as prepared) {
+        @if (reading() && state.play.inspectionItemId() === prepared.id) {
+          <p class="eyebrow">Temporary document inspection</p>
+        } @else if (reading() && state.play.expandedItemId() === prepared.id) {
+          <p class="eyebrow">Expanded focused card</p>
+        }
         @if (!sourceHasTitle()) {
           <h3>{{ prepared.title }}</h3>
         }

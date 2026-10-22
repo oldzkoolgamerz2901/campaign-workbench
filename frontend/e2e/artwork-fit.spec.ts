@@ -71,13 +71,11 @@ test('cards show complete portrait, landscape and square artwork within the exis
           response.request().method() === 'POST' &&
           response.ok(),
       );
-      await page
-        .getByLabel('Card artwork', { exact: true })
-        .setInputFiles({
-          name: `${name}.png`,
-          mimeType: 'image/png',
-          buffer: Buffer.from(base64, 'base64'),
-        });
+      await page.getByLabel('Card artwork', { exact: true }).setInputFiles({
+        name: `${name}.png`,
+        mimeType: 'image/png',
+        buffer: Buffer.from(base64, 'base64'),
+      });
       await saving;
       const card = page.locator('.preview-panel playing-card article');
       const image = card.locator('img');
@@ -93,13 +91,31 @@ test('cards show complete portrait, landscape and square artwork within the exis
         await expect(image).toHaveCSS('object-fit', 'contain');
         const area = (await image.boundingBox())!;
         expect(area.height / outer.height).toBeGreaterThan(0.49);
-        const natural = await image.evaluate((el: HTMLImageElement) => ({
-          width: el.naturalWidth,
-          height: el.naturalHeight,
-        }));
-        const scale = Math.min(area.width / natural.width, area.height / natural.height);
-        expect(natural.width * scale).toBeLessThanOrEqual(area.width + 0.01);
-        expect(natural.height * scale).toBeLessThanOrEqual(area.height + 0.01);
+        // Resizing can move the lazy artwork out of view and reload its Blob.
+        // Scroll it into view, then measure loaded pixels and layout in one frame.
+        await image.scrollIntoViewIfNeeded();
+        await expect(async () => {
+          await expect(image).toHaveAttribute('src', /^blob:/);
+          const measured = await image.evaluate((el: HTMLImageElement) => {
+            const box = el.getBoundingClientRect();
+            return {
+              width: box.width,
+              height: box.height,
+              naturalWidth: el.naturalWidth,
+              naturalHeight: el.naturalHeight,
+            };
+          });
+          expect(measured.naturalWidth / measured.naturalHeight).toBeCloseTo(
+            imageWidth / imageHeight,
+            2,
+          );
+          const scale = Math.min(
+            measured.width / measured.naturalWidth,
+            measured.height / measured.naturalHeight,
+          );
+          expect(measured.naturalWidth * scale).toBeLessThanOrEqual(measured.width + 0.01);
+          expect(measured.naturalHeight * scale).toBeLessThanOrEqual(measured.height + 0.01);
+        }).toPass();
         await card.screenshot({ path: info.outputPath(`${name}-${width}.png`) });
       }
       await page.setViewportSize({ width: 1280, height: 900 });

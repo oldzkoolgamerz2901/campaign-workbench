@@ -10,6 +10,9 @@ export class PlayWorkspaceState {
   readonly status = signal<'saved' | 'pending' | 'saving' | 'failed'>('saved');
   readonly loading = signal(false);
   readonly error = signal('');
+  // Presentation only: never included in workspace saves or archives.
+  readonly expandedItemId = signal<string | null>(null);
+  readonly inspectionItemId = signal<string | null>(null);
   private campaign = '';
   private session = '';
   private epoch = 0;
@@ -29,6 +32,8 @@ export class PlayWorkspaceState {
     this.dirty = false;
     this.campaign = this.session = '';
     this.current.set(null);
+    this.expandedItemId.set(null);
+    this.inspectionItemId.set(null);
     this.status.set('saved');
     this.loading.set(false);
     this.error.set('');
@@ -39,7 +44,10 @@ export class PlayWorkspaceState {
     const openingEpoch = this.epoch;
     if (this.hasUnsaved() && !(await this.flush())) return;
     if (openingEpoch !== this.epoch) return;
+    const expanded =
+      this.campaign === campaign && this.session === session ? this.expandedItemId() : null;
     this.clear();
+    this.expandedItemId.set(expanded);
     this.campaign = campaign;
     this.session = session;
     const epoch = this.epoch;
@@ -50,7 +58,10 @@ export class PlayWorkspaceState {
           httpHeaderAccept: 'application/json',
         }),
       );
-      if (epoch === this.epoch) this.current.set(saved);
+      if (epoch === this.epoch) {
+        this.current.set(saved);
+        this.reconcilePresentation();
+      }
     } catch (e) {
       if (epoch === this.epoch) this.fail(e);
     } finally {
@@ -89,6 +100,87 @@ export class PlayWorkspaceState {
       });
   }
 
+  // Inspection/selection never calls this command. Only explicit scene activation does.
+  activateScene(itemId: string | null) {
+    const table = this.current();
+    if (!table || table.activeSceneItemId === itemId) return;
+    if (itemId !== null && ![...table.active, ...table.used].includes(itemId)) return;
+    this.edit({ ...table, activeSceneItemId: itemId });
+  }
+
+  setFocus(itemIds: string[]) {
+    const table = this.current();
+    if (
+      !table ||
+      itemIds.length > 3 ||
+      new Set(itemIds).size !== itemIds.length ||
+      itemIds.some((id) => ![...table.active, ...table.used].includes(id))
+    )
+      return;
+    if (
+      itemIds.every((id, index) => table.focusedItemIds[index] === id) &&
+      itemIds.length === table.focusedItemIds.length
+    )
+      return;
+    this.edit({ ...table, focusedItemIds: [...itemIds] });
+    this.reconcilePresentation();
+  }
+
+  focus(id: string) {
+    const ids = this.current()?.focusedItemIds;
+    if (!ids || this.loading() || ids.includes(id) || ids.length === 3) return;
+    this.setFocus([...ids, id]);
+    if (this.current()?.focusedItemIds.includes(id)) this.inspectionItemId.set(null);
+  }
+
+  unfocus(id: string) {
+    const ids = this.current()?.focusedItemIds;
+    if (ids && !this.loading()) this.setFocus(ids.filter((value) => value !== id));
+  }
+
+  replaceFocus(slot: number, id: string) {
+    const table = this.current();
+    if (
+      !table ||
+      this.loading() ||
+      !Number.isInteger(slot) ||
+      slot < 0 ||
+      slot >= table.focusedItemIds.length ||
+      table.focusedItemIds.includes(id) ||
+      ![...table.active, ...table.used].includes(id)
+    )
+      return;
+    const ids = [...table.focusedItemIds];
+    ids[slot] = id;
+    this.setFocus(ids);
+    this.inspectionItemId.set(null);
+  }
+
+  inspect(id: string) {
+    const table = this.current();
+    if (!table || this.loading() || ![...table.active, ...table.used].includes(id)) return;
+    this.inspectionItemId.set(table.focusedItemIds.includes(id) ? null : id);
+  }
+
+  expand(id: string | null) {
+    if (this.loading() || (id !== null && !this.current()?.focusedItemIds.includes(id))) return;
+    this.expandedItemId.set(id);
+    this.inspectionItemId.set(null);
+  }
+
+  private reconcilePresentation() {
+    const table = this.current();
+    if (!table) return;
+    if (!table.focusedItemIds.includes(this.expandedItemId() ?? '')) this.expandedItemId.set(null);
+    const inspection = this.inspectionItemId();
+    if (
+      inspection &&
+      (table.focusedItemIds.includes(inspection) ||
+        ![...table.active, ...table.used].includes(inspection))
+    )
+      this.inspectionItemId.set(null);
+  }
+
   private edit(table: WorkspaceData) {
     if (this.loading()) return;
     this.current.set(table);
@@ -122,6 +214,8 @@ export class PlayWorkspaceState {
               revision: snapshot.revision,
               active: snapshot.active,
               used: snapshot.used,
+              activeSceneItemId: snapshot.activeSceneItemId,
+              focusedItemIds: snapshot.focusedItemIds,
             },
             'body',
             false,

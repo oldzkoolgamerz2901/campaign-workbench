@@ -25,6 +25,7 @@ import { DraftChooser } from './draft-chooser';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { DraftData } from '../../api/generated';
 import { CardTable } from './card-table';
+import { FocusedTabletop } from '../playthroughs/focused-tabletop';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { MarkdownView } from './markdown-view';
 
@@ -42,6 +43,7 @@ import { MarkdownView } from './markdown-view';
     DraftChooser,
     PlayingCard,
     CardTable,
+    FocusedTabletop,
     WorkbenchHeader,
   ],
   templateUrl: './workspace.html',
@@ -122,6 +124,10 @@ export class Workspace implements OnDestroy {
   readonly item = computed(
     () => this.state.current()?.items.find((i) => i.id === this.state.selectedItem()) ?? null,
   );
+  readonly hasTabletop = computed(
+    () =>
+      !!this.state.play.current()?.focusedItemIds.length || !!this.state.play.inspectionItemId(),
+  );
   readonly sourceReader = viewChild<MarkdownView>('sourceReader');
   readonly source = computed(
     () => this.state.rendered()?.items.find((i) => i.id === this.item()?.id)?.source ?? null,
@@ -140,6 +146,7 @@ export class Workspace implements OnDestroy {
   private applyingRoute = true;
   private subscription?: Subscription;
   private routeEpoch = 0;
+  private readerIntent = 0;
   constructor() {
     void this.initialize();
   }
@@ -159,7 +166,7 @@ export class Workspace implements OnDestroy {
       const applyView = () => {
         this.reading.set(['read', 'play'].includes(params.get('mode') ?? '') && !!id);
         if (!id && ['read', 'play'].includes(params.get('mode') ?? '')) this.pendingPlay = true;
-        if (this.reading()) this.state.initializeTable();
+        if (this.reading()) void this.openPlayContext();
         this.showingLibrary.set(params.get('view') === 'library' || !id);
       };
       // A view change keeps the working session and all pending edits in place.
@@ -247,8 +254,42 @@ export class Workspace implements OnDestroy {
       this.state.current()?.id === session.id &&
       !this.state.play.hasUnsaved()
     ) {
-      await this.state.initializeTable();
+      await this.openPlayContext();
     }
+  }
+  private async openPlayContext() {
+    const session = this.state.current(),
+      epoch = this.routeEpoch,
+      readerIntent = this.readerIntent;
+    if (!session) return;
+    await this.state.initializeTable();
+    if (
+      epoch !== this.routeEpoch ||
+      !this.reading() ||
+      this.state.current()?.campaign !== session.campaign ||
+      this.state.current()?.id !== session.id
+    )
+      return;
+    // Frozen reader links remain usable while the workspace opens. Reconcile
+    // newer explicit reading intent instead of restoring over it.
+    if (readerIntent !== this.readerIntent) {
+      const selected = this.state.selectedItem();
+      if (selected && this.state.play.current() && !this.state.play.loading()) {
+        if (
+          this.state.play.expandedItemId() &&
+          this.state.play.current()?.focusedItemIds.includes(selected)
+        )
+          this.state.play.expand(selected);
+        else this.state.play.inspect(selected);
+      }
+      return;
+    }
+    const expanded = this.state.play.expandedItemId();
+    if (expanded) this.state.selectItem(expanded);
+  }
+  private selectReader(id: string) {
+    this.readerIntent++;
+    this.state.selectItem(id);
   }
   async create() {
     const campaign = this.library.selected();
@@ -305,9 +346,71 @@ export class Workspace implements OnDestroy {
   selectPrepared(id: string) {
     if (this.busy()) return;
     this.cardOpen.set(false);
-    this.state.selectItem(id);
-    this.notesScope.set('item');
+    this.selectReader(id);
+    if (!this.reading()) this.notesScope.set('item');
+    if (this.reading()) {
+      if (
+        this.state.play.expandedItemId() &&
+        this.state.play.current()?.focusedItemIds.includes(id)
+      )
+        this.state.play.expand(id);
+      else this.state.play.inspect(id);
+    }
     void this.navigate(undefined, 'prepare');
+  }
+  focusPrepared(id: string) {
+    if (this.busy() || !this.reading()) return;
+    this.state.play.focus(id);
+    const epoch = this.routeEpoch;
+    setTimeout(() => {
+      if (
+        epoch !== this.routeEpoch ||
+        !this.reading() ||
+        !this.state.play.current()?.focusedItemIds.includes(id)
+      )
+        return;
+      const stage = document.querySelector<HTMLElement>('play-tabletop > section');
+      if (stage) {
+        stage.tabIndex = -1;
+        stage.focus({ preventScroll: true });
+        stage.scrollIntoView({ block: 'nearest' });
+      }
+    });
+  }
+  expandPrepared(id: string) {
+    if (this.busy() || !this.reading()) return;
+    this.state.play.expand(id);
+    if (this.state.play.expandedItemId() === id) this.openPreparedDocument(id, false);
+  }
+  openPreparedDocument(id: string, inspect = true) {
+    if (this.busy()) return;
+    if (inspect) this.selectPrepared(id);
+    else this.selectReader(id);
+    const epoch = this.routeEpoch;
+    setTimeout(() => {
+      if (epoch !== this.routeEpoch || this.state.selectedItem() !== id || !this.reading()) return;
+      const reader = document.querySelector<HTMLElement>('.source-page');
+      if (reader) {
+        reader.tabIndex = -1;
+        reader.scrollIntoView({ block: 'nearest' });
+        reader.focus({ preventScroll: true });
+      }
+    });
+  }
+  closeInspection() {
+    const id = this.state.play.inspectionItemId();
+    this.state.play.inspectionItemId.set(null);
+    const expanded = this.state.play.expandedItemId();
+    if (expanded) this.selectReader(expanded);
+    const epoch = this.routeEpoch;
+    setTimeout(() => {
+      if (epoch !== this.routeEpoch || !this.reading()) return;
+      const cards = document.querySelectorAll<HTMLElement>('read-card-table [data-item-id]');
+      Array.from(cards)
+        .find((node) => node.dataset['itemId'] === id)
+        ?.querySelector<HTMLElement>('article')
+        ?.focus();
+    });
   }
   browse() {
     this.material.set('sources');
@@ -323,14 +426,25 @@ export class Workspace implements OnDestroy {
     this.managementOpen.set(false);
     this.sessionDetailsOpen.set(false);
     this.pendingPlay = false;
+    if (this.reading()) this.closeInspection();
   }
   followCaptured(target: string) {
     const [id, anchor] = target.slice(1).split('#');
     if (!this.state.current()?.items.some((i) => i.id === id)) return;
-    this.state.selectItem(id);
+    this.selectReader(id);
+    if (this.reading()) {
+      if (
+        this.state.play.expandedItemId() &&
+        this.state.play.current()?.focusedItemIds.includes(id)
+      )
+        this.state.play.expand(id);
+      else this.state.play.inspect(id);
+    }
     this.cardOpen.set(false);
-    this.notesScope.set('item');
+    if (!this.reading()) this.notesScope.set('item');
+    const epoch = this.routeEpoch;
     setTimeout(() => {
+      if (epoch !== this.routeEpoch || this.state.selectedItem() !== id) return;
       const page = document.querySelector('.source-page');
       const index = this.source()?.anchors.indexOf(anchor) ?? -1;
       const node = anchor

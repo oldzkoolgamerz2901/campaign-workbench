@@ -212,6 +212,17 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
       await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}`)
     ).json();
     expect(frozen.items[0].image.hash).toBe(originalHash);
+    const endpoint = `/api/campaigns/${campaign.id}/sessions/${session.id}/workspace`;
+    const workspace = await (await request.get(endpoint)).json();
+    expect(
+      (
+        await request.put(endpoint, {
+          data: { ...workspace, focusedItemIds: [frozen.items[0].id] },
+        })
+      ).ok(),
+    ).toBeTruthy();
+    await page.reload();
+    await illustrated('read-card-table playing-card img');
     const workspaceSaved = page.waitForResponse(
       (r) =>
         r.request().method() === 'PUT' &&
@@ -254,6 +265,8 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     ).json();
     expect(restoredWorkspace.active).toEqual([]);
     expect(restoredWorkspace.used).toEqual([restored.items[0].id]);
+    expect(restoredWorkspace.focusedItemIds).toEqual([restored.items[0].id]);
+    expect(restoredWorkspace.activeSceneItemId).toBeNull();
     expect(restored.items[0].id).not.toBe(frozen.items[0].id);
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -18,13 +18,13 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
     fun manifest(campaign: UUID, request: ExportSessions, illustrated: Boolean = false): Either<Failure, SessionTransfer> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val contents = preparation.exportContents(campaign, request, illustrated).bind()
-        val result = SessionTransfer(6, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) })
+        val result = SessionTransfer(7, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) })
         val encoded = try { codec.writeTransfer(result) } catch (_: Exception) { raise(Failure.Invalid("sessions.archive-size", "Session manifest exceeds 20 MiB; select fewer sessions.")) }
         ensure(encoded.size <= 20 * 1024 * 1024) { invalid() }
         result
     } }
     fun validate(archive: SessionTransfer, illustrated: Boolean): Either<Failure, Unit> = either {
-        ensure(archive.version == 6) { invalid() }
+        ensure(archive.version == 7) { invalid() }
         preparation.validateContents(Archive(archive.version, archive.sessions), illustrated).bind()
         val ids = archive.sessions.map { it.id }.toSet()
         ensure(archive.workspaces.size == ids.size && archive.workspaces.map { it.session }.toSet() == ids) { invalid() }
@@ -32,7 +32,11 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
         archive.workspaces.forEach { record -> record.workspace?.let { w ->
             val all = w.active + w.used
             ensure(w.session == record.session && w.revision >= 0 && all.size == all.distinct().size &&
-                all.toSet() == byId.getValue(record.session).items.map { it.id }.toSet()) { invalid() }
+                all.toSet() == byId.getValue(record.session).items.map { it.id }.toSet() &&
+                w.focusedItemIds.size <= 3 && w.focusedItemIds.distinct().size == w.focusedItemIds.size &&
+                all.containsAll(w.focusedItemIds) && (w.activeSceneItemId == null ||
+                    byId.getValue(record.session).items.any { item -> item.id == w.activeSceneItemId &&
+                        item.capturedSource?.classification?.let { c -> c.metadata?.type == "scene" && c.issues.none { it.severity == "error" } } == true })) { invalid() }
         } }
     }
     fun restore(campaign: UUID, archive: SessionTransfer, illustrated: Boolean = false): Either<Failure, SessionList> = tx.run { either {
@@ -44,7 +48,7 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
             val restored = preparation.snapshot(campaign, summary.id).bind()
             val ids = original.items.map { it.id }.zip(restored.items.map { it.id }).toMap()
             val workspace = workspaceBySession.getValue(original.id).workspace?.let { w ->
-                w.copy(session = restored.id, revision = 0, active = w.active.map(ids::getValue), used = w.used.map(ids::getValue))
+                w.copy(session = restored.id, revision = 0, active = w.active.map(ids::getValue), used = w.used.map(ids::getValue), activeSceneItemId = w.activeSceneItemId?.let(ids::getValue), focusedItemIds = w.focusedItemIds.map(ids::getValue))
             }
             workspaces.restore(campaign, restored.id, workspace).bind()
         }

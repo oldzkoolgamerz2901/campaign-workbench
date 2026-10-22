@@ -143,7 +143,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         entries(writingZip).keys.filter { it.startsWith("images/") }.toSet() shouldBe setOf("images/${first.hash}", "images/${second.image!!.hash}")
         val play = context!!.getBean(workbench.playthroughs.api.Playthroughs::class.java)
         val workspace = play.open(campaign, session.id).getOrNull()!!
-        play.save(campaign, session.id, workbench.playthroughs.api.SaveWorkspace(workspace.revision, emptyList(), listOf(session.items.single().id))).isRight() shouldBe true
+        play.save(campaign, session.id, workbench.playthroughs.api.SaveWorkspace(workspace.revision, emptyList(), listOf(session.items.single().id), null, emptyList())).isRight() shouldBe true
         val sessionZip = bytes(context!!.getBean(PortableSessionService::class.java).export(campaign, ExportSessions(listOf(session.id))).getOrNull()!!)
         entries(sessionZip).keys.toSet() shouldBe setOf("manifest.json", "images/${first.hash}")
         writing().delete(campaign, d.id, second.revision).isRight() shouldBe true

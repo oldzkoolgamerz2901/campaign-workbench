@@ -213,7 +213,7 @@ test('Read keeps a durable table and used pile separate from preparation', async
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(6);
+    expect(archive.version).toBe(7);
     expect(archive.workspaces[0].workspace.active).toEqual([four, one, three, two]);
     expect(errors).toEqual([]);
   } finally {

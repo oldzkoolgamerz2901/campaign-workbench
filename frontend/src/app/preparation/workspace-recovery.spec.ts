@@ -14,7 +14,10 @@ describe('Preparation recovery in the current workspace', () => {
     flush: ReturnType<typeof vi.fn>;
     reload: ReturnType<typeof vi.fn>;
     initializeTable: ReturnType<typeof vi.fn>;
-    play: { hasUnsaved: ReturnType<typeof vi.fn> };
+    play: {
+      hasUnsaved: ReturnType<typeof vi.fn>;
+      expandedItemId: ReturnType<typeof signal<string | null>>;
+    };
   };
   beforeEach(() => {
     state = {
@@ -22,7 +25,10 @@ describe('Preparation recovery in the current workspace', () => {
       flush: vi.fn().mockResolvedValue(true),
       reload: vi.fn().mockResolvedValue(true),
       initializeTable: vi.fn().mockResolvedValue(undefined),
-      play: { hasUnsaved: vi.fn().mockReturnValue(false) },
+      play: {
+        hasUnsaved: vi.fn().mockReturnValue(false),
+        expandedItemId: signal<string | null>(null),
+      },
     };
     TestBed.configureTestingModule({
       providers: [

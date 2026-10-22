@@ -1,0 +1,126 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+section {
+  min-width: 0;
+}
+header,
+.focused-tabs,
+.slot-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.scene-bar {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.scene-bar span {
+  margin-left: auto;
+}
+button {
+  cursor: pointer;
+  color: var(--ink);
+  background: #304b39;
+  border: 1px solid #829078;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.3rem;
+  font: inherit;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+button:focus-visible,
+h3:focus-visible {
+  outline: 3px solid #e8bf65;
+  outline-offset: 2px;
+}
+.focused-tabs {
+  padding: 0.6rem 0;
+}
+[aria-pressed='true'] {
+  border-color: #e8bf65;
+  background: #4b6042;
+}
+.focus-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--focus-count), minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+  padding-block: 0.6rem;
+}
+.focus-slot {
+  min-width: 0;
+  max-width: 320px;
+  width: 100%;
+  justify-self: center;
+}
+.focus-slot header {
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+}
+playing-card {
+  width: 100%;
+}
+.slot-actions {
+  padding-top: 0.5rem;
+}
+.inspection {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 2px solid #aa9567;
+  border-radius: 0.5rem;
+  background: #20372a;
+}
+.inspection header {
+  justify-content: space-between;
+}
+h3 {
+  font:
+    1.2rem Georgia,
+    serif;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.inspection-body {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.inspection-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+.hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+@media (max-width: 750px) {
+  .focus-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  .focus-slot {
+    flex: 0 0 min(280px, 100%);
+    scroll-snap-align: start;
+  }
+  .inspection-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .inspection playing-card {
+    max-width: 280px;
+  }
+  .scene-bar span {
+    margin-left: 0;
+  }
+}

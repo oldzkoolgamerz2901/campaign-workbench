@@ -60,11 +60,20 @@ describe('Session working state', () => {
     };
     api.openSession.mockReturnValue(of(initial));
     api.openPlayWorkspace.mockReturnValue(
-      of({ session: initial.id, revision: 7, active: ['a', 'b', 'c'], used: [] }),
+      of({
+        session: initial.id,
+        revision: 7,
+        active: ['a', 'b', 'c'],
+        used: [],
+        activeSceneItemId: null,
+        focusedItemIds: [],
+      }),
     );
     await state.open('campaign-a', 'session-a');
     await state.initializeTable();
     state.selectItem('b');
+    expect(state.play.current()?.activeSceneItemId).toBeNull();
+    expect(state.play.current()?.focusedItemIds).toEqual([]);
     state.moveTable('c', 0);
     state.markUsed('b');
     expect(state.play.current()).toMatchObject({ active: ['c', 'a'], used: ['b'] });
@@ -79,6 +88,8 @@ describe('Session working state', () => {
       revision: 7,
       active: ['b', 'c', 'a'],
       used: [],
+      activeSceneItemId: null,
+      focusedItemIds: [],
     });
     state.edit({ notes: 'Preparation only' });
     api.saveSession.mockReturnValue(of({ ...initial, revision: 2, notes: 'Preparation only' }));
@@ -94,7 +105,14 @@ describe('Session working state', () => {
     api.saveSession.mockReturnValue(of({ ...initial, revision: 2, items: initial.items.slice(1) }));
     api.openPlayWorkspace.mockImplementation(() => {
       expect(api.saveSession).toHaveBeenCalledTimes(1);
-      return of({ session: initial.id, revision: 9, active: ['b'], used: [] });
+      return of({
+        session: initial.id,
+        revision: 9,
+        active: ['b'],
+        used: [],
+        activeSceneItemId: null,
+        focusedItemIds: [],
+      });
     });
     await state.initializeTable();
     expect(state.play.current()?.active).toEqual(['b']);
@@ -103,7 +121,14 @@ describe('Session working state', () => {
   it('preserves failed local workspace edits while reloading Preparation in the same session', async () => {
     await state.open('campaign-a', 'session-a');
     api.openPlayWorkspace.mockReturnValue(
-      of({ session: 'session-a', revision: 7, active: ['a', 'b'], used: [] }),
+      of({
+        session: 'session-a',
+        revision: 7,
+        active: ['a', 'b'],
+        used: [],
+        activeSceneItemId: null,
+        focusedItemIds: [],
+      }),
     );
     await state.initializeTable();
     state.markUsed('a');

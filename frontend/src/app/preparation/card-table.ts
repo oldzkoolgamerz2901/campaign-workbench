@@ -58,7 +58,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
                 [selected]="selected() === item.id"
                 [disabled]="disabled()"
                 (select)="choose(item.id)"
-                (openDocument)="choose(item.id)"
+                (openDocument)="document(item.id)"
               >
                 <button
                   cardActions
@@ -75,6 +75,21 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
                 </button>
               </playing-card>
               <mat-menu #actions="matMenu">
+                @if (focused().includes(item.id)) {
+                  <button mat-menu-item (click)="removeFocus.emit(item.id)">
+                    Remove from focus
+                  </button>
+                } @else if (focused().length < 3) {
+                  <button mat-menu-item (click)="focusItem.emit(item.id)">Focus card</button>
+                } @else {
+                  <button mat-menu-item (click)="choose(item.id)">Inspect / replace focus</button>
+                }
+                @if (isScene(item) && activeScene() !== item.id) {
+                  <button mat-menu-item (click)="activateScene.emit(item.id)">
+                    Activate scene
+                  </button>
+                }
+
                 <button
                   mat-menu-item
                   [disabled]="filtered() || position(item.id) === 0"
@@ -172,7 +187,7 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
                   [selected]="selected() === item.id"
                   [disabled]="disabled()"
                   (select)="choose(item.id)"
-                  (openDocument)="choose(item.id)"
+                  (openDocument)="document(item.id)"
                 >
                   <button
                     cardActions
@@ -188,8 +203,22 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
                     ⋯
                   </button>
                 </playing-card>
-                <mat-menu #usedActions="matMenu"
-                  ><button mat-menu-item (click)="restoreItem.emit(item.id)">
+                <mat-menu #usedActions="matMenu">
+                  @if (focused().includes(item.id)) {
+                    <button mat-menu-item (click)="removeFocus.emit(item.id)">
+                      Remove from focus
+                    </button>
+                  } @else if (focused().length < 3) {
+                    <button mat-menu-item (click)="focusItem.emit(item.id)">Focus card</button>
+                  } @else {
+                    <button mat-menu-item (click)="choose(item.id)">Inspect / replace focus</button>
+                  }
+                  @if (isScene(item) && activeScene() !== item.id) {
+                    <button mat-menu-item (click)="activateScene.emit(item.id)">
+                      Activate scene
+                    </button>
+                  }
+                  <button mat-menu-item (click)="restoreItem.emit(item.id)">
                     Return to table
                   </button></mat-menu
                 >
@@ -213,11 +242,17 @@ export class CardTable {
   readonly items = input<PreparedItemData[]>([]);
   readonly table = input<{ active: string[]; used: string[] } | null>(null);
   readonly selected = input<string | null>(null);
+  readonly focused = input<string[]>([]);
+  readonly activeScene = input<string | null>(null);
   readonly disabled = input(false);
   readonly query = input('');
   readonly group = input('');
   readonly filtered = computed(() => !!this.query().trim() || !!this.group());
   readonly selectItem = output<string>();
+  readonly openDocument = output<string>();
+  readonly focusItem = output<string>();
+  readonly removeFocus = output<string>();
+  readonly activateScene = output<string>();
   readonly moveItem = output<{ id: string; to: number }>();
   readonly useItem = output<string>();
   readonly restoreItem = output<string>();
@@ -240,6 +275,18 @@ export class CardTable {
   }
   metadata(item: PreparedItemData) {
     return item.capturedSource?.classification?.metadata;
+  }
+  isScene(item: PreparedItemData) {
+    return (
+      this.metadata(item)?.type === 'scene' &&
+      !(item.capturedSource?.classification?.issues ?? []).some(
+        (issue) => issue.severity === 'error',
+      )
+    );
+  }
+  document(id: string) {
+    if (!this.disabled() && !this.dragging() && Date.now() - this.dragEndedAt > 200)
+      this.openDocument.emit(id);
   }
   title(item: PreparedItemData) {
     return this.metadata(item)?.title ?? item.title;
