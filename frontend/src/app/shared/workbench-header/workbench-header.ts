@@ -1,8 +1,9 @@
-import { Component, input, output } from '@angular/core';
+import { Component, effect, inject, input, output } from '@angular/core';
+import { NavigationContext } from '../navigation-context';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 
-export type WorkbenchMode = 'write' | 'prepare' | 'play';
+export type WorkbenchMode = 'library' | 'write' | 'prepare' | 'play';
 @Component({
   selector: 'workbench-header',
   imports: [FormsModule, MatButtonModule],
@@ -25,6 +26,24 @@ export type WorkbenchMode = 'write' | 'prepare' | 'play';
           <option [value]="entry.id">{{ entry.name }}</option>
         }
       </select>
+      <label class="destination"
+        >Session
+        <select
+          aria-label="Current session"
+          [disabled]="disabled()"
+          [ngModel]="context.session()"
+          (ngModelChange)="context.select($event)"
+          (focus)="context.reload()"
+        >
+          <option value="">No session selected</option>
+          @for (session of context.sessions(); track session.id) {
+            <option [value]="session.id">{{ session.title }}</option>
+          }
+        </select>
+      </label>
+      @if (context.error()) {
+        <button matButton (click)="context.reload()">Retry sessions</button>
+      }
       <nav aria-label="Workspace mode">
         @for (entry of modes; track entry.value) {
           <button
@@ -46,6 +65,22 @@ export type WorkbenchMode = 'write' | 'prepare' | 'play';
   styleUrl: './workbench-header.css',
 })
 export class WorkbenchHeader {
+  readonly context = inject(NavigationContext);
+  constructor() {
+    effect(() => {
+      const campaign = this.campaign();
+      if (
+        campaign &&
+        !this.context.router.parseUrl(this.context.router.url).queryParams['campaign']
+      ) {
+        void this.context.router.navigate([], {
+          queryParams: { campaign },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }
+    });
+  }
   readonly campaign = input('');
   readonly campaigns = input<{ id: string; name: string }[]>([]);
   readonly mode = input<WorkbenchMode>('prepare');
@@ -55,6 +90,7 @@ export class WorkbenchHeader {
   readonly selectCampaign = output<string>();
   readonly selectMode = output<WorkbenchMode>();
   readonly modes = [
+    { value: 'library', label: 'Library' },
     { value: 'write', label: 'Write' },
     { value: 'prepare', label: 'Prepare' },
     { value: 'play', label: 'Play' },

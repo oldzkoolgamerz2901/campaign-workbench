@@ -98,10 +98,14 @@ export class SessionState {
       return null;
     }
   }
+  private readonly invalidatedMembership = new Set<string>();
+  invalidateLibraryMembership(campaign: string, id: string) {
+    this.invalidatedMembership.add(`${campaign}:${id}`);
+  }
   async open(campaign: string, id: string, reload = false): Promise<boolean> {
     this.bindCampaign(campaign);
     const sameSession = this.current()?.id === id && this.current()?.campaign === campaign;
-    if (sameSession && !reload) return true;
+    if (sameSession && !reload && !this.invalidatedMembership.has(`${campaign}:${id}`)) return true;
     if (!sameSession) this.play.clear();
     this.saving = undefined;
     const epoch = ++this.epoch;
@@ -122,6 +126,7 @@ export class SessionState {
         this.api.openSession(campaign, id, 'body', false, { httpHeaderAccept: 'application/json' }),
       );
       if (epoch !== this.epoch) return false;
+      this.invalidatedMembership.delete(`${campaign}:${id}`);
       this.current.set(s);
       this.selectedItem.set(s.items[0]?.id ?? null);
       await this.renderSources();

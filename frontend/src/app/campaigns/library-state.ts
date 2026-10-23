@@ -59,7 +59,7 @@ export class LibraryState {
   private searchEpoch = 0;
   private documentEpoch = 0;
 
-  async initialize() {
+  async initialize(refresh = true) {
     if (this.initialized) return;
     this.initialized = true;
     const token = this.epoch;
@@ -70,7 +70,7 @@ export class LibraryState {
         ...items.filter((item) => !list.campaigns.some((saved) => saved.id === item.id)),
       ]);
       if (token !== this.epoch) return;
-      if (list.selected) await this.select(list.selected);
+      if (list.selected) await this.select(list.selected, refresh);
     } catch (error) {
       if (token === this.epoch) this.fail(error);
     }
@@ -90,7 +90,7 @@ export class LibraryState {
       if (token === this.epoch) this.fail(error);
     }
   }
-  async select(id: string) {
+  async select(id: string, refresh = true) {
     if (!(await this.beforeSelect(id))) return;
     const token = ++this.epoch;
     this.searchEpoch++;
@@ -111,7 +111,8 @@ export class LibraryState {
       const library = await firstValueFrom(this.sourcesApi.getLibrary(id));
       if (token !== this.epoch) return;
       this.library.set(library);
-      await this.refresh();
+      if (refresh) await this.refresh();
+      else await this.browse();
     } catch (error) {
       if (token === this.epoch) this.fail(error);
     } finally {

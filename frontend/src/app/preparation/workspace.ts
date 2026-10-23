@@ -164,6 +164,9 @@ export class Workspace implements OnDestroy {
       const campaign = params.get('campaign') ?? this.library.selected()?.id;
       const id = params.get('session');
       const applyView = () => {
+        const item = params.get('item');
+        if (item && this.state.current()?.items.some((i) => i.id === item))
+          this.state.selectItem(item);
         this.reading.set(['read', 'play'].includes(params.get('mode') ?? '') && !!id);
         if (!id && ['read', 'play'].includes(params.get('mode') ?? '')) this.pendingPlay = true;
         if (this.reading()) void this.openPlayContext();
@@ -229,6 +232,10 @@ export class Workspace implements OnDestroy {
     });
   }
   changeMode(mode: WorkbenchMode) {
+    if (mode === 'library') {
+      void this.router.navigate(['/library'], { queryParams: this.route.snapshot.queryParams });
+      return;
+    }
     if (mode !== 'play') this.pendingPlay = false;
     if (mode === 'write') {
       this.openWriting();

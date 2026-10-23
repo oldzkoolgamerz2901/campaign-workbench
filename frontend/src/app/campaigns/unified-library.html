@@ -1,0 +1,254 @@
+<div class="library-desk">
+  <workbench-header
+    [campaign]="campaigns.selected()?.id ?? ''"
+    [campaigns]="campaigns.campaigns()"
+    mode="library"
+    (selectCampaign)="selectCampaign($event)"
+    (selectMode)="navigate($event)"
+  >
+    <button headerActions matButton (click)="management.set(!management())">Manage campaign</button>
+  </workbench-header>
+  @if (management()) {
+    <campaign-controls (close)="management.set(false); state.reload()" />
+  }
+  <div class="library-tools">
+    <library-filters searchLabel="Search Library" [ready]="!!state.campaign()" />
+    <button
+      matButton
+      [disabled]="!state.campaign() || state.refreshing()"
+      (click)="state.refresh()"
+    >
+      {{ state.refreshing() ? 'Refreshing…' : 'Refresh sources' }}
+    </button>
+    <button matButton [disabled]="state.loading()" (click)="state.reload()">
+      Reload catalogue
+    </button>
+  </div>
+  @if (state.error()) {
+    <p class="feedback" role="alert">{{ state.error() }}</p>
+  }
+  @if (state.notice()) {
+    <p class="feedback" role="status">{{ state.notice() }}</p>
+  }
+  <div class="library-columns">
+    <section class="catalogue" aria-label="Library catalogue" tabindex="0">
+      @if (state.loading()) {
+        <p role="status">Loading catalogue…</p>
+      }
+      @for (entry of state.entries(); track entry.key) {
+        <div class="catalogue-row" [class.selected]="entry.key === state.selectedEntry()?.key">
+          <artwork-image [source]="artwork(entry, 'THUMBNAIL')" />
+          <button
+            [attr.aria-current]="entry.key === state.selectedEntry()?.key ? 'true' : null"
+            (click)="state.open(entry)"
+          >
+            <strong>{{ entry.title }}</strong
+            ><span>{{ entry.classification?.metadata?.type ?? 'Unclassified' }}</span>
+            @if (entry.classification?.metadata?.summary) {
+              <span class="summary">{{ entry.classification?.metadata?.summary }}</span>
+            }
+            @if (entry.conflicts?.length) {
+              <span>Identity conflict</span>
+            }
+          </button>
+        </div>
+      } @empty {
+        @if (!state.loading()) {
+          <p>No documents match these criteria.</p>
+          <button matButton (click)="state.setFilters({ statuses: [] })">Include drafts</button>
+        }
+      }
+    </section>
+    <article class="document-reader" aria-label="Selected Library document" tabindex="0">
+      @if (state.selectedEntry(); as entry) {
+        <header>
+          <h2>{{ entry.title }}</h2>
+          <div class="document-actions">
+            <button
+              matButton
+              [disabled]="
+                !state.document() ||
+                state.stale() ||
+                (!entry.draft && !!entry.conflicts?.length) ||
+                state.editing()
+              "
+              (click)="edit()"
+            >
+              Edit in Write
+            </button>
+            @if (state.status()?.matches?.length) {
+              <span>{{
+                state.status()?.state === 'UPDATE_AVAILABLE'
+                  ? 'Prepared · Update available'
+                  : 'Already in session'
+              }}</span>
+              @for (match of state.status()?.matches; track match.item; let i = $index) {
+                <button matButton (click)="viewPrepared(match.item)">
+                  View in Prepare{{
+                    state.status()!.matches.length > 1 ? ' · copy ' + (i + 1) : ''
+                  }}
+                </button>
+              }
+            } @else if (!state.session()) {
+              <button
+                matButton
+                [disabled]="!state.document() || state.blocked()"
+                (click)="choosing.set(true); context.reload()"
+              >
+                Add to session…
+              </button>
+            } @else {
+              <button
+                matButton
+                [disabled]="
+                  state.blocked() ||
+                  state.loading() ||
+                  state.revision() === null ||
+                  !state.status() ||
+                  state.adding()
+                "
+                (click)="state.add()"
+              >
+                {{ state.adding() ? 'Adding…' : 'Add to session' }}
+              </button>
+            }
+            <button matButton (click)="choosing.set(!choosing()); context.reload()">
+              Choose another session
+            </button>
+          </div>
+          <p>Destination: {{ destinationTitle() }}</p>
+          @if (!entry.ready || entry.conflicts?.length) {
+            <p>
+              Preparation blocked. Inspect Details and correct the document in Write or resolve
+              conflicting Source identities.
+            </p>
+          }
+          @if (state.stale()) {
+            <p>
+              Selected document changed or could not be loaded. Reload before adding or editing.
+            </p>
+            <button matButton (click)="state.reopen()">Reload selected document</button>
+          }
+          @if (choosing()) {
+            <section class="session-chooser" aria-label="Choose destination session">
+              <h3>Choose or create a destination</h3>
+              @for (session of context.sessions(); track session.id) {
+                <button matButton (click)="context.select(session.id)">{{ session.title }}</button>
+              }
+              <button matButton (click)="context.select('')">Clear session selection</button>
+              <form (ngSubmit)="create()">
+                <label
+                  >New session title<input
+                    name="title"
+                    [(ngModel)]="title"
+                    maxlength="200"
+                    required /></label
+                ><button matButton type="submit" [disabled]="creating() || !title.trim()">
+                  Create session
+                </button>
+              </form>
+            </section>
+          }
+          <details>
+            <summary>Details</summary>
+            <p>
+              Card: {{ entry.card ?? 'No declared identity' }} ·
+              {{ entry.draft ? 'Saved Draft revision ' + entry.revision : 'Captured Source' }}
+            </p>
+            @for (source of entry.sources; track source.path) {
+              <p>
+                {{ source.path }} · {{ source.state }} · Capture:
+                {{ source.capture ?? 'Unavailable' }}
+              </p>
+              @if (entry.sources!.length > 1 && !entry.draft) {
+                <button matButton (click)="state.open(entry, source.path)">
+                  Inspect {{ source.path }}
+                </button>
+              }
+            }
+            @if (state.document()?.draft?.origin; as origin) {
+              <p>
+                Original Source evidence: {{ origin.path }} · Campaign: {{ origin.campaign }} ·
+                Capture: {{ origin.capture }} · Hash: {{ origin.hash }}
+              </p>
+              @for (issue of origin.issues; track $index) {
+                <p>{{ issue }}</p>
+              }
+            }
+            @if (state.document()?.draft?.recovery; as recovery) {
+              <p>
+                Recovered from workspace {{ recovery.workspace }} · Original Draft
+                {{ recovery.draft }} revision {{ recovery.revision }}
+              </p>
+            }
+            @for (issue of state.document()?.draftPreview?.pathIssues; track $index) {
+              <p>{{ issue }}</p>
+            }
+            @for (conflict of entry.conflicts; track $index) {
+              <p>{{ conflict }}</p>
+            }
+            @for (issue of entry.classification?.issues; track $index) {
+              <p>{{ issue.message }}</p>
+            }
+          </details>
+          <nav aria-label="Library reading mode">
+            <button
+              matButton
+              [attr.aria-pressed]="state.mode() === 'document'"
+              (click)="state.mode.set('document')"
+            >
+              Document</button
+            ><button
+              matButton
+              [attr.aria-pressed]="state.mode() === 'card'"
+              (click)="state.mode.set('card')"
+            >
+              Card
+            </button>
+          </nav>
+        </header>
+        @if (state.reading()) {
+          <p role="status">Opening document…</p>
+        }
+        @if (state.document(); as document) {
+          @if (state.mode() === 'card') {
+            <playing-card
+              [title]="document.entry?.title ?? ''"
+              [type]="document.entry?.classification?.metadata?.type ?? ''"
+              [summary]="document.entry?.classification?.metadata?.summary ?? ''"
+              [tags]="document.entry?.classification?.metadata?.tags ?? []"
+              [artwork]="artwork(document.entry!)"
+              (openDocument)="state.mode.set('document')"
+            />
+          } @else if (document.draftPreview; as preview) {
+            <draft-reader
+              [preview]="preview.preview"
+              [checkedLinks]="preview.checkedLinks ?? []"
+              (followTarget)="follow($event)"
+            />
+          } @else if (document.source; as source) {
+            <reader-controls [reader]="presentation" />
+            <div
+              [readerPresentation]="source.capture + ':' + source.path"
+              [sections]="source.sections"
+              [typed]="!!source.classification?.metadata"
+              #presentation="readerPresentation"
+              (click)="followSource($event)"
+            >
+              @for (section of source.sections; track section.id) {
+                <section [id]="section.id" [attr.data-section]="section.id" tabindex="-1">
+                  @for (block of section.blocks; track block.id) {
+                    <div [innerHTML]="block.html"></div>
+                  }
+                </section>
+              }
+            </div>
+          }
+        }
+      } @else {
+        <h2>Library</h2>
+        <p>Select a document to read, edit in Write, or add to your selected session.</p>
+      }
+    </article>
+  </div>
+</div>

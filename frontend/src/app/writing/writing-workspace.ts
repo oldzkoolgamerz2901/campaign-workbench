@@ -185,7 +185,9 @@ export class WritingWorkspace implements OnDestroy {
     });
   }
   changeMode(mode: WorkbenchMode) {
-    if (mode !== 'write') void this.prepare(mode);
+    if (mode === 'library') {
+      void this.router.navigate(['/library'], { queryParams: this.route.snapshot.queryParams });
+    } else if (mode !== 'write') void this.prepare(mode);
   }
   reviewExport() {
     this.exportOpen.set(true);

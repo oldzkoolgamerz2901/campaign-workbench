@@ -19,6 +19,18 @@ const protectWorkingSession: CanActivateFn = (route) => {
 };
 export const routes: Routes = [
   {
+    path: 'library',
+    loadComponent: () => import('./campaigns/unified-library').then((m) => m.UnifiedLibrary),
+    canActivate: [
+      () => {
+        const sessions = inject(SessionState),
+          writing = inject(WritingState);
+        return sessions.allowLeave().then((ok) => ok && writing.allowLeave());
+      },
+    ],
+    runGuardsAndResolvers: 'always',
+  },
+  {
     path: 'writing/recovery',
     loadComponent: () => import('./writing/recovery-workspace').then((m) => m.RecoveryWorkspace),
     canActivate: [

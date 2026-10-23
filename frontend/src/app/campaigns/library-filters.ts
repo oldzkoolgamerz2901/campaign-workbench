@@ -1,7 +1,31 @@
-import { Component, ElementRef, inject, input, OnDestroy, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  inject,
+  input,
+  OnDestroy,
+  viewChild,
+  InjectionToken,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { LibraryState, LibraryFilters } from './library-state';
+
+export type FilterState = Pick<
+  LibraryState,
+  | 'filters'
+  | 'query'
+  | 'selected'
+  | 'changeQuery'
+  | 'search'
+  | 'searchAll'
+  | 'playLibrary'
+  | 'setFilters'
+>;
+export const LIBRARY_FILTER_STATE = new InjectionToken<FilterState>('Library filters', {
+  providedIn: 'root',
+  factory: () => inject(LibraryState),
+});
 
 @Component({
   selector: 'library-filters',
@@ -27,7 +51,8 @@ import { LibraryState, LibraryFilters } from './library-state';
       </details>
       <form (ngSubmit)="search()">
         <label
-          >Search sources<input
+          >{{ searchLabel()
+          }}<input
             type="search"
             name="query"
             [ngModel]="query"
@@ -158,6 +183,7 @@ import { LibraryState, LibraryFilters } from './library-state';
       font-size: 0.75rem;
     }
     form > label {
+      min-width: 160px;
       flex: 1;
     }
     input[type='search'] {
@@ -205,8 +231,9 @@ import { LibraryState, LibraryFilters } from './library-state';
   `,
 })
 export class LibraryFiltersControl implements OnDestroy {
-  readonly state = inject(LibraryState);
+  readonly state = inject(LIBRARY_FILTER_STATE);
   readonly ready = input(true);
+  readonly searchLabel = input('Search sources');
   private tagEdit = '';
   get tagText() {
     const parsed = [
