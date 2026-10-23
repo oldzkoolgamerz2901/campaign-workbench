@@ -80,10 +80,11 @@ test('filters typed sources and explicitly assembles adventure selections with p
         data: { title: 'Explicit reef', objective: '' },
       })
     ).json();
-    await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=library`);
-    const shelf = page.getByRole('navigation', { name: 'Sources', exact: true });
-    await expect(shelf.locator('.documents li')).toHaveCount(8);
-    await expect(shelf.locator('.documents img[src="/card-placeholder.svg"]')).toHaveCount(8);
+    await request.post(`/api/campaigns/${campaign.id}/sources/refresh`);
+    await page.goto(`/library?campaign=${campaign.id}&session=${session.id}`);
+    const shelf = page.getByRole('region', { name: 'Library catalogue', exact: true });
+    await expect(shelf.locator('.catalogue-row')).toHaveCount(8);
+    await expect(shelf.locator('.catalogue-row img[src="/card-placeholder.svg"]')).toHaveCount(8);
     const refreshes: string[] = [];
     page.on('request', (r) => {
       if (r.url().endsWith('/sources/refresh')) refreshes.push(r.url());
@@ -95,10 +96,10 @@ test('filters typed sources and explicitly assembles adventure selections with p
         exact: true,
       });
       await category.click();
-      await expect(shelf.locator('.documents li')).toHaveCount(1);
+      await expect(shelf.locator('.catalogue-row')).toHaveCount(1);
       await expect(shelf).toContainText(`Reef ${type}`);
       await category.click();
-      await expect(shelf.locator('.documents li')).toHaveCount(8);
+      await expect(shelf.locator('.catalogue-row')).toHaveCount(8);
     }
     await page
       .locator('.type-chooser')
@@ -107,21 +108,26 @@ test('filters typed sources and explicitly assembles adventure selections with p
     await page.getByLabel('Tags (all required, comma separated)').pressSequentially('reef, combat');
     await page.getByLabel('draft', { exact: true }).check();
     await expect(shelf).toContainText('Draft adventure');
-    await page.getByLabel('Search sources', { exact: true }).fill('Second needle');
-    await expect(shelf.locator('.results button')).toHaveCount(1);
-    await shelf.locator('.results button').click();
-    await expect(page.locator('#source-reader div:focus')).toContainText('Second needle');
+    await page.getByLabel('Search Library', { exact: true }).fill('Second needle');
+    await expect(shelf.locator('.catalogue-row')).toHaveCount(1);
+    await shelf.getByRole('button', { name: /Reef scene/ }).click();
+    await expect(page.locator('.document-reader')).toContainText('Second needle');
     await page.getByRole('button', { name: 'Search all', exact: true }).click();
-    await expect(page.getByLabel('Search sources')).toHaveValue('Second needle');
+    await expect(page.getByLabel('Search Library')).toHaveValue('Second needle');
     await expect(page.getByLabel('Active library criteria')).toBeEmpty();
     await page.getByRole('button', { name: 'Clear search', exact: true }).click();
-    await expect(shelf.locator('.documents li')).toHaveCount(15);
-    const reader = page.getByRole('article', { name: 'Source reader', exact: true });
+    await expect(shelf.locator('.catalogue-row')).toHaveCount(14);
+    const reader = page.getByRole('article', { name: 'Selected Library document', exact: true });
     for (const purpose of ['guidance', 'tooling']) {
-      await shelf.getByRole('button', { name: `${purpose}.md`, exact: true }).click();
+      await shelf
+        .getByRole('button', {
+          name: new RegExp(purpose === 'guidance' ? 'Guidance reference' : 'Tooling reference'),
+          exact: true,
+        })
+        .click();
       await expect(
-        reader.getByRole('button', { name: 'Add document to session', exact: true }),
-      ).toHaveCount(0);
+        reader.getByRole('button', { name: 'Add to session', exact: true }),
+      ).toBeDisabled();
       const library = await (await request.get(`/api/campaigns/${campaign.id}/sources`)).json();
       const rejected = await request.post(
         `/api/campaigns/${campaign.id}/sessions/${session.id}/sources`,
@@ -139,60 +145,46 @@ test('filters typed sources and explicitly assembles adventure selections with p
     await page.getByText('Filters', { exact: true }).click();
     await page.getByLabel('Unclassified / invalid', { exact: true }).check();
     await page.getByLabel('Classification issues', { exact: true }).check();
-    await expect(shelf.locator('.documents li')).toHaveCount(4);
+    await expect(shelf.locator('.catalogue-row')).toHaveCount(3);
     await expect(shelf).toContainText('legacy.md');
-    await expect(shelf).toContainText('duplicate-a.md');
+    await expect(shelf).toContainText('Identity conflict');
     await page.getByRole('button', { name: 'Search all', exact: true }).click();
-    await shelf.getByRole('button', { name: 'adventure.md', exact: true }).click();
-    const related = reader.getByLabel('Related cards');
-    await related.getByRole('button', { name: 'Reef scene', exact: true }).first().click();
-    await expect(reader).toContainText('Nested treasure');
-    let saved = await (
-      await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}`)
-    ).json();
-    expect(saved.items).toHaveLength(0);
-    await shelf.getByRole('button', { name: 'adventure.md', exact: true }).click();
+    await shelf.getByRole('button', { name: /Reef adventure/ }).click();
     await reader.getByRole('button', { name: 'Choose adventure material', exact: true }).click();
-    let chooser = page.getByRole('region', { name: 'Adventure material chooser' });
-    await expect(chooser.locator('input[type=checkbox]')).toHaveCount(2);
-    await chooser.getByRole('button', { name: 'Add selected material', exact: true }).click();
-    await expect(chooser.getByText('Overview — completed', { exact: true })).toBeVisible();
-    await chooser.getByRole('button', { name: 'Close', exact: true }).click();
-    saved = await (
-      await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}`)
-    ).json();
-    expect(saved.items.map((i: any) => i.provenance.path)).toEqual(['adventure.md']);
-    await reader.getByRole('button', { name: 'Choose adventure material', exact: true }).click();
-    chooser = page.getByRole('region', { name: 'Adventure material chooser' });
+    const chooser = reader.getByRole('region', { name: 'Adventure material chooser' });
+    await expect(chooser.locator('input[type=checkbox]')).toHaveCount(3);
+    await expect(chooser.getByLabel(/missing.md/)).toBeDisabled();
     await chooser.getByLabel(/Reef scene/).check();
     let failScene = true;
-    await page.route(`**/sessions/${session.id}/sources`, async (route) => {
-      if (route.request().postDataJSON().path === 'scene.md' && failScene) {
-        failScene = false;
-        await route.fulfill({
-          status: 503,
-          contentType: 'application/problem+json',
-          body: JSON.stringify({ detail: 'Scene temporarily unavailable' }),
-        });
-      } else await route.continue();
+    await page.route(`**/sessions/${session.id}/library`, async (route) => {
+      if (route.request().method() === 'POST' && failScene) {
+        const payload = route.request().postDataJSON();
+        const cards = await (await request.get(`/api/campaigns/${campaign.id}/cards`)).json();
+        if (cards.entries.find((e: any) => e.key === payload.key)?.title === 'Reef scene') {
+          failScene = false;
+          await route.fulfill({
+            status: 503,
+            contentType: 'application/problem+json',
+            body: JSON.stringify({ detail: 'Scene temporarily unavailable' }),
+          });
+          return;
+        }
+      }
+      await route.continue();
     });
     await chooser.getByRole('button', { name: 'Add selected material', exact: true }).click();
-    await expect(chooser.getByText('Overview — completed', { exact: true })).toBeVisible();
+    await expect(chooser.getByText('Reef adventure — completed', { exact: true })).toBeVisible();
     await expect(chooser.getByText('Reef scene — failed', { exact: true })).toBeVisible();
     await chooser.getByRole('button', { name: 'Retry remaining material', exact: true }).click();
     await expect(chooser.getByText('Reef scene — completed', { exact: true })).toBeVisible();
-    saved = await (
+    const saved = await (
       await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}`)
     ).json();
-    expect(saved.items.map((i: any) => i.provenance.path)).toEqual([
-      'adventure.md',
-      'adventure.md',
-      'scene.md',
-    ]);
-    expect(saved.items[2].markdown).toContain('Nested treasure');
-    expect(saved.items[2].markdown).not.toContain('Outside subtree');
-    expect(saved.items[2].markdown).not.toContain('Second needle');
-    await chooser.getByRole('button', { name: 'Close', exact: true }).click();
+    expect(saved.items.map((i: any) => i.provenance.path)).toEqual(['adventure.md', 'scene.md']);
+    expect(saved.items[1].markdown).toContain('Outside subtree');
+    expect(saved.items[1].markdown).toContain('Nested treasure');
+    expect(saved.items[1].markdown).toContain('Second needle');
+    expect(saved.sceneLinks).toEqual([]);
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],

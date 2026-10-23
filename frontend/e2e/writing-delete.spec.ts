@@ -122,11 +122,11 @@ test('deletes working drafts without losing prepared copies or retained history'
     await page.reload();
     await expect(page.getByLabel('Writing library')).not.toContainText('Delete Captain');
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'Drafts', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Drafts for session' })).not.toContainText(
-      'Delete Captain',
-    );
+    await page.getByRole('button', { name: 'Add material', exact: true }).click();
+    const picker = page.getByRole('region', { name: 'Session Library', exact: true });
+    await picker.getByRole('button', { name: 'Search all', exact: true }).click();
+    await expect(picker).not.toContainText('Delete Captain');
+    await picker.getByRole('button', { name: 'Close session Library', exact: true }).click();
     await page
       .getByLabel('Session outline')
       .getByRole('button', { name: 'Delete Captain', exact: true })

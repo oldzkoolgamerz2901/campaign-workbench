@@ -108,17 +108,18 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'Drafts', exact: true }).click();
-    const chooser = page.getByRole('region', { name: 'Drafts for session' });
-    await illustrated('session-draft-chooser ul img');
-    await chooser.getByRole('button', { name: /Illustrated captain · npc · revision/ }).click();
-    await chooser.getByRole('button', { name: 'Card', exact: true }).click();
-    await illustrated('session-draft-chooser playing-card img');
+    await page.getByRole('button', { name: 'Add material', exact: true }).click();
+    const chooser = page.getByRole('region', { name: 'Session Library', exact: true });
+    await chooser.getByRole('button', { name: 'Search all', exact: true }).click();
+    await illustrated('preparation-library .reference-row img');
+    await chooser.getByRole('button', { name: 'Illustrated captain · npc', exact: true }).click();
+    await illustrated('preparation-library playing-card img');
     await chooser
-      .getByRole('button', { name: `Approve revision ${draft.revision} and add`, exact: true })
+      .getByRole('button', { name: 'Add selected card to session', exact: true })
       .click();
     await illustrated('session-contents img');
+    await chooser.getByRole('button', { name: 'View prepared card', exact: true }).click();
+    await page.getByRole('button', { name: 'Selected item', exact: true }).click();
     const notesSaved = page.waitForResponse(
       (r) =>
         r.request().method() === 'PUT' && r.url().endsWith(`/sessions/${session.id}`) && r.ok(),

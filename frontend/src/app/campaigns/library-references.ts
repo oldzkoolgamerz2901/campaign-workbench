@@ -1,4 +1,5 @@
-import { Component, effect, inject, input, output } from '@angular/core';
+import { Component, effect, inject, input, output, OnDestroy } from '@angular/core';
+import { LibraryAdventure } from './library-adventure';
 import { MatButtonModule } from '@angular/material/button';
 import { LibraryEntry, ArtworkControllerService } from '../../api/generated';
 import { PlayingCard } from '../shared/playing-card/playing-card';
@@ -9,12 +10,17 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
 
 @Component({
   selector: 'library-references',
-  imports: [MatButtonModule, LibraryFiltersControl, PlayingCard, ArtworkImage],
+  imports: [MatButtonModule, LibraryFiltersControl, PlayingCard, ArtworkImage, LibraryAdventure],
   providers: [{ provide: LIBRARY_FILTER_STATE, useExisting: REFERENCE_LIBRARY_STATE }],
   template: `
     <section aria-label="Library references">
-      <library-filters searchLabel="Search Library references" [ready]="!!campaign()" />
-      <button matButton (click)="state.reload()">Reload references</button>
+      <library-filters
+        searchLabel="Search Library references"
+        [ready]="!!campaign() && !state.assemblyRunning()"
+      />
+      <button matButton (click)="state.reload()" [disabled]="state.assemblyRunning()">
+        Reload references
+      </button>
       @if (state.error()) {
         <p role="alert">{{ state.error() }}</p>
       }
@@ -26,6 +32,7 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
               matButton
               [attr.aria-current]="state.selectedEntry()?.key === entry.key ? 'true' : null"
               (click)="state.open(entry)"
+              [disabled]="state.assemblyRunning()"
             >
               {{ entry.title }} · {{ entry.classification?.metadata?.type ?? 'Unclassified' }}
             </button>
@@ -35,6 +42,17 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
         }
       </div>
       @if (state.selectedEntry(); as entry) {
+        @if (state.stale()) {
+          <p>Selected document changed. Reload it before adding.</p>
+          <button matButton (click)="state.reopen()" [disabled]="state.assemblyRunning()">
+            Reload selected document
+          </button>
+        }
+        @if (!entry.ready || entry.conflicts?.length) {
+          <p>
+            Preparation blocked. Correct incomplete metadata in Write or resolve identity conflicts.
+          </p>
+        }
         <playing-card
           [title]="entry.title ?? ''"
           [type]="entry.classification?.metadata?.type ?? ''"
@@ -63,13 +81,19 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
             <button
               matButton
               [disabled]="
-                busy() || state.blocked() || state.adding() || state.loading() || !state.session()
+                busy() ||
+                state.blocked() ||
+                state.adding() ||
+                state.assemblyRunning() ||
+                state.loading() ||
+                !state.session()
               "
               (click)="add()"
             >
               Add selected card to session
             </button>
           }
+          <library-adventure [state]="state" [busy]="busy()" (added)="added.emit($event)" />
           @if (state.notice()) {
             <p role="status">{{ state.notice() }}</p>
           }
@@ -105,7 +129,7 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
     }
   `,
 })
-export class LibraryReferences {
+export class LibraryReferences implements OnDestroy {
   readonly state = inject(REFERENCE_LIBRARY_STATE);
   private readonly api = inject(ArtworkControllerService);
   readonly campaign = input.required<string>();
@@ -114,10 +138,21 @@ export class LibraryReferences {
   readonly busy = input(false);
   readonly openDocument = output<LibraryEntry>();
   readonly prepared = output<string>();
-  readonly added = output<void>();
+  readonly added = output<{ campaign: string; session: string }>();
+  private active = true;
   async add() {
+    const destination = { campaign: this.campaign(), session: this.session() };
     await this.state.add();
-    if (this.state.notice() && !this.state.error()) this.added.emit();
+    if (
+      this.active &&
+      destination.campaign === this.campaign() &&
+      destination.session === this.session()
+    )
+      this.added.emit(destination);
+  }
+  ngOnDestroy() {
+    this.active = false;
+    this.state.detach();
   }
   constructor() {
     effect(() => {

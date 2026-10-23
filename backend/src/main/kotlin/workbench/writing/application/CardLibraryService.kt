@@ -140,8 +140,36 @@ class CardLibraryService(
                 drafts.list(campaign).map { AuthoredTarget(it.id, it.revision, it.path, it.body) }, d.id))
         }
         LibraryDocument(item.entry, item.draft?.body ?: selected!!.raw,
-            selected?.document, preview, item.draft?.let(::draftData))
+            selected?.document, preview, item.draft?.let(::draftData), adventureChoices(view, item))
     } }
+
+    /** Resolve locators through unified identities, using the effective saved body at every alias. */
+    private fun adventureChoices(snapshot: Snapshot, origin: View): List<AdventureChoice> {
+        if (origin.entry.classification.metadata?.type != "adventure") return emptyList()
+        val paths = snapshot.views.flatMap { target ->
+            (target.sources.map { it.path } + listOfNotNull(target.draft?.path)).distinct().map { it to target }
+        }.groupBy({ it.first }, { it.second })
+        val bodies = paths.mapNotNull { (path, targets) ->
+            targets.singleOrNull()?.let { target -> path to (target.draft?.body ?: target.sources.first { it.path == path }.raw) }
+        }.toMap()
+        val path = origin.draft?.path ?: origin.sources.singleOrNull()?.path ?: return emptyList()
+        val body = origin.draft?.body ?: authoring.decode(origin.sources.single().raw).body
+        return authoring.links(path, body, bodies, emptyList(), origin.draft?.id ?: UUID(0, 0))
+            .filter { it.kind !in setOf("external", "local", "self") && it.path != path }
+            .mapNotNull { link ->
+                val targets = paths[link.path].orEmpty()
+                val target = targets.singleOrNull()?.entry
+                if (target != null && target.classification.metadata?.type != "scene" && target.ready) null
+                else AdventureChoice(link.destination, target, when {
+                    targets.size > 1 -> "Several Library cards claim this path. Resolve the conflict."
+                    target == null -> "Linked material is unavailable or unsupported."
+                    target.conflicts.isNotEmpty() -> "Linked card has an identity conflict."
+                    target.classification.metadata?.type != "scene" || !target.ready -> "Linked card is not a valid preparable Scene."
+                    link.warning != null -> link.warning
+                    else -> null
+                })
+            }.distinctBy { it.entry?.key ?: it.destination }
+    }
 
     override fun editSource(campaign: UUID, request: EditLibrarySource): Either<Failure, DraftData> = tx.run { either {
         val view = snapshot(campaign).bind()

@@ -103,35 +103,30 @@ ${'code-token'.repeat(160)}
     const whole = session.items.at(-1);
     await add('target.md', target.sections.find((s: any) => s.heading === 'Background').id);
     const sectionOnly = session.items.at(-1);
-    await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=library`);
-    const shelf = page.getByRole('navigation', { name: 'Sources', exact: true });
-    const live = page.getByRole('article', { name: 'Source reader', exact: true });
-    await shelf.getByRole('button', { name: 'long.md', exact: true }).click();
+    // Live reading uses dedicated unified Library; historical sections remain prepared fixtures.
+    await page.goto(`/library?campaign=${campaign.id}&session=${session.id}`);
+    const live = page.getByRole('article', { name: 'Selected Library document', exact: true });
+    await page
+      .locator('.catalogue')
+      .getByRole('button', { name: /Long reader/ })
+      .click();
     await expect(live.getByText('Secret opening.', { exact: true })).toBeHidden();
-    await expect(
-      live.getByText('Unfamiliar commentary stays visible.', { exact: true }),
-    ).toBeVisible();
     await live.getByRole('button', { name: 'Quick reference', exact: true }).click();
     await expect(live.locator('h2:focus')).toHaveText('Quick reference');
     await live.getByText('Document outline', { exact: true }).click();
-    const outline = live.getByRole('navigation', { name: 'Document outline', exact: true });
-    await outline
+    await live
       .getByRole('button', { name: 'Focus section: Mechanics', exact: true })
       .press('Enter');
     await expect(
       live.getByText('Roll 2d6 and retain every exception.', { exact: true }),
     ).toBeVisible();
-    await expect(live.getByText('Visible quick facts.', { exact: true })).toBeHidden();
     await live.getByRole('button', { name: 'Show full document', exact: true }).click();
-    await page.getByLabel('Search sources', { exact: true }).fill('Second hidden needle');
-    await shelf.locator('.results button').click();
-    await expect(live.locator('div:focus')).toContainText('Second hidden needle');
-    await expect(live.getByText('Secret opening.', { exact: true })).toBeVisible();
     await live.getByRole('button', { name: 'Expand all', exact: true }).click();
     await expect(live.getByText('Authored design commentary.', { exact: true })).toBeVisible();
     await expect(live.locator('img')).toHaveCount(0);
     expect(await page.evaluate(() => 'readerInjected' in window)).toBe(false);
     expect(remote).toEqual([]);
+    await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
     const setPanel = async (name: string, show: boolean) => {
       if (name === 'notes') {
         const button = page.getByRole('button', { name: /^(Hide|Show) notes$/ });
@@ -201,36 +196,20 @@ ${'code-token'.repeat(160)}
     await page.getByRole('button', { name: 'View ▾', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Restore panels', exact: true }).click();
     await expect(contents).toBeVisible();
-    // Focus the live reader as well: hiding its browsing shelf must keep its text mounted.
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Focus source', exact: true }).click();
-    await expect(shelf).toBeHidden();
-    await expect(live).toBeVisible();
-    await expect(live.getByText('Visible quick facts.', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'View ▾', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Restore panels', exact: true }).click();
-    await contents.getByRole('button', { name: 'Long reader', exact: true }).click();
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],
     ]) {
       await page.setViewportSize({ width, height });
-      for (const showLibrary of [false, true])
-        for (const showContents of [false, true])
-          for (const showNotes of [false, true]) {
-            for (const [name, show] of [
-              ['library', showLibrary],
-              ['session contents', showContents],
-              ['notes', showNotes],
-            ] as const) {
-              await setPanel(name, show);
-            }
-            await expect(frozen).toBeVisible();
-            expect(
-              await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-            ).toBe(true);
-          }
+      for (const showContents of [false, true])
+        for (const showNotes of [false, true]) {
+          await setPanel('session contents', showContents);
+          await setPanel('notes', showNotes);
+          await expect(frozen).toBeVisible();
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          ).toBe(true);
+        }
       await page.screenshot({ path: testInfo.outputPath(`prepare-reader-${width}.png`) });
     }
     // Refresh, rename, and deletion affect the live library while frozen text/metadata stay exact.

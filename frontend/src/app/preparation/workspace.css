@@ -381,23 +381,9 @@ button:disabled {
   margin-inline: auto;
 }
 
-session-draft-chooser {
-  grid-column: 2;
-  grid-row: var(--reader-row);
-  min-height: 0;
-  overflow: auto;
-}
 .provenance pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-nav[aria-label='Available material'] {
-  display: flex;
-  flex-shrink: 0;
-}
-nav[aria-label='Available material'] button {
-  font-size: 0.72rem;
 }
 
 /* Full-size cards determine the table height; preserve a usable reader on short screens. */
@@ -460,28 +446,6 @@ nav[aria-label='Available material'] button {
   }
 }
 
-.material-tabs {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  background: #20372a;
-  display: flex;
-  align-items: center;
-  padding-inline: 0.5rem;
-  border: 1px solid var(--line);
-  border-bottom: 0;
-}
-.working-area campaign-library {
-  display: contents;
-}
-.working-area ::ng-deep .library-toolbar {
-  grid-row: 2;
-}
-.working-area ::ng-deep .source-shelf {
-  grid-row: 3;
-}
-.working-area.library-hidden {
-  grid-template-rows: minmax(0, 1fr);
-}
 .document-tabs {
   display: flex;
   gap: 0.4rem;
@@ -493,10 +457,6 @@ nav[aria-label='Available material'] button {
   font: inherit;
 }
 
-.working-area.drafts-open {
-  --reader-row: 2;
-  grid-template-rows: auto minmax(0, 1fr);
-}
 .campaign-panel,
 .session-picker {
   top: 108px;

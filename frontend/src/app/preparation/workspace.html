@@ -46,7 +46,10 @@
         matButton
         aria-label="Sessions / New session"
         [disabled]="!campaignReady() || busy()"
-        (click)="sessionsOpen.set(!sessionsOpen()); managementOpen.set(false)"
+        (click)="
+          sessionsOpen() ? cancelSessionChooser() : sessionsOpen.set(true);
+          managementOpen.set(false)
+        "
         [attr.aria-expanded]="sessionsOpen()"
       >
         {{ state.current()?.title ?? 'Choose or create a session' }} ▾
@@ -78,22 +81,11 @@
     @if (!reading()) {
       <button
         matButton="filled"
-        [matMenuTriggerFor]="addMenu"
-        [disabled]="!campaignReady() || busy()"
+        (click)="openPrepareLibrary()"
+        [disabled]="!campaignReady() || busy() || state.loading()"
       >
-        Add material ▾
+        Add material
       </button>
-      <mat-menu #addMenu="matMenu">
-        <button mat-menu-item (click)="browse()">Sources</button>
-        <button
-          mat-menu-item
-          (click)="
-            material.set('drafts'); libraryOpen.set(true); navigate(undefined, 'library', 'prepare')
-          "
-        >
-          Drafts
-        </button>
-      </mat-menu>
     }
     <button
       matButton
@@ -111,11 +103,7 @@
       <button mat-menu-item (click)="contentsOpen.set(!contentsOpen())">
         {{ contentsOpen() ? 'Hide' : 'Show' }} session contents
       </button>
-      @if (!reading()) {
-        <button mat-menu-item (click)="libraryOpen.set(!libraryOpen())">
-          {{ libraryOpen() ? 'Hide' : 'Show' }} library
-        </button>
-      }
+
       <button mat-menu-item (click)="sessionNotes()">Session notes</button>
     </mat-menu>
   </div>
@@ -139,7 +127,7 @@
   >
     <header>
       <h3>{{ library.selected()?.name ?? 'Select a campaign' }} · Sessions</h3>
-      <button matButton (click)="sessionsOpen.set(false)" aria-label="Close session chooser">
+      <button matButton (click)="cancelSessionChooser()" aria-label="Close session chooser">
         Close
       </button>
     </header>
@@ -267,61 +255,20 @@
       [session]="destination.session"
       [title]="destination.title"
       [busy]="state.loading() || busy()"
-      (close)="unifiedLibraryOpen.set(false)"
+      (close)="closePrepareLibrary()"
       (openDocument)="readLibraryReference($event.key)"
       (prepared)="openLibraryPrepared($event)"
-      (added)="refreshPreparedLibrary()"
+      (added)="refreshPreparedLibrary($event)"
     />
   }
-  @if (adventure(); as document) {
-    <adventure-assembly [document]="document" (close)="adventure.set(null)" />
-  }
   <div
-    class="working-area"
     [class.reading-table]="reading()"
     [class.has-tabletop]="reading() && hasTabletop()"
-    [class.drafts-open]="libraryVisible() && material() === 'drafts'"
-    [class.library-hidden]="!libraryVisible() || material() === 'drafts'"
+    class="working-area library-hidden"
     [class.contents-hidden]="!contentsOpen() || !state.current()"
     [class.notes-hidden]="!notesOpen() || !state.current()"
     [hidden]="!campaignReady() || !library.selected()"
   >
-    @if (
-      libraryVisible() && material() === 'drafts' && showingLibrary() && library.selected();
-      as campaign
-    ) {
-      <session-draft-chooser
-        [campaign]="campaign.id"
-        [destination]="state.current()?.title ?? ''"
-        [busy]="busy()"
-        (approve)="approveDraft($event)"
-      />
-    }
-    @if (libraryVisible()) {
-      <nav class="material-tabs" aria-label="Available material">
-        <button matButton [attr.aria-pressed]="material() === 'sources'" (click)="browse()">
-          Sources
-        </button>
-        <button
-          matButton
-          [attr.aria-pressed]="material() === 'drafts'"
-          (click)="material.set('drafts'); navigate(undefined, 'library', 'prepare')"
-        >
-          Drafts
-        </button>
-      </nav>
-    }
-    <campaign-library
-      [hidden]="reading() || material() !== 'sources' || (!libraryVisible() && !showingLibrary())"
-      [shelfVisible]="libraryVisible()"
-      [ready]="campaignReady() && !busy()"
-      [canAdd]="!!state.current() && state.current()?.campaign === library.selected()?.id"
-      [readerVisible]="showingLibrary()"
-      (assemble)="adventure.set($event)"
-      (addSource)="add($event)"
-      (openSource)="browse()"
-      (requestSession)="sessionsOpen.set(true)"
-    />
     @if (reading() && state.current(); as session) {
       @if (state.play.current(); as workspace) {
         @if (hasTabletop() || workspace.activeSceneItemId) {
@@ -383,15 +330,9 @@
       (moveItem)="state.move($event.id, $event.delta)"
       (removeItem)="state.removeWithConfirmation($event)"
       (addLibrary)="openPrepareLibrary()"
-      (addSource)="browse()"
       (sessionNotes)="sessionNotes()"
     />
-    <article
-      class="source-page"
-      [hidden]="showingLibrary()"
-      aria-label="Prepared source"
-      tabindex="0"
-    >
+    <article class="source-page" aria-label="Prepared source" tabindex="0">
       @if (item(); as prepared) {
         @if (!reading()) {
           @if (inspectedScene()) {
@@ -520,10 +461,10 @@
       } @else {
         <h3>Your session</h3>
         <p class="muted">
-          Choose prepared material from Session contents, or browse the source library.
+          Choose prepared cards from Session contents, or add complete cards from Library.
         </p>
         @if (!reading()) {
-          <button matButton (click)="browse()">Browse source library</button>
+          <button matButton (click)="openPrepareLibrary()">Add material from Library</button>
         }
       }
     </article>

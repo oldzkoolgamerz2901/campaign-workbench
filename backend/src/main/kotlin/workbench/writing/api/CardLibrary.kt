@@ -16,8 +16,10 @@ data class LibraryEntry(
     val conflicts: List<String>, val ready: Boolean
 )
 data class CardLibrary(val campaign: UUID, val capture: UUID?, val entries: List<LibraryEntry>)
+data class AdventureChoice(val destination: String, val entry: LibraryEntry?, val problem: String?)
 data class LibraryDocument(
-    val entry: LibraryEntry, val markdown: String, val source: SourceDocument?, val draftPreview: DraftPreview?, val draft: DraftData?
+    val entry: LibraryEntry, val markdown: String, val source: SourceDocument?, val draftPreview: DraftPreview?, val draft: DraftData?,
+    val adventureChoices: List<AdventureChoice> = emptyList()
 )
 interface CardLibraries {
     fun list(campaign: UUID, query: String = "", filter: SourceFilter = SourceFilter()): Either<Failure, CardLibrary>

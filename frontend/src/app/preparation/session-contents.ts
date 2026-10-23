@@ -34,7 +34,6 @@ export class SessionContents {
   readonly selectItem = output<string>();
   readonly moveItem = output<{ id: string; delta: number }>();
   readonly removeItem = output<string>();
-  readonly addSource = output<void>();
   readonly addLibrary = output<void>();
   readonly group = signal('');
   readonly types = [

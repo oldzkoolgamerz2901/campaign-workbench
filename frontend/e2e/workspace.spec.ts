@@ -58,25 +58,22 @@ test('assembles and navigates 50 saved items without losing library position or 
     const outline = page.getByLabel('Session outline'),
       rows = outline.locator('ol li');
     await expect(rows).toHaveCount(48);
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
-    await page.getByRole('button', { name: 'material.md', exact: true }).click();
-    const reader = page.getByRole('article', { name: 'Source reader', exact: true });
-    const before = await reader.evaluate((el) => el.scrollTop);
-    await reader.getByRole('button', { name: 'Add document to session', exact: true }).click();
-    await expect(rows).toHaveCount(49);
-    await expect(page.getByLabel('Session save status')).toHaveText('Saved');
-    await expect(reader).toBeVisible();
-    expect(new URL(page.url()).searchParams.get('view')).toBe('library');
-    expect(Math.abs((await reader.evaluate((el) => el.scrollTop)) - before)).toBeLessThan(2);
-    const addLast = reader.getByRole('button', { name: 'Add section: Entry 50', exact: true });
-    await addLast.scrollIntoViewIfNeeded();
-    const sectionPosition = await reader.evaluate((el) => el.scrollTop);
-    await addLast.click();
+    // Preserve coverage of a large historical session without recreating retired UI.
+    const refreshed = await (await request.get(`/api/campaigns/${campaign.id}/sources`)).json();
+    for (const section of [null, doc.sections.find((s: any) => s.heading === 'Entry 50').id]) {
+      session = await (
+        await request.post(`/api/campaigns/${campaign.id}/sessions/${session.id}/sources`, {
+          data: {
+            revision: session.revision,
+            capture: refreshed.capture,
+            path: 'material.md',
+            section,
+          },
+        })
+      ).json();
+    }
+    await page.reload();
     await expect(rows).toHaveCount(50);
-    await expect(reader).toBeVisible();
-    expect(Math.abs((await reader.evaluate((el) => el.scrollTop)) - sectionPosition)).toBeLessThan(
-      2,
-    );
     const find = outline.getByRole('searchbox', { name: 'Find in session', exact: true });
     await find.fill('Entry 50');
     await expect(rows).toHaveCount(1);

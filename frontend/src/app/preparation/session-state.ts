@@ -110,6 +110,7 @@ export class SessionState {
   async open(campaign: string, id: string, reload = false): Promise<boolean> {
     this.bindCampaign(campaign);
     const sameSession = this.current()?.id === id && this.current()?.campaign === campaign;
+    const previousSelection = sameSession ? this.selectedItem() : null;
     if (sameSession && !reload && !this.invalidatedMembership.has(`${campaign}:${id}`)) return true;
     if (!sameSession) this.play.clear();
     this.saving = undefined;
@@ -133,7 +134,11 @@ export class SessionState {
       if (epoch !== this.epoch) return false;
       this.invalidatedMembership.delete(`${campaign}:${id}`);
       this.current.set(s);
-      this.selectedItem.set(s.items[0]?.id ?? null);
+      this.selectedItem.set(
+        previousSelection && s.items.some((i) => i.id === previousSelection)
+          ? previousSelection
+          : (s.items[0]?.id ?? null),
+      );
       await this.renderSources();
       if (epoch !== this.epoch) return false;
       this.queuePreview();

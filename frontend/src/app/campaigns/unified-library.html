@@ -120,6 +120,7 @@
             </button>
           </div>
           <p>Destination: {{ destinationTitle() }}</p>
+          <library-adventure [state]="state" />
           @if (!entry.ready || entry.conflicts?.length) {
             <p>
               Preparation blocked. Inspect Details and correct the document in Write or resolve

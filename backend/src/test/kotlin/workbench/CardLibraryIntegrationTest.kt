@@ -44,6 +44,30 @@ class CardLibraryIntegrationTest : StringSpec({
     beforeSpec { database.start(); context = start() }
     afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively() }
 
+    "Adventure choices use effective unified identities and whole Scene targets" {
+        val (campaign, path) = fresh("adventure-choices")
+        val sceneId = UUID.randomUUID()
+        Files.writeString(path.resolve("scene.md"), raw(sceneId, "Source Scene", "# Scene\n## Encounter\nSource body").replace("type: npc", "type: scene"))
+        Files.writeString(path.resolve("adventure.md"), raw(UUID.randomUUID(), "Adventure", "# Adventure\n[Scene](scene.md#encounter)\n[Again](scene.md#encounter)\n[Missing](missing.md)").replace("type: npc", "type: adventure"))
+        val version = capture(campaign)
+        val scene = library().editSource(campaign, EditLibrarySource(version, "scene.md")).getOrNull()!!
+        writing().save(campaign, scene.id, SaveDraft(scene.revision, scene.fields.copy(title = "Effective Scene", body = "# Scene\n## Encounter\nEffective body"))).isRight() shouldBe true
+        val adventure = library().list(campaign).getOrNull()!!.entries.single { it.title == "Adventure" }
+        val choices = library().document(campaign, adventure.key, version, null).getOrNull()!!.adventureChoices
+        choices.size shouldBe 2
+        choices[0].entry!!.draft shouldBe scene.id
+        choices[0].entry!!.title shouldBe "Effective Scene"
+        choices[0].problem shouldBe null
+        (choices[1].problem != null) shouldBe true
+        // Associated Adventure Draft takes precedence over its Source links too.
+        val draft = library().editSource(campaign, EditLibrarySource(version, "adventure.md")).getOrNull()!!
+        val saved = writing().save(campaign, draft.id, SaveDraft(draft.revision, draft.fields.copy(body = "# Adventure\n[Bad heading](scene.md#removed)"))).getOrNull()!!
+        val updated = library().list(campaign).getOrNull()!!.entries.single { it.draft == draft.id }
+        val changed = library().document(campaign, updated.key, version, saved.revision, draft = draft.id).getOrNull()!!.adventureChoices
+        changed.size shouldBe 1
+        (changed.single().problem != null) shouldBe true
+    }
+
     "associated editing preserves identity, Draft precedence, frozen reads and explicit refresh" {
         val (campaign, path) = fresh("precedence")
         val card = UUID.randomUUID()

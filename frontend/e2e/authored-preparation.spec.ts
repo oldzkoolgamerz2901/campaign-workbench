@@ -66,17 +66,16 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
       session = await response.json();
     }
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'Drafts', exact: true }).click();
-    const chooser = page.getByRole('region', { name: 'Drafts for session' });
-    await chooser.getByRole('button', { name: 'npc', exact: true }).click();
-    await expect(chooser.locator('ul img[src="/card-placeholder.svg"]')).toHaveCount(1);
-    await chooser.getByRole('button', { name: /Captain Mira · npc · revision/ }).click();
-    await expect(chooser.locator('draft-reader')).toContainText('Protect the crew.');
-    await chooser.getByRole('button', { name: 'Card', exact: true }).click();
+    await page.getByRole('button', { name: 'Add material', exact: true }).click();
+    const chooser = page.getByRole('region', { name: 'Session Library', exact: true });
+    await chooser.getByRole('button', { name: 'Search all', exact: true }).click();
+    await chooser.getByRole('button', { name: 'Captain Mira · npc', exact: true }).click();
     await expect(chooser.getByLabel('Playing card preview')).toContainText('A watchful captain.');
-    await chooser.getByRole('button', { name: 'Approve revision 1 and add', exact: true }).click();
+    await chooser
+      .getByRole('button', { name: 'Add selected card to session', exact: true })
+      .click();
     await expect(page.getByLabel('Session outline')).toContainText('Captain Mira');
+    await chooser.getByRole('button', { name: 'View prepared card', exact: true }).click();
     await expect(page.locator('.source-page')).toContainText('Protect the crew.');
     const saving = page.waitForResponse(
       (response) =>

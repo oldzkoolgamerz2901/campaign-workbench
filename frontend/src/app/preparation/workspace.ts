@@ -13,17 +13,12 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription } from 'rxjs';
-import { CampaignLibrary } from '../campaigns/library';
 import { LibraryState } from '../campaigns/library-state';
 import { SessionState } from './session-state';
 import { CampaignControls } from '../campaigns/campaign-controls';
 import { SessionContents } from './session-contents';
-import { SourceDocument } from '../../api/generated';
-import { AdventureAssembly } from './adventure-assembly';
 import { revealReaderTarget } from '../shared/reader/reader-presentation';
-import { DraftChooser } from './draft-chooser';
 import { PlayingCard } from '../shared/playing-card/playing-card';
-import { DraftData } from '../../api/generated';
 import { CardTable } from './card-table';
 import { FocusedTabletop } from '../playthroughs/focused-tabletop';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
@@ -37,14 +32,11 @@ import { MarkdownView } from './markdown-view';
     FormsModule,
     MatButtonModule,
     MatMenuModule,
-    CampaignLibrary,
     MarkdownView,
     ScenePlanning,
     PreparationLibrary,
     CampaignControls,
     SessionContents,
-    AdventureAssembly,
-    DraftChooser,
     PlayingCard,
     CardTable,
     FocusedTabletop,
@@ -105,16 +97,27 @@ export class Workspace implements OnDestroy {
   );
   private pendingPlay = false;
   readonly sessionDetailsOpen = signal(false);
-  readonly material = signal<'sources' | 'drafts'>('sources');
   readonly cardOpen = signal(false);
   readonly planning = signal(false);
   readonly unifiedLibraryOpen = signal(false);
   readonly libraryDestination = signal<{ campaign: string; session: string; title: string } | null>(
     null,
   );
+  private pendingLibraryCampaign: string | null = null;
+  private readonly prepareLibrary = viewChild(PreparationLibrary);
+  closePrepareLibrary() {
+    this.prepareLibrary()?.detach();
+    this.unifiedLibraryOpen.set(false);
+    this.libraryDestination.set(null);
+  }
   openPrepareLibrary() {
+    if (!this.campaignReady() || this.busy() || this.state.loading()) return;
     const session = this.state.current();
-    if (!session) return;
+    if (!session) {
+      this.pendingLibraryCampaign = this.library.selected()?.id ?? null;
+      this.sessionsOpen.set(true);
+      return;
+    }
     this.libraryDestination.set({
       campaign: session.campaign,
       session: session.id,
@@ -122,19 +125,35 @@ export class Workspace implements OnDestroy {
     });
     this.unifiedLibraryOpen.set(true);
   }
-  async refreshPreparedLibrary() {
-    const current = this.state.current();
-    if (!current || !(await this.state.flush())) return;
-    const selected = this.state.selectedItem();
-    if (await this.state.open(current.campaign, current.id, true)) {
-      if (selected && this.state.current()?.items.some((i) => i.id === selected))
-        this.state.selectItem(selected);
-    }
+  async refreshPreparedLibrary(destination: { campaign: string; session: string }) {
+    const epoch = this.routeEpoch,
+      pin = this.libraryDestination();
+    const active = () =>
+      epoch === this.routeEpoch &&
+      this.unifiedLibraryOpen() &&
+      this.libraryDestination() === pin &&
+      pin?.campaign === destination.campaign &&
+      pin?.session === destination.session &&
+      this.state.current()?.campaign === destination.campaign &&
+      this.state.current()?.id === destination.session;
+    if (!active() || !(await this.state.flush()) || !active()) return false;
+    const selected = this.state.selectedItem(),
+      intent = this.readerIntent;
+    if (!(await this.state.open(destination.campaign, destination.session, true)) || !active())
+      return false;
+    if (
+      intent === this.readerIntent &&
+      selected &&
+      this.state.current()?.items.some((i) => i.id === selected)
+    )
+      this.state.selectItem(selected);
+    return true;
   }
   async openLibraryPrepared(id: string) {
-    if (this.state.loading()) return;
-    await this.refreshPreparedLibrary();
-    this.unifiedLibraryOpen.set(false);
+    const destination = this.libraryDestination();
+    if (!destination || this.state.loading()) return;
+    if (!(await this.refreshPreparedLibrary(destination))) return;
+    this.closePrepareLibrary();
     this.selectPrepared(id);
   }
   readLibraryReference(key: string | undefined) {
@@ -180,7 +199,6 @@ export class Workspace implements OnDestroy {
   readonly state = inject(SessionState);
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  readonly adventure = signal<SourceDocument | null>(null);
   readonly busy = computed(
     () =>
       this.state.transferBusy() ||
@@ -189,15 +207,12 @@ export class Workspace implements OnDestroy {
       this.state.queueRunning(),
   );
   readonly reading = signal(false);
-  readonly showingLibrary = signal(true);
   readonly campaignReady = signal(false);
   readonly sessionsOpen = signal(false);
   readonly managementOpen = signal(false);
-  readonly libraryOpen = signal(true);
   readonly contentsOpen = signal(true);
   readonly notesOpen = signal(true);
   readonly notesScope = signal<'session' | 'item'>('session');
-  readonly libraryVisible = computed(() => this.libraryOpen() && !this.reading());
   readonly item = computed(
     () => this.state.current()?.items.find((i) => i.id === this.state.selectedItem()) ?? null,
   );
@@ -240,20 +255,27 @@ export class Workspace implements OnDestroy {
       const epoch = ++this.routeEpoch;
       const campaign = params.get('campaign') ?? this.library.selected()?.id;
       const id = params.get('session');
+      const destination = this.libraryDestination();
+      if (
+        destination &&
+        (destination.campaign !== campaign ||
+          destination.session !== id ||
+          ['read', 'play'].includes(params.get('mode') ?? ''))
+      )
+        this.closePrepareLibrary();
+      if (this.pendingLibraryCampaign && this.pendingLibraryCampaign !== campaign)
+        this.pendingLibraryCampaign = null;
       const applyView = () => {
-        const destination = this.libraryDestination();
-        if (destination && (destination.campaign !== campaign || destination.session !== id)) {
-          this.unifiedLibraryOpen.set(false);
-          this.libraryDestination.set(null);
-        }
-        if (!this.campaignReady()) this.libraryOpen.set(!id || params.get('view') === 'library');
         const item = params.get('item');
         if (item && this.state.current()?.items.some((i) => i.id === item))
           this.state.selectItem(item);
         this.reading.set(['read', 'play'].includes(params.get('mode') ?? '') && !!id);
         if (!id && ['read', 'play'].includes(params.get('mode') ?? '')) this.pendingPlay = true;
         if (this.reading()) void this.openPlayContext();
-        this.showingLibrary.set(params.get('view') === 'library' || !id);
+        if (id && this.campaignReady() && this.pendingLibraryCampaign === campaign) {
+          this.pendingLibraryCampaign = null;
+          this.openPrepareLibrary();
+        }
       };
       // A view change keeps the working session and all pending edits in place.
       if (
@@ -291,11 +313,16 @@ export class Workspace implements OnDestroy {
         this.notesScope.set(this.state.current()?.items.length ? 'item' : 'session');
         this.sessionsOpen.set(this.pendingPlay && !id);
         this.campaignReady.set(!campaign || campaign === this.library.selected()?.id);
+        if (id && this.pendingLibraryCampaign === campaign) {
+          this.pendingLibraryCampaign = null;
+          this.openPrepareLibrary();
+        }
       })();
     });
   }
   ngOnDestroy() {
     this.routeEpoch++;
+    this.closePrepareLibrary();
     this.subscription?.unsubscribe();
     this.library.beforeSelect = async () => true;
   }
@@ -307,7 +334,6 @@ export class Workspace implements OnDestroy {
   }
   navigate(session?: string | null, view = 'prepare', mode = this.reading() ? 'play' : 'prepare') {
     if (this.busy()) return Promise.resolve(false);
-    this.adventure.set(null);
     return this.router.navigate([], {
       queryParams: {
         campaign: this.library.selected()?.id,
@@ -396,37 +422,7 @@ export class Workspace implements OnDestroy {
       this.pendingPlay = false;
       this.title = '';
       this.objective = '';
-      this.libraryOpen.set(true);
       await this.navigate(s.id, 'library', 'prepare');
-    }
-  }
-  async add(selection: { path: string; section: string | null }) {
-    const lib = this.library.library();
-    if (!this.state.current()) {
-      this.state.error.set('Create or open a session before adding source material.');
-      return;
-    }
-    if (
-      !this.campaignReady() ||
-      this.busy() ||
-      !lib?.capture ||
-      lib.campaign !== this.state.current()?.campaign
-    )
-      return;
-    const added = await this.state.add(lib.capture, selection.path, selection.section);
-    if (added) {
-      this.notesScope.set('item');
-      this.contentsOpen.set(true);
-    }
-  }
-  async approveDraft(draft: DraftData) {
-    if (!this.campaignReady() || this.busy() || draft.campaign !== this.state.current()?.campaign)
-      return;
-    if (await this.state.addDraft(draft.id, draft.revision)) {
-      this.notesScope.set('item');
-      this.contentsOpen.set(true);
-      this.cardOpen.set(false);
-      await this.navigate(undefined, 'prepare');
     }
   }
   async openSession(id: string) {
@@ -510,10 +506,9 @@ export class Workspace implements OnDestroy {
         ?.focus();
     });
   }
-  browse() {
-    this.material.set('sources');
-    this.libraryOpen.set(true);
-    void this.navigate(undefined, 'library', 'prepare');
+  cancelSessionChooser() {
+    this.pendingLibraryCampaign = null;
+    this.sessionsOpen.set(false);
   }
   sessionNotes() {
     this.notesScope.set('session');
@@ -521,6 +516,8 @@ export class Workspace implements OnDestroy {
   }
   @HostListener('window:keydown.escape') closePanels() {
     this.sessionsOpen.set(false);
+    this.pendingLibraryCampaign = null;
+    this.closePrepareLibrary();
     this.managementOpen.set(false);
     this.sessionDetailsOpen.set(false);
     this.pendingPlay = false;
@@ -576,20 +573,17 @@ export class Workspace implements OnDestroy {
     else this.state.error.set('This relationship is outside the captured material.');
   }
   focusSource = false;
-  private panelsBeforeFocus = { library: true, contents: true, notes: true };
+  private panelsBeforeFocus = { contents: true, notes: true };
   toggleSourceFocus() {
     this.focusSource = !this.focusSource;
     if (this.focusSource) {
       this.panelsBeforeFocus = {
-        library: this.libraryOpen(),
         contents: this.contentsOpen(),
         notes: this.notesOpen(),
       };
-      this.libraryOpen.set(false);
       this.contentsOpen.set(false);
       this.notesOpen.set(false);
     } else {
-      this.libraryOpen.set(this.panelsBeforeFocus.library);
       this.contentsOpen.set(this.panelsBeforeFocus.contents);
       this.notesOpen.set(this.panelsBeforeFocus.notes);
     }

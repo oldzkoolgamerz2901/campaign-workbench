@@ -28,9 +28,6 @@
         <button matButton (click)="addLibrary.emit()" [disabled]="disabled()">
           Add cards from Library
         </button>
-        <button matButton (click)="addSource.emit()" [disabled]="disabled()">
-          Add source material
-        </button>
       }
       <button matButton (click)="sessionNotes.emit()">Session notes</button>
     </div>
@@ -98,7 +95,7 @@
             <p>No matching prepared material.</p>
             <button matButton (click)="query.set(''); group.set('')">Show all session items</button>
           } @else {
-            <p>Add a document or heading from the source library.</p>
+            <p>Add complete cards from Library.</p>
           }
         </li>
       }

@@ -53,15 +53,43 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await page.getByLabel('Session Markdown notes').fill('Opening **reminder** for the table.');
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
     const session = new URL(page.url()).searchParams.get('session')!;
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'observatory.md', exact: true }).click();
-    await page.getByRole('button', { name: 'Add document to session', exact: true }).click();
+    await page.getByRole('button', { name: 'Add material', exact: true }).click();
+    const picker = page.getByRole('region', { name: 'Session Library', exact: true });
+    await picker.getByRole('button', { name: 'observatory.md · location', exact: true }).click();
+    await picker.getByRole('button', { name: 'Add selected card to session', exact: true }).click();
+    await expect(page.getByLabel('Session outline')).toContainText('observatory.md');
+    await picker.getByRole('button', { name: 'Close session Library', exact: true }).click();
+    await page
+      .getByLabel('Session outline')
+      .getByRole('button', { name: 'observatory.md', exact: true })
+      .click();
+    await page.getByRole('button', { name: 'Selected item', exact: true }).click();
     await expect(page.getByLabel('Item Markdown notes')).toBeVisible();
-    await expect(page.locator('.source-page')).not.toContainText('workbench:');
+    await expect(page.locator('.source-page prepared-markdown')).not.toContainText('workbench:');
     await page.getByLabel('Item Markdown notes').fill('Ask about the **brass key**.');
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'Add section: Lower chamber', exact: true }).click();
+    // Historical section fixture: no new section capture exists in Prepare.
+    const base = `/api/campaigns/${first.id}`;
+    const captured = await (await request.get(`${base}/sources`)).json();
+    const source = await (
+      await request.get(`${base}/sources/document`, {
+        params: { capture: captured.capture, path: 'observatory.md' },
+      })
+    ).json();
+    const current = await (await request.get(`${base}/sessions/${session}`)).json();
+    expect(
+      (
+        await request.post(`${base}/sessions/${session}/sources`, {
+          data: {
+            revision: current.revision,
+            capture: captured.capture,
+            path: 'observatory.md',
+            section: source.sections.find((s: any) => s.heading === 'Lower chamber').id,
+          },
+        })
+      ).ok(),
+    ).toBe(true);
+    await page.reload();
     await page
       .getByLabel('Session outline')
       .getByRole('button', { name: 'Lower chamber', exact: true })
@@ -102,7 +130,11 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
       .locator('.source-page')
       .getByRole('link', { name: 'Back to observatory', exact: true })
       .click();
-    await expect(page.locator('.source-page prepared-markdown h1:focus')).toHaveText('Observatory');
+    await expect(page.locator('.source-page')).toContainText('outside the captured');
+    await page
+      .locator('read-card-table')
+      .getByRole('article', { name: 'Read: observatory.md', exact: true })
+      .click();
     await page
       .locator('.source-page')
       .getByRole('link', { name: 'To chamber', exact: true })

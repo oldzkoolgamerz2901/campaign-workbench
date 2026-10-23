@@ -21,6 +21,7 @@ import { CampaignControls } from './campaign-controls';
 import { LibraryState } from './library-state';
 import { LibraryFiltersControl, LIBRARY_FILTER_STATE } from './library-filters';
 import { UnifiedLibraryState } from './unified-library-state';
+import { LibraryAdventure } from './library-adventure';
 @Component({
   selector: 'unified-library',
   imports: [
@@ -34,6 +35,7 @@ import { UnifiedLibraryState } from './unified-library-state';
     DraftReader,
     CampaignControls,
     LibraryFiltersControl,
+    LibraryAdventure,
   ],
   providers: [{ provide: LIBRARY_FILTER_STATE, useExisting: UnifiedLibraryState }],
   templateUrl: './unified-library.html',

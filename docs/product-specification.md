@@ -713,6 +713,20 @@ The owner completed UX Decisions 1–27 (with Decisions 8/9 superseded and Decis
 - Before retiring legacy components, inspect their callers for unique section/adventure/source-copy functions and retain or migrate required capabilities explicitly; do not silently remove them.
 - Verify new/existing session, success/failure, duplicates, revisions, session switching, selection preservation and responsive layout.
 
+#### UX-C1 — accepted product clarification — 2026-10-23
+
+The owner explicitly discontinued section capture in the intended Prepare workflow and authorized this requirements update and investigation of the smallest coherent design. These decisions supersede earlier requirements to expose new section capture or retain legacy Prepare Source/Draft navigation. They do not authorize implementation; architecture proposals remain subject to approval.
+
+- **Single selection interface:** Add material opens the unified Library directly. Remove the legacy Sources/Drafts menu, redundant chooser surfaces and secondary legacy Source reader from Prepare. Other Prepare addition entry points use the same unified journey.
+- **Complete cards:** New preparation operates on complete cards. No section-capture action is offered. Individual Markdown sections remain readable through the existing full-document reader and heading navigation. Existing section-based PreparedItems remain intact and readable; this decision does not migrate or delete saved data.
+- **Adventure assembly:** Preserve explicit selection of an Adventure and its linked Scenes within the unified Library. Reuse existing domain operations where suitable; do not preserve a legacy Source browser to provide this capability. Assembly adds complete cards and does not implicitly create Scene-planning relationships.
+- **Explicit destination:** Without a selected session, use existing explicit session selection/creation before adding. Cancelling selection/creation adds nothing. Never infer or silently change the destination.
+- **Context and asynchronous safety:** Preserve selected prepared content, notes scope and Scene-planning context while inspecting/closing the Library or recovering a failure. Validate campaign/session and active interaction across asynchronous saves, additions and refreshes. Closing or destroying a picker invalidates pending UI callbacks; already-dispatched operations remain bound to their original destination, and uncertain outcomes require safe reconciliation before retry.
+- **Retained behavior:** Preserve existing session data, frozen complete-card contents, Source/Draft precedence, exact saved-revision approval, explicit replacement, duplicate prevention, session-specific Scene relationships and archive/recovery behavior. No campaign-source writes or Play redesign.
+- **Deletion discipline:** Remove obsolete UI/state only after checking callers. Shared Write source-copy behavior and backend operations with remaining consumers are separate from retiring Prepare interfaces; compatibility alone is not a reason to retain obsolete Prepare UI.
+
+**Completion evidence required:** Check Add material with existing/new/no session and cancellation; complete Source-only/Draft/associated-card addition; Adventure/Scene selection in Library; duplicate and newer-revision handling; partial failure/retry and uncertain outcomes; campaign/session switching and picker close during delayed work; retained selection/notes/Scene planning; reading historical section items; heading navigation without new section capture; keyboard access and laptop/narrow layouts. Adventure target-resolution and batch failure semantics are architecture proposals to be presented for owner approval before planning.
+
 ### UX-05 — Shared visual consistency and regression pass
 
 **Story:** As a DM I encounter coherent control hierarchy, alignment, spacing, accessible feedback and predictable navigation across Library, Write and Prepare.

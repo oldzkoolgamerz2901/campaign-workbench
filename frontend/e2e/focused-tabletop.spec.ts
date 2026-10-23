@@ -186,9 +186,12 @@ test('focus, fourth-card inspection, explicit scene/replacement, expansion and P
       .getByRole('navigation', { name: 'Workspace mode' })
       .getByRole('button', { name: 'Prepare', exact: true })
       .click();
-    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
-    await page.getByRole('button', { name: 'Extra.md', exact: true }).click();
-    await page.getByRole('button', { name: 'Add document to session', exact: true }).click();
+    await page.getByRole('button', { name: 'Add material', exact: true }).click();
+    const picker = page.getByRole('region', { name: 'Session Library', exact: true });
+    await picker.getByRole('button', { name: /Extra ·/ }).click();
+    await picker.getByRole('button', { name: 'Add selected card to session', exact: true }).click();
+    await expect(page.getByLabel('Session outline')).toContainText('Extra');
+    await picker.getByRole('button', { name: 'Close session Library', exact: true }).click();
     await saved(page);
     await page
       .getByRole('navigation', { name: 'Workspace mode' })

@@ -71,6 +71,16 @@ export class UnifiedLibraryState {
   readonly editing = signal(false);
   readonly refreshing = signal(false);
   readonly stale = signal(false);
+  readonly assemblyRunning = signal(false);
+  readonly assembly = signal<{ entry: LibraryEntry; status: 'pending' | 'completed' | 'failed' }[]>(
+    [],
+  );
+  private assemblyContext: {
+    campaign: string;
+    session: string;
+    capture: string | null;
+    epoch: number;
+  } | null = null;
   readonly status = computed(() =>
     this.statuses().find((s) => s.entry.key === this.selectedEntry()?.key),
   );
@@ -88,12 +98,15 @@ export class UnifiedLibraryState {
   detach() {
     this.epoch++;
     this.readerRequest++;
+    this.catalogueRequest++;
     this.reading.set(false);
   }
   async bind(campaign: string, session: string) {
     const changed = campaign !== this.campaign();
     if (!changed && session === this.session()) return;
     this.epoch++;
+    this.assembly.set([]);
+    this.assemblyContext = null;
     this.campaign.set(campaign);
     this.session.set(session);
     this.statuses.set([]);
@@ -263,9 +276,12 @@ export class UnifiedLibraryState {
     }
   }
   async open(entry: LibraryEntry, sourcePath?: string) {
+    if (this.assemblyRunning()) return;
     const campaign = this.campaign(),
       capture = this.capture(),
       request = ++this.readerRequest;
+    this.assembly.set([]);
+    this.assemblyContext = null;
     this.selectedEntry.set(entry);
     this.document.set(null);
     this.mode.set('document');
@@ -375,7 +391,7 @@ export class UnifiedLibraryState {
       this.refreshing.set(false);
     }
   }
-  async add() {
+  async add(): Promise<boolean> {
     const entry = this.document()?.entry,
       campaign = this.campaign(),
       session = this.session();
@@ -390,9 +406,10 @@ export class UnifiedLibraryState {
       revision === null ||
       this.blocked() ||
       !this.status() ||
+      this.assemblyRunning() ||
       this.adding()
     )
-      return;
+      return false;
     this.adding.set(true);
     this.error.set('');
     let dispatched = false;
@@ -407,7 +424,7 @@ export class UnifiedLibraryState {
         );
       }
       // A switch during a save cancels before mutation. A switch after dispatch cannot redirect it.
-      if (epoch !== this.epoch || reader !== this.readerRequest) return;
+      if (epoch !== this.epoch || reader !== this.readerRequest) return false;
       dispatched = true;
       const result = await firstValueFrom(
         this.sessionApi.addSessionLibraryCard(
@@ -431,19 +448,132 @@ export class UnifiedLibraryState {
         ),
       );
       this.preparation.invalidateLibraryMembership(campaign, session);
-      if (epoch !== this.epoch) return;
+      if (epoch !== this.epoch) return false;
       await this.reload();
       if (epoch === this.epoch && reader === this.readerRequest)
         this.notice.set(result.added ? 'Added to session.' : 'Already in session.');
+      return epoch === this.epoch && reader === this.readerRequest && !this.error();
     } catch (error) {
       if (epoch === this.epoch && reader === this.readerRequest) {
         this.fail(error);
         if (error instanceof HttpErrorResponse && error.status === 409) this.stale.set(true);
       }
+      return false;
     } finally {
       // An uncertain HTTP result may still have committed. Reopen through Preparation's owner.
       if (dispatched) this.preparation.invalidateLibraryMembership(campaign, session);
       this.adding.set(false);
+    }
+  }
+  async startAssembly(entries: LibraryEntry[]): Promise<boolean> {
+    if (
+      this.assemblyRunning() ||
+      this.adding() ||
+      this.blocked() ||
+      !this.session() ||
+      !entries.length
+    )
+      return false;
+    this.assemblyContext = {
+      campaign: this.campaign(),
+      session: this.session(),
+      capture: this.documentCapture(),
+      epoch: this.epoch,
+    };
+    this.assembly.set([
+      ...new Map(
+        entries.map((entry) => [entry.key, { entry, status: 'pending' as const }]),
+      ).values(),
+    ]);
+    return this.retryAssembly();
+  }
+  async retryAssembly(): Promise<boolean> {
+    const pin = this.assemblyContext;
+    if (!pin || pin.epoch !== this.epoch || this.assemblyRunning() || this.adding()) return false;
+    const active = () =>
+      pin.epoch === this.epoch &&
+      pin.campaign === this.campaign() &&
+      pin.session === this.session();
+    this.assemblyRunning.set(true);
+    this.error.set('');
+    try {
+      if (
+        !(await this.writing.flush()) ||
+        !(await this.preparation.flush()) ||
+        !(await this.preparation.play.flush())
+      )
+        throw new Error('Save pending workspace changes before adding Adventure material.');
+      for (let index = 0; index < this.assembly().length; index++) {
+        if (!active()) return false;
+        const choice = this.assembly()[index];
+        if (choice.status === 'completed') continue;
+        try {
+          // Reconcile uncertain results before retry; never replace an existing frozen card.
+          const catalogue = await firstValueFrom(
+            this.sessionApi.listSessionLibraryCards(
+              pin.campaign,
+              pin.session,
+              ...allCriteria,
+              'body',
+              false,
+              json,
+            ),
+          );
+          if (!active()) return false;
+          if (catalogue.capture !== pin.capture)
+            throw new Error('Sources changed. Review Adventure material again.');
+          const current = catalogue.entries.find((e) => e.entry.key === choice.entry.key);
+          if (!current)
+            throw new Error('Selected card is unavailable. Review Adventure material again.');
+          if (!current.entry.ready || current.entry.conflicts?.length)
+            throw new Error('Selected card is blocked. Review Adventure material again.');
+          if (!current.matches.length) {
+            if (signature(current.entry) !== signature(choice.entry))
+              throw new Error('Selected card changed. Review Adventure material again.');
+            await firstValueFrom(
+              this.sessionApi.addSessionLibraryCard(
+                pin.campaign,
+                pin.session,
+                {
+                  revision: catalogue.revision,
+                  key: choice.entry.key!,
+                  capture: pin.capture,
+                  draft: choice.entry.draft ?? null,
+                  draftRevision: choice.entry.revision ?? null,
+                },
+                'body',
+                false,
+                json,
+              ),
+            );
+          }
+          if (!active()) return false;
+          this.assembly.update((items) =>
+            items.map((item, i) => (i === index ? { ...item, status: 'completed' } : item)),
+          );
+        } catch (error) {
+          if (active()) {
+            this.assembly.update((items) =>
+              items.map((item, i) => (i === index ? { ...item, status: 'failed' } : item)),
+            );
+            this.fail(error);
+          }
+          break;
+        } finally {
+          this.preparation.invalidateLibraryMembership(pin.campaign, pin.session);
+        }
+      }
+      return active();
+    } catch (error) {
+      if (active()) this.fail(error);
+      return active();
+    } finally {
+      this.assemblyRunning.set(false);
+      if (active()) {
+        const failure = this.error();
+        await this.reload();
+        if (active() && failure && !this.error()) this.error.set(failure);
+      }
     }
   }
   async edit(): Promise<string | null> {

@@ -12,6 +12,7 @@ describe('Preparation recovery in the current workspace', () => {
   let state: {
     current: ReturnType<typeof signal<typeof session | null>>;
     flush: ReturnType<typeof vi.fn>;
+    open: ReturnType<typeof vi.fn>;
     reload: ReturnType<typeof vi.fn>;
     initializeTable: ReturnType<typeof vi.fn>;
     play: {
@@ -23,6 +24,7 @@ describe('Preparation recovery in the current workspace', () => {
     state = {
       current: signal<typeof session | null>(session),
       flush: vi.fn().mockResolvedValue(true),
+      open: vi.fn(),
       reload: vi.fn().mockResolvedValue(true),
       initializeTable: vi.fn().mockResolvedValue(undefined),
       play: {
@@ -97,4 +99,22 @@ describe('Preparation recovery in the current workspace', () => {
     await recovery;
     expect(state.initializeTable).not.toHaveBeenCalled();
   });
+
+  it.each(['close', 'switch', 'destroy'] as const)(
+    'does not reopen the original session when picker %s happens during a pending save',
+    async (action) => {
+      const destination = { campaign: session.campaign, session: session.id, title: 'Original' };
+      component.libraryDestination.set(destination);
+      component.unifiedLibraryOpen.set(true);
+      let finish!: (ok: boolean) => void;
+      state.flush.mockReturnValue(new Promise<boolean>((resolve) => (finish = resolve)));
+      const refresh = component.refreshPreparedLibrary(destination);
+      if (action === 'close') component.closePrepareLibrary();
+      else if (action === 'destroy') component.ngOnDestroy();
+      else state.current.set({ campaign: 'campaign-b', id: 'session-b' });
+      finish(true);
+      expect(await refresh).toBe(false);
+      expect(state.open).not.toHaveBeenCalled();
+    },
+  );
 });

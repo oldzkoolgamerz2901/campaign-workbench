@@ -262,4 +262,63 @@ describe('Unified Library destinations and representation safety', () => {
     expect(state.error()).toContain('reference changed');
     expect(state.selectedEntry()?.key).toBe('card:a');
   });
+  it('reconciles an uncertain assembly result, skips completed cards and retains the pinned destination', async () => {
+    const scene = { ...entry, key: 'card:scene', title: 'Scene' };
+    await state.bind('campaign', 'one');
+    await state.open(entry);
+    let committed = false;
+    sessions.listSessionLibraryCards.mockImplementation((_c, session) =>
+      of({
+        ...catalogue(session, [entry, scene]),
+        entries: [entry, scene].map((e) => ({
+          entry: e,
+          state: committed && e.key === scene.key ? 'ALREADY_PREPARED' : 'READY',
+          matches:
+            committed && e.key === scene.key
+              ? [{ item: 'scene-item', updateAvailable: false, canUpdate: false }]
+              : [],
+        })),
+      }),
+    );
+    sessions.addSessionLibraryCard.mockImplementation((_c, _s, payload) => {
+      if (payload.key === scene.key) {
+        committed = true;
+        return throwError(() => new Error('Connection lost after commit'));
+      }
+      return of({ added: true, items: ['overview'], session: { id: 'one' } });
+    });
+    await state.startAssembly([entry, scene]);
+    expect(state.assembly().map((e) => e.status)).toEqual(['completed', 'failed']);
+    await state.retryAssembly();
+    expect(state.assembly().map((e) => e.status)).toEqual(['completed', 'completed']);
+    expect(sessions.addSessionLibraryCard).toHaveBeenCalledTimes(2);
+    expect(
+      sessions.addSessionLibraryCard.mock.calls.every(
+        (call) => call[0] === 'campaign' && call[1] === 'one',
+      ),
+    ).toBe(true);
+  });
+  it('stops assembly dispatch after closing during pending saves', async () => {
+    await state.bind('campaign', 'one');
+    await state.open(entry);
+    let finish!: (ok: boolean) => void;
+    writing.flush.mockReturnValue(new Promise<boolean>((resolve) => (finish = resolve)));
+    const running = state.startAssembly([entry]);
+    state.detach();
+    finish(true);
+    await running;
+    expect(sessions.addSessionLibraryCard).not.toHaveBeenCalled();
+    expect(state.assemblyRunning()).toBe(false);
+  });
+  it('requires review when an unfinished assembly representation changes', async () => {
+    await state.bind('campaign', 'one');
+    await state.open(entry);
+    sessions.listSessionLibraryCards.mockReturnValue(
+      of(catalogue('one', [{ ...entry, draft: 'changed', revision: 9 }])),
+    );
+    await state.startAssembly([entry]);
+    expect(state.error()).toContain('Selected card changed');
+    expect(state.assembly()[0].status).toBe('failed');
+    expect(sessions.addSessionLibraryCard).not.toHaveBeenCalled();
+  });
 });
