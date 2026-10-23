@@ -76,7 +76,10 @@ test('independent Write tabs, failed-save protection and full Library research r
       'aria-pressed',
       'true',
     );
-    await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
+    await page
+      .getByRole('navigation', { name: 'Supporting panel modes' })
+      .getByRole('button', { name: 'Library', exact: true })
+      .click();
     const references = page.getByRole('region', { name: 'Library references' });
     await references.getByLabel('Search Library references', { exact: true }).fill('Reference NPC');
     await references.getByRole('button', { name: 'Reference NPC · npc', exact: true }).click();
@@ -109,11 +112,18 @@ test('independent Write tabs, failed-save protection and full Library research r
       'aria-pressed',
       'true',
     );
-    await expect(page.getByLabel('Supporting panel', { exact: true })).toHaveValue('library');
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Supporting panel modes' })
+        .getByRole('button', { name: 'Library', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     await expect(references.getByLabel('Search Library references', { exact: true })).toHaveValue(
       'Reference NPC',
     );
-    await page.getByLabel('Supporting panel', { exact: true }).selectOption('preview');
+    await page
+      .getByRole('navigation', { name: 'Supporting panel modes' })
+      .getByRole('button', { name: 'Preview', exact: true })
+      .click();
     await expect(page.getByRole('button', { name: 'Full document', exact: true })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -350,7 +360,10 @@ test('a delayed Writing save cannot open an older reference after the user selec
       await request.post(`${f.base}/drafts`, { data: { type: 'npc', template: false } })
     ).json();
     await page.goto(`/writing?campaign=${f.campaign.id}&draft=${draft.id}`);
-    await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
+    await page
+      .getByRole('navigation', { name: 'Supporting panel modes' })
+      .getByRole('button', { name: 'Library', exact: true })
+      .click();
     const references = page.getByRole('region', { name: 'Library references' });
     await references.getByRole('button', { name: 'Reference NPC · npc', exact: true }).click();
     let release!: () => void;
@@ -394,7 +407,10 @@ test('native Back restores a locally selected Draft and changed references requi
       .getByRole('button', { name: /Untitled npc/ })
       .click();
     await page.getByLabel('Title', { exact: true }).fill('Research origin');
-    await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
+    await page
+      .getByRole('navigation', { name: 'Supporting panel modes' })
+      .getByRole('button', { name: 'Library', exact: true })
+      .click();
     const refs = page.getByRole('region', { name: 'Library references' });
     await refs.getByRole('button', { name: 'Reference NPC · npc', exact: true }).click();
     await refs.getByRole('button', { name: 'Open full document', exact: false }).click();
@@ -404,7 +420,11 @@ test('native Back restores a locally selected Draft and changed references requi
     );
     await page.goBack();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Research origin');
-    await expect(page.getByLabel('Supporting panel', { exact: true })).toHaveValue('library');
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Supporting panel modes' })
+        .getByRole('button', { name: 'Library', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     const referenceId = f.session.items[2].provenance.authored.draft;
     const reference = await (await request.get(`${f.base}/drafts/${referenceId}`)).json();
     await request.put(`${f.base}/drafts/${referenceId}`, {

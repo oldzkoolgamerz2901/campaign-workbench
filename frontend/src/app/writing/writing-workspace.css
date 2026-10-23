@@ -178,7 +178,7 @@ small {
   .writing-columns {
     grid-template-columns: 180px minmax(280px, 1fr);
   }
-  .preview-panel {
+  .support-panel {
     grid-column: 2;
   }
   .welcome {
@@ -308,8 +308,7 @@ small {
   .writing-columns.preview-hidden {
     grid-template-columns: 180px minmax(0, 1fr);
   }
-  .preview-panel,
-  .reference-panel {
+  .support-panel {
     grid-column: 3;
     grid-row: 1;
     padding: 0 0.4rem;
@@ -334,5 +333,38 @@ small {
   }
   .body-editor {
     min-height: 35dvh;
+  }
+}
+
+.support-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.support-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.4rem;
+}
+.support-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.support-content .preview-panel,
+.support-content .reference-panel {
+  overflow: visible;
+  max-height: none;
+}
+.support-panel library-references {
+  --reference-results-max-height: none;
+}
+@media (max-width: 650px) {
+  .support-panel {
+    height: 75dvh;
+    flex: none;
   }
 }

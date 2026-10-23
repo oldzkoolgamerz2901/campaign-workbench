@@ -130,7 +130,10 @@ test('inclusive search and type reset preserve safety across Library, Write and 
     }
     await page.goto(`/writing?campaign=${campaign.id}&draft=${created.id}&session=${session.id}`);
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Saved draft');
-    await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
+    await page
+      .getByRole('navigation', { name: 'Supporting panel modes' })
+      .getByRole('button', { name: 'Library', exact: true })
+      .click();
     const refs = page.getByRole('region', { name: 'Library references', exact: true });
     await expect(refs.locator('.reference-row')).toHaveCount(7);
     for (const width of [1280, 1440, 390]) {

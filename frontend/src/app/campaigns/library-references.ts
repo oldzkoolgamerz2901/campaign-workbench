@@ -122,7 +122,7 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
       min-width: 0;
     }
     .reference-list {
-      max-height: 220px;
+      max-height: var(--reference-results-max-height, 220px);
       overflow: auto;
       margin: 0.7rem 0;
     }

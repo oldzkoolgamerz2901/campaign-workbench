@@ -84,7 +84,10 @@ test('research, author, prepare, plan, play and update preserve the same session
     const draftId = new URL(page.url()).searchParams.get('draft')!;
     await page.getByLabel('Markdown body').fill('# Keeper\nAuthored keeper revision one.');
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
-    await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
+    await page
+      .getByRole('navigation', { name: 'Supporting panel modes' })
+      .getByRole('button', { name: 'Library', exact: true })
+      .click();
     const references = page.getByRole('region', { name: 'Library references' });
     await references.getByRole('button', { name: 'Harbour arrival · scene', exact: true }).click();
     await references.getByRole('button', { name: 'Open full document', exact: false }).click();
@@ -210,7 +213,7 @@ test('Write editor, preview and Prepare reader/notes scroll independently with k
     for (const width of [1280, 1440, 390]) {
       await page.setViewportSize({ width, height: width === 1440 ? 900 : 800 });
       const editor = page.locator('.draft-editor'),
-        preview = page.locator('.preview-panel');
+        preview = page.getByRole('region', { name: 'Supporting content', exact: true });
       await expect(
         preview.getByText('Detailed harbour research 39.', { exact: true }),
       ).toBeVisible();
@@ -229,8 +232,14 @@ test('Write editor, preview and Prepare reader/notes scroll independently with k
         .getByRole('button', { name: 'Card', exact: true })
         .press('Enter');
       await expect(page.getByLabel('Card artwork')).toBeVisible();
-      await editor.evaluate((node) => (node.scrollTop = 150));
-      expect(await editor.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+      await page
+        .getByRole('navigation', { name: 'Editing tabs' })
+        .getByRole('button', { name: 'Document', exact: true })
+        .press('Enter');
+      const body = page.getByLabel('Markdown body', { exact: true });
+      await expect(body).toBeVisible();
+      await body.evaluate((node) => (node.scrollTop = 150));
+      expect(await body.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
       expect(await preview.evaluate((node) => node.scrollTop)).toBe(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,

@@ -39,26 +39,14 @@
       <small>{{ draft.fields.type }} · {{ draft.fields.status }}</small>
     }
     <span class="spacer"></span>
-    <label
-      >Supporting panel<select
-        aria-label="Supporting panel"
-        [ngModel]="support()"
-        (ngModelChange)="support.set($event); previewOpen.set(true)"
-      >
-        <option value="preview">Preview</option>
-        <option value="library">Library</option>
-      </select></label
+    <button
+      matButton
+      aria-controls="writing-support"
+      [attr.aria-expanded]="previewOpen()"
+      (click)="previewOpen.set(!previewOpen())"
     >
-    <button matButton (click)="previewOpen.set(!previewOpen())">
       {{ previewOpen() ? 'Hide supporting panel' : 'Show supporting panel' }}
     </button>
-    <button matButton [matMenuTriggerFor]="writingView">View ▾</button>
-    <mat-menu #writingView="matMenu">
-      <button mat-menu-item (click)="previewOpen.set(!previewOpen())">
-        {{ previewOpen() ? 'Hide' : 'Show' }} preview
-      </button>
-      <button mat-menu-item (click)="selectEditor('card')">Card details</button>
-    </mat-menu>
     <button
       matButton="filled"
       (click)="reviewExport()"
@@ -327,66 +315,93 @@
             }
           }
         </fieldset>
-        <section
-          class="preview-panel"
-          aria-label="Draft preview"
-          tabindex="0"
-          [hidden]="!previewOpen() || support() !== 'preview'"
+        <aside
+          id="writing-support"
+          class="support-panel"
+          aria-label="Supporting panel"
+          [hidden]="!previewOpen()"
         >
-          <nav class="preview-tabs">
+          <nav class="support-tabs" aria-label="Supporting panel modes">
             <button
               matButton
-              aria-label="Card preview"
-              [attr.aria-pressed]="!full()"
-              (click)="full.set(false)"
+              [attr.aria-pressed]="support() === 'preview'"
+              (click)="support.set('preview')"
             >
-              Card</button
-            ><button
+              Preview
+            </button>
+            <button
               matButton
-              aria-label="Full document"
-              [attr.aria-pressed]="full()"
-              (click)="full.set(true)"
+              [attr.aria-pressed]="support() === 'library'"
+              (click)="support.set('library')"
             >
-              Document
+              Library
             </button>
           </nav>
-          @if (state.previewError()) {
-            <p role="alert">{{ state.previewError() }}</p>
-          }
-          @if (!full()) {
-            <playing-card
-              [artwork]="state.pendingArtwork() === 'remove' ? null : artwork.draft(draft)"
-              [localArtwork]="state.localArtwork()"
-              [title]="draft.fields.title"
-              [type]="draft.fields.type"
-              [tags]="state.preview()?.preview?.classification?.metadata?.tags ?? draft.fields.tags"
-              [summary]="draft.fields.summary"
-              (openDocument)="full.set(true)"
-            />
-          } @else {
-            <p class="hint">
-              Links checked against capture {{ state.preview()?.capture ?? 'unavailable' }}. Draft
-              references require separate export and placement.
-            </p>
-            <draft-reader
-              [preview]="state.preview()?.preview ?? null"
-              [checkedLinks]="state.preview()?.checkedLinks ?? []"
-              (followTarget)="followTarget($event)"
-            />
-          }
-        </section>
-        @if (previewOpen() && support() === 'library') {
-          <section
-            class="reference-panel"
-            aria-label="Writing reference panel"
-            [hidden]="!previewOpen() || support() !== 'library'"
-          >
-            <library-references
-              [campaign]="state.campaign()!"
-              (openDocument)="openReference($event)"
-            />
-          </section>
-        }
+          <div class="support-content" tabindex="0" role="region" aria-label="Supporting content">
+            <section
+              class="preview-panel"
+              aria-label="Draft preview"
+              tabindex="0"
+              [hidden]="!previewOpen() || support() !== 'preview'"
+            >
+              <nav class="preview-tabs">
+                <button
+                  matButton
+                  aria-label="Card preview"
+                  [attr.aria-pressed]="!full()"
+                  (click)="full.set(false)"
+                >
+                  Card</button
+                ><button
+                  matButton
+                  aria-label="Full document"
+                  [attr.aria-pressed]="full()"
+                  (click)="full.set(true)"
+                >
+                  Document
+                </button>
+              </nav>
+              @if (state.previewError()) {
+                <p role="alert">{{ state.previewError() }}</p>
+              }
+              @if (!full()) {
+                <playing-card
+                  [artwork]="state.pendingArtwork() === 'remove' ? null : artwork.draft(draft)"
+                  [localArtwork]="state.localArtwork()"
+                  [title]="draft.fields.title"
+                  [type]="draft.fields.type"
+                  [tags]="
+                    state.preview()?.preview?.classification?.metadata?.tags ?? draft.fields.tags
+                  "
+                  [summary]="draft.fields.summary"
+                  (openDocument)="full.set(true)"
+                />
+              } @else {
+                <p class="hint">
+                  Links checked against capture {{ state.preview()?.capture ?? 'unavailable' }}.
+                  Draft references require separate export and placement.
+                </p>
+                <draft-reader
+                  [preview]="state.preview()?.preview ?? null"
+                  [checkedLinks]="state.preview()?.checkedLinks ?? []"
+                  (followTarget)="followTarget($event)"
+                />
+              }
+            </section>
+            @if (previewOpen() && support() === 'library') {
+              <section
+                class="reference-panel"
+                aria-label="Writing reference panel"
+                [hidden]="!previewOpen() || support() !== 'library'"
+              >
+                <library-references
+                  [campaign]="state.campaign()!"
+                  (openDocument)="openReference($event)"
+                />
+              </section>
+            }
+          </div>
+        </aside>
         <writing-export-panel
           #exportPanel
           id="writing-export"

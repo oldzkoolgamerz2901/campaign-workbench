@@ -2315,6 +2315,24 @@ Existing budget warnings remain: initial bundle **781.98 kB**, Preparation style
 
 **Done when:** One-click mode switch, predictable full-height references, stable editor/save/return context, no overflow at 1280×800, 1440×900 and narrow viewport; keyboard and relevant browser journeys pass.
 
+#### UX-C4 — accepted architecture and bounded implementation plan — 2026-10-23
+
+**Status: ACCEPTED.** In the current conversation the owner authorized requirements, implementation, fixes and verification, then approved the concrete design and bounded plan before code changes. UX-02 remains the accepted product contract; authorization does not extend to UX-C5 or later increments.
+
+Use one supporting-panel shell in Write with compact Preview/Library mode buttons and one toolbar collapse/expand action. Remove the mode dropdown and redundant View menu; Card details remains reachable through the editing tabs. Keep `ResearchContext` ownership of mode, visibility, Preview Card/Document choice and research return. Keep existing save/navigation guards and contextual reference composition. The shell owns available-height scrolling below its mode controls, independently of the editor. At narrow widths the shell stacks below the editor with a viewport-relative reading area. Remove the 220px reference cap in Write through a scoped CSS property; retain the shared component's existing Prepare default. A shared component default change would unnecessarily expand scope.
+
+Scope: `writing-workspace.html`/`.css`, contextual `library-references.ts` layout, affected browser regressions and handover documentation. No backend, dependency, persistence, archive, Play or campaign-content changes. Verify mode switching by keyboard, collapse/restore, independent panel/editor scroll, full-reference/save-failure return and no horizontal overflow at 1280×800, 1440×900 and 390×844. Run frontend tests/build and integrated browser checks, then separately assess the accepted criteria under the already-authorized formal verification phase. Owner visual acceptance remains separate.
+
+#### UX-C4 — implementation and developer handover — 2026-10-23
+
+Delivered one Write supporting shell with Preview/Library mode buttons, retained independent Card/Document preview, one hide/show control with expanded state, and a keyboard-focusable independently scrolling content region. Removed the supporting dropdown and duplicated View menu. References use available Write height through a scoped CSS override; Prepare's shared reference-list cap is unchanged. Narrow layout stacks the editor and a 75dvh support area. Existing ResearchContext, save/navigation guards, reference lifecycle and return handlers are unchanged. README describes the delivered controls.
+
+Updated existing research/search/browser callers and added `ux-c4.spec.ts` for keyboard mode switching, retained preview choice, collapse/restore, panel/editor independence, uncapped reference results, screenshots and no horizontal overflow at 1280×800, 1440×900 and 390×844. Inspected actual 1280px and narrow screenshots. Owner visual acceptance remains separate.
+
+**Developer evidence:** `/tmp/ux-c4-developer-final.log` records live API generation/version checks, **122 frontend tests in 15 files**, production build and **48 of 49 Chromium journeys passing**. Backend `test bootJar` passed with tasks up to date; no fresh backend test execution is claimed. The remaining scroll regression initially measured the old Preview node, then assumed a Card form must overflow despite the extra available height after toolbar simplification. Updated it to measure the shared supporting scroll region and scroll long Markdown in the editor independently. A targeted attempt then exposed measurement before the Document tab rendered; added an explicit visibility wait. No subsequent application change was required. `/tmp/ux-c4-correction-final.log` records the continuous workflow, independent scrolling and UX-C4 journeys each passing twice (**6 passes**) and PostgreSQL installation-state preservation across restart. This is full-suite evidence plus targeted test-only correction, not a claim that a later full 49-test run occurred. Formatting and `git diff --check` pass.
+
+Existing budget warnings remain: initial bundle **782.02 kB**, Write stylesheet **4.87 kB**, Preparation **7.28 kB** and prototype stylesheets. Budgets unchanged. No backend, dependency, migration, archive, Play or campaign-content changes, database reset or commit. Formal verification follows as a separate authorized phase; Safari/WebKit, exhaustive accessibility/performance and owner visual acceptance remain unverified.
+
 ### Candidate UX-C5 — Cross-workspace visual polish and acceptance (UX-05)
 
 **Goal:** Validate a consistent, usable Library/Write/Prepare interface after C1–C4.
