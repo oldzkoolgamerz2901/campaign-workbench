@@ -11,6 +11,9 @@
   @if (management()) {
     <campaign-controls (close)="management.set(false); state.reload()" />
   }
+  @if (research.returnTo()) {
+    <button matButton (click)="returnToWrite()">Return to Write</button>
+  }
   <div class="library-tools">
     <library-filters searchLabel="Search Library" [ready]="!!state.campaign()" />
     <button

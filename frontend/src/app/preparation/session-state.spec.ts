@@ -5,7 +5,11 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, of, throwError } from 'rxjs';
-import { PreparationControllerService, SessionData } from '../../api/generated';
+import {
+  PreparationControllerService,
+  SessionLibraryControllerService,
+  SessionData,
+} from '../../api/generated';
 import { SessionState } from './session-state';
 
 const session = (): SessionData => ({
@@ -31,6 +35,9 @@ describe('Session working state', () => {
     addSessionDraft: vi.fn(),
     listSessions: vi.fn(),
     createSession: vi.fn(),
+    changeSceneAssociation: vi.fn(),
+    preparedRemovalImpact: vi.fn(),
+    replacePreparedLibraryCard: vi.fn(),
     importPortableSessions: vi.fn(),
   };
   beforeEach(() => {
@@ -44,6 +51,7 @@ describe('Session working state', () => {
       providers: [
         SessionState,
         { provide: PreparationControllerService, useValue: api },
+        { provide: SessionLibraryControllerService, useValue: api },
         { provide: PortableSessionControllerService, useValue: api },
         { provide: PlaythroughControllerService, useValue: api },
       ],
@@ -545,5 +553,87 @@ describe('Session working state', () => {
     });
     expect(state.current()?.notes).toBe('Keep edits');
     expect(state.queueRunning()).toBe(false);
+  });
+  it('sends explicit Scene links under the saved session revision without changing Play', async () => {
+    await state.open('campaign-a', 'session-a');
+    api.changeSceneAssociation.mockReturnValue(
+      of({ ...session(), revision: 2, sceneLinks: [{ scene: 'scene', item: 'npc' }] }),
+    );
+    expect(await state.changeSceneLink('scene', 'npc', true)).toBe(true);
+    expect(api.changeSceneAssociation.mock.calls[0].slice(0, 5)).toEqual([
+      'campaign-a',
+      'session-a',
+      'scene',
+      'npc',
+      { revision: 1, linked: true },
+    ]);
+    expect(state.current()?.sceneLinks).toEqual([{ scene: 'scene', item: 'npc' }]);
+    expect(api.savePlayWorkspace).not.toHaveBeenCalled();
+  });
+  it('retains note edits made while a Scene command is in flight', async () => {
+    await state.open('campaign-a', 'session-a');
+    const late = new Subject<SessionData>();
+    api.changeSceneAssociation.mockReturnValue(late);
+    const pending = state.changeSceneLink('scene', 'npc', true);
+    await Promise.resolve();
+    await Promise.resolve();
+    state.edit({ notes: 'Keep this local note' });
+    late.next({ ...session(), revision: 2, sceneLinks: [{ scene: 'scene', item: 'npc' }] });
+    expect(await pending).toBe(true);
+    expect(state.current()?.notes).toBe('Keep this local note');
+    expect(state.current()?.revision).toBe(2);
+    expect(state.status()).toBe('pending');
+  });
+  it('blocks Scene commands when pending notes fail to save', async () => {
+    await state.open('campaign-a', 'session-a');
+    state.edit({ notes: 'Unsaved' });
+    api.saveSession.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+    expect(await state.changeSceneLink('scene', 'npc', true)).toBe(false);
+    expect(api.changeSceneAssociation).not.toHaveBeenCalled();
+    expect(state.current()?.notes).toBe('Unsaved');
+  });
+  it('preserves local content when an explicit replacement conflicts', async () => {
+    await state.open('campaign-a', 'session-a');
+    api.replacePreparedLibraryCard.mockReturnValue(
+      throwError(
+        () => new HttpErrorResponse({ status: 409, error: { detail: 'Reload latest revision' } }),
+      ),
+    );
+    expect(
+      await state.replaceFromLibrary(
+        'npc',
+        { key: 'card', draft: 'draft', revision: 7 },
+        'capture',
+      ),
+    ).toBe(false);
+    expect(api.replacePreparedLibraryCard.mock.calls[0][3]).toEqual({
+      revision: 1,
+      key: 'card',
+      capture: 'capture',
+      draft: 'draft',
+      draftRevision: 7,
+    });
+    expect(state.current()?.revision).toBe(1);
+    expect(state.error()).toBe('Reload latest revision');
+  });
+  it('requires current removal impact and names every affected Scene before mutation', async () => {
+    await state.open('campaign-a', 'session-a');
+    state.current.set({ ...session(), items: [{ id: 'npc', notes: '' }] as never });
+    api.preparedRemovalImpact.mockReturnValue(
+      of({
+        revision: 1,
+        scenes: [
+          { id: 'a', title: 'First scene' },
+          { id: 'b', title: 'Second scene' },
+        ],
+      }),
+    );
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    expect(await state.removeWithConfirmation('npc')).toBe(false);
+    expect(confirm.mock.calls[0][0]).toContain('First scene, Second scene');
+    expect(api.saveSession).not.toHaveBeenCalled();
+    api.preparedRemovalImpact.mockReturnValue(of({ revision: 2, scenes: [] }));
+    expect(await state.removeWithConfirmation('npc')).toBe(false);
+    expect(state.error()).toContain('Reload');
   });
 });

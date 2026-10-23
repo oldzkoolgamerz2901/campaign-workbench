@@ -35,7 +35,10 @@ test('cards fill the background with portrait, landscape and square artwork behi
       })
     ).json();
     await page.goto(`/writing?campaign=${campaign.id}&draft=${draft.id}`);
-    await page.getByText('Card details · npc · draft', { exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     for (const [name, imageWidth, imageHeight] of [
       ['portrait', 360, 720],
       ['landscape', 720, 360],

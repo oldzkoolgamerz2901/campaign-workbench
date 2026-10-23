@@ -66,6 +66,7 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
       session = await response.json();
     }
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
+    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
     await page.getByRole('button', { name: 'Drafts', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Drafts for session' });
     await chooser.getByRole('button', { name: 'npc', exact: true }).click();

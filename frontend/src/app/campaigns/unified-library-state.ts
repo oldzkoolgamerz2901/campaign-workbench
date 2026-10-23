@@ -300,6 +300,40 @@ export class UnifiedLibraryState {
       if (campaign === this.campaign() && request === this.readerRequest) this.reading.set(false);
     }
   }
+  async openKey(
+    key: string,
+    expected?: { capture: string | null; draft: string | null; revision: number | null },
+  ) {
+    const campaign = this.campaign(),
+      epoch = this.epoch;
+    try {
+      const all = await firstValueFrom(
+        this.api.listLibraryCards(campaign, ...allCriteria, 'body', false, json),
+      );
+      if (epoch !== this.epoch) return;
+      if (all.capture !== this.capture())
+        throw new Error('Library changed. Reload catalogue before opening this reference.');
+      const entry = all.entries?.find((e) => e.key === key);
+      if (
+        entry &&
+        expected &&
+        (all.capture !== expected.capture ||
+          (entry.draft ?? null) !== expected.draft ||
+          (entry.revision ?? null) !== expected.revision)
+      ) {
+        this.selectedEntry.set(entry);
+        this.document.set(null);
+        this.stale.set(true);
+        throw new Error(
+          'The selected reference changed. Reload the selected document explicitly to read its current saved version.',
+        );
+      }
+      if (entry) await this.open(entry);
+      else this.error.set('The selected reference is no longer available.');
+    } catch (error) {
+      if (epoch === this.epoch) this.fail(error);
+    }
+  }
   async reopen() {
     const key = this.selectedEntry()?.key,
       campaign = this.campaign(),

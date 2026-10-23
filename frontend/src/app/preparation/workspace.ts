@@ -27,6 +27,8 @@ import { DraftData } from '../../api/generated';
 import { CardTable } from './card-table';
 import { FocusedTabletop } from '../playthroughs/focused-tabletop';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
+import { PreparationLibrary } from './preparation-library';
+import { ScenePlanning } from './scene-planning';
 import { MarkdownView } from './markdown-view';
 
 @Component({
@@ -37,6 +39,8 @@ import { MarkdownView } from './markdown-view';
     MatMenuModule,
     CampaignLibrary,
     MarkdownView,
+    ScenePlanning,
+    PreparationLibrary,
     CampaignControls,
     SessionContents,
     AdventureAssembly,
@@ -103,13 +107,86 @@ export class Workspace implements OnDestroy {
   readonly sessionDetailsOpen = signal(false);
   readonly material = signal<'sources' | 'drafts'>('sources');
   readonly cardOpen = signal(false);
+  readonly planning = signal(false);
+  readonly unifiedLibraryOpen = signal(false);
+  readonly libraryDestination = signal<{ campaign: string; session: string; title: string } | null>(
+    null,
+  );
+  openPrepareLibrary() {
+    const session = this.state.current();
+    if (!session) return;
+    this.libraryDestination.set({
+      campaign: session.campaign,
+      session: session.id,
+      title: session.title,
+    });
+    this.unifiedLibraryOpen.set(true);
+  }
+  async refreshPreparedLibrary() {
+    const current = this.state.current();
+    if (!current || !(await this.state.flush())) return;
+    const selected = this.state.selectedItem();
+    if (await this.state.open(current.campaign, current.id, true)) {
+      if (selected && this.state.current()?.items.some((i) => i.id === selected))
+        this.state.selectItem(selected);
+    }
+  }
+  async openLibraryPrepared(id: string) {
+    if (this.state.loading()) return;
+    await this.refreshPreparedLibrary();
+    this.unifiedLibraryOpen.set(false);
+    this.selectPrepared(id);
+  }
+  readLibraryReference(key: string | undefined) {
+    if (key)
+      void this.router.navigate(['/library'], {
+        queryParams: {
+          campaign: this.state.current()?.campaign,
+          session: this.state.current()?.id,
+          reference: key,
+        },
+      });
+  }
+  private sceneScroll = 0;
+  readonly inspectedScene = signal<string | null>(null);
+  readonly isScene = computed(
+    () =>
+      this.item()?.capturedSource?.classification?.metadata?.type === 'scene' &&
+      !this.item()?.capturedSource?.classification?.issues?.some((i) => i.severity === 'error'),
+  );
+  inspectSceneCard(id: string) {
+    if (this.busy()) return;
+    this.sceneScroll = document.querySelector('.source-page')?.scrollTop ?? 0;
+    this.inspectedScene.set(this.item()!.id);
+    this.planning.set(false);
+    this.cardOpen.set(false);
+    this.selectReader(id);
+  }
+  backToScene() {
+    const scene = this.inspectedScene();
+    if (!scene || !this.state.current()?.items.some((i) => i.id === scene)) {
+      this.inspectedScene.set(null);
+      return;
+    }
+    this.selectReader(scene);
+    this.inspectedScene.set(null);
+    this.planning.set(true);
+    requestAnimationFrame(() => {
+      const reader = document.querySelector('.source-page');
+      if (reader) reader.scrollTop = this.sceneScroll;
+    });
+  }
   readonly library = inject(LibraryState);
   readonly state = inject(SessionState);
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly adventure = signal<SourceDocument | null>(null);
   readonly busy = computed(
-    () => this.state.transferBusy() || this.state.mutating() || this.state.queueRunning(),
+    () =>
+      this.state.transferBusy() ||
+      this.state.mutating() ||
+      this.state.checkingRemoval() ||
+      this.state.queueRunning(),
   );
   readonly reading = signal(false);
   readonly showingLibrary = signal(true);
@@ -164,6 +241,12 @@ export class Workspace implements OnDestroy {
       const campaign = params.get('campaign') ?? this.library.selected()?.id;
       const id = params.get('session');
       const applyView = () => {
+        const destination = this.libraryDestination();
+        if (destination && (destination.campaign !== campaign || destination.session !== id)) {
+          this.unifiedLibraryOpen.set(false);
+          this.libraryDestination.set(null);
+        }
+        if (!this.campaignReady()) this.libraryOpen.set(!id || params.get('view') === 'library');
         const item = params.get('item');
         if (item && this.state.current()?.items.some((i) => i.id === item))
           this.state.selectItem(item);
@@ -181,6 +264,9 @@ export class Workspace implements OnDestroy {
         applyView();
         return;
       }
+      this.planning.set(false);
+      this.inspectedScene.set(null);
+      this.cardOpen.set(false);
       this.campaignReady.set(false);
       void (async () => {
         if (campaign && campaign !== this.library.selected()?.id) {
@@ -232,6 +318,10 @@ export class Workspace implements OnDestroy {
     });
   }
   changeMode(mode: WorkbenchMode) {
+    if (mode === 'prepare') {
+      this.planning.set(false);
+      this.inspectedScene.set(null);
+    }
     if (mode === 'library') {
       void this.router.navigate(['/library'], { queryParams: this.route.snapshot.queryParams });
       return;
@@ -352,9 +442,10 @@ export class Workspace implements OnDestroy {
   }
   selectPrepared(id: string) {
     if (this.busy()) return;
+    this.planning.set(false);
+    this.inspectedScene.set(null);
     this.cardOpen.set(false);
     this.selectReader(id);
-    if (!this.reading()) this.notesScope.set('item');
     if (this.reading()) {
       if (
         this.state.play.expandedItemId() &&
@@ -448,7 +539,6 @@ export class Workspace implements OnDestroy {
       else this.state.play.inspect(id);
     }
     this.cardOpen.set(false);
-    if (!this.reading()) this.notesScope.set('item');
     const epoch = this.routeEpoch;
     setTimeout(() => {
       if (epoch !== this.routeEpoch || this.state.selectedItem() !== id) return;

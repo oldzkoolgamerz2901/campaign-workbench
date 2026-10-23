@@ -64,7 +64,10 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
       objective: '',
     });
     await page.goto(`/writing?campaign=${campaign.id}&draft=${draft.id}`);
-    await page.getByText('Card details · npc · draft', { exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     // Failure keeps the local preview and blocks navigation unless explicitly discarded.
     const route = `**/api/campaigns/${campaign.id}/drafts/${draft.id}/artwork`;
     await page.route(route, (r) =>
@@ -105,6 +108,7 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
+    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
     await page.getByRole('button', { name: 'Drafts', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Drafts for session' });
     await illustrated('session-draft-chooser ul img');
@@ -164,7 +168,10 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     }
     // Replace then remove draft artwork through Write; prepared artwork must stay frozen.
     await page.goto(`/writing?campaign=${campaign.id}&draft=${draft.id}`);
-    await page.getByText('Card details · npc · draft', { exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     let saving = page.waitForResponse(
       (r) => r.url().endsWith(`/drafts/${draft.id}/artwork`) && r.ok(),
     );
@@ -195,7 +202,10 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     await page.getByRole('button', { name: 'Open copied draft', exact: true }).click();
     await illustrated('.preview-panel playing-card img');
     await page.goto(`/writing?campaign=${campaign.id}&draft=${draft.id}`);
-    await page.getByText('Card details · npc · draft', { exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     saving = page.waitForResponse(
       (r) => r.request().method() === 'PUT' && r.url().endsWith(`/drafts/${draft.id}`) && r.ok(),
     );

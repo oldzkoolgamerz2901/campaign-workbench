@@ -251,4 +251,15 @@ describe('Unified Library destinations and representation safety', () => {
       issues: false,
     });
   });
+  it('requires explicit reload when a research reference representation changed', async () => {
+    await state.bind('campaign', '');
+    api.listLibraryCards.mockReturnValue(
+      of({ capture: 'capture', entries: [{ ...entry, draft: 'draft', revision: 2 }] }),
+    );
+    await state.openKey('card:a', { capture: 'capture', draft: 'draft', revision: 1 });
+    expect(api.readLibraryCard).not.toHaveBeenCalled();
+    expect(state.stale()).toBe(true);
+    expect(state.error()).toContain('reference changed');
+    expect(state.selectedEntry()?.key).toBe('card:a');
+  });
 });

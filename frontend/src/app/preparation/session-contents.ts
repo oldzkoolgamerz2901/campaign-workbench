@@ -35,11 +35,27 @@ export class SessionContents {
   readonly moveItem = output<{ id: string; delta: number }>();
   readonly removeItem = output<string>();
   readonly addSource = output<void>();
+  readonly addLibrary = output<void>();
+  readonly group = signal('');
+  readonly types = [
+    'npc',
+    'location',
+    'faction',
+    'item',
+    'scene',
+    'adventure',
+    'handout',
+    'reference',
+  ];
   readonly sessionNotes = output<void>();
   readonly query = signal('');
   readonly visible = computed(() =>
     this.items()
       .map((item, index) => ({ item, number: index + 1 }))
+      .filter(
+        ({ item }) =>
+          !this.group() || item.capturedSource?.classification?.metadata?.type === this.group(),
+      )
       .filter(({ item }) =>
         [item.title, this.context(item)]
           .join(' ')
@@ -52,6 +68,7 @@ export class SessionContents {
     effect(() => {
       this.sessionId();
       this.query.set('');
+      this.group.set('');
     });
     effect(() => {
       this.selected();

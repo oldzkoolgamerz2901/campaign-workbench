@@ -11,8 +11,23 @@
         [ngModel]="query()"
         (ngModelChange)="query.set($event)"
     /></label>
+    <label
+      >Card group<select
+        aria-label="Prepared card group"
+        [ngModel]="group()"
+        (ngModelChange)="group.set($event)"
+      >
+        <option value="">All</option>
+        @for (type of types; track type) {
+          <option [value]="type">{{ type }}</option>
+        }
+      </select></label
+    >
     <div class="actions">
       @if (!reading()) {
+        <button matButton (click)="addLibrary.emit()" [disabled]="disabled()">
+          Add cards from Library
+        </button>
         <button matButton (click)="addSource.emit()" [disabled]="disabled()">
           Add source material
         </button>
@@ -81,7 +96,7 @@
         <li class="empty">
           @if (items().length) {
             <p>No matching prepared material.</p>
-            <button matButton (click)="query.set('')">Show all session items</button>
+            <button matButton (click)="query.set(''); group.set('')">Show all session items</button>
           } @else {
             <p>Add a document or heading from the source library.</p>
           }

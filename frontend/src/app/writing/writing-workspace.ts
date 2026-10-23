@@ -17,13 +17,16 @@ import { MatMenuModule } from '@angular/material/menu';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription, firstValueFrom } from 'rxjs';
-import { SourceControllerService, CheckedLink } from '../../api/generated';
+import { SourceControllerService, CheckedLink, LibraryEntry } from '../../api/generated';
 import { CampaignLibrary } from '../campaigns/library';
 import { WritingExportPanel } from './writing-export-panel';
 import { LibraryState } from '../campaigns/library-state';
 import { CampaignControls } from '../campaigns/campaign-controls';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { DraftReader } from './draft-reader';
+import { LibraryReferences } from '../campaigns/library-references';
+import { ResearchContext } from './research-context';
+import { REFERENCE_LIBRARY_STATE } from '../campaigns/library-references-state';
 import { WritingState } from './writing-state';
 
 @Component({
@@ -39,11 +42,16 @@ import { WritingState } from './writing-state';
     DraftReader,
     CampaignLibrary,
     WritingExportPanel,
+    LibraryReferences,
   ],
   templateUrl: './writing-workspace.html',
   styleUrl: './writing-workspace.css',
 })
 export class WritingWorkspace implements OnDestroy {
+  readonly research = inject(ResearchContext);
+  readonly references = inject(REFERENCE_LIBRARY_STATE);
+  readonly editorTab = this.research.editorTab;
+  readonly support = this.research.support;
   readonly artwork = inject(WritingArtwork);
   readonly state = inject(WritingState);
   readonly library = inject(LibraryState);
@@ -53,7 +61,7 @@ export class WritingWorkspace implements OnDestroy {
   readonly newOpen = signal(false);
   readonly detailsOpen = signal(false);
   readonly exportOpen = signal(false);
-  readonly previewOpen = signal(true);
+  readonly previewOpen = this.research.panelOpen;
   readonly exportPanel = viewChild('exportPanel', { read: ElementRef<HTMLElement> });
   readonly saveLabel = computed(() =>
     this.state.deleteFailed()
@@ -67,7 +75,7 @@ export class WritingWorkspace implements OnDestroy {
             : 'Unsaved changes',
   );
   readonly management = signal(false);
-  readonly full = signal(false);
+  readonly full = this.research.fullPreview;
   readonly sourceChooser = signal(false);
   readonly sourceBusy = signal(false);
   readonly sourceNotice = signal('');
@@ -86,6 +94,7 @@ export class WritingWorkspace implements OnDestroy {
   private subscription?: Subscription;
   private active = true;
   private routeToken = 0;
+  private researchRequest = 0;
   private readonly selectGuard = async (_id: string) => {
     if (!(await this.state.allowLeave())) return false;
     return true;
@@ -129,27 +138,92 @@ export class WritingWorkspace implements OnDestroy {
     }
   }
   async followTarget(link: CheckedLink) {
-    if (this.state.deleting()) return;
-    if (link.kind === 'draft' && link.draft) {
-      await this.state.open(link.draft);
-      this.full.set(true);
-      return;
-    }
-    const expected = this.state.preview()?.capture;
-    if (!(await this.recheckSources())) return;
-    if (expected !== this.library.library()?.capture) {
+    if (this.state.deleting() || !(await this.state.flush())) return;
+    const campaign = this.state.campaign();
+    if (!campaign) return;
+    await this.references.bind(campaign, '');
+    if (link.kind === 'source' && this.state.preview()?.capture !== this.references.capture()) {
       this.sourceNotice.set(
-        'Source capture changed. Check the updated preview before opening this link.',
+        'Source capture changed. Reload captured index and check the updated preview before opening this link.',
       );
       return;
     }
-    if (link.path) {
-      this.sourceChooser.set(true);
-      await this.library.open(link.path, link.section);
+    await this.references.follow(link);
+    const entry = this.references.document()?.entry;
+    if (
+      entry &&
+      !this.references.error() &&
+      (link.kind === 'draft'
+        ? entry.draft === link.draft
+        : entry.sources?.some((source) => source.path === link.path))
+    )
+      await this.openReference(entry, link);
+    else this.sourceNotice.set(this.references.error() || 'The reference is unavailable.');
+  }
+  selectEditor(tab: 'document' | 'card') {
+    this.editorTab.set(tab);
+    if (tab === 'card') this.detailsOpen.set(true);
+  }
+  async openReference(entry: LibraryEntry, target?: CheckedLink) {
+    const request = ++this.researchRequest;
+    const draft = this.state.current(),
+      campaign = this.state.campaign(),
+      token = this.routeToken;
+    if (!draft || !campaign) return;
+    if (!(await this.state.flush())) {
+      this.sourceNotice.set(
+        'Save failed. Your edits remain in Write. Retry save before opening the full reference.',
+      );
+      return;
     }
+    if (
+      !this.active ||
+      request !== this.researchRequest ||
+      this.references.selectedEntry()?.key !== entry.key ||
+      token !== this.routeToken ||
+      this.state.current()?.id !== draft.id
+    )
+      return;
+    const editor = document.querySelector<HTMLTextAreaElement>('.body-editor');
+    this.research.returnTo.set({
+      campaign,
+      draft: draft.id,
+      session: this.route.snapshot.queryParamMap.get('session'),
+      cursor: editor?.selectionStart ?? 0,
+      editorScroll: editor?.scrollTop ?? 0,
+      pageScroll: document.querySelector('.draft-editor')?.scrollTop ?? 0,
+    });
+    this.research.away.set(true);
+    const opened = await this.router.navigate(['/library'], {
+      queryParams: {
+        campaign,
+        session: this.route.snapshot.queryParamMap.get('session'),
+        reference: entry.key,
+        referenceCapture: this.references.documentCapture() ?? this.references.capture() ?? '',
+        referenceDraft: entry.draft ?? '',
+        referenceRevision: entry.revision ?? null,
+        referenceSection: target?.section,
+        referenceAnchor: target?.anchor,
+      },
+    });
+    if (!opened) this.research.away.set(false);
+  }
+  private restoreResearch(draft: string) {
+    const saved = this.research.returnTo();
+    if (!saved || saved.draft !== draft || saved.campaign !== this.state.campaign()) return;
+    this.detailsOpen.set(this.editorTab() === 'card');
+    requestAnimationFrame(() => {
+      const editor = document.querySelector<HTMLTextAreaElement>('.body-editor');
+      if (editor && this.state.current()?.id === draft && this.active) {
+        editor.setSelectionRange(saved.cursor, saved.cursor);
+        editor.scrollTop = saved.editorScroll;
+        const panel = document.querySelector('.draft-editor');
+        if (panel) panel.scrollTop = saved.pageScroll;
+      }
+    });
   }
   private async initialize() {
-    await this.library.initialize();
+    await this.library.initialize(false);
     if (!this.active) return;
     this.library.beforeSelect = this.selectGuard;
     if (!this.library.campaigns().length) this.management.set(true);
@@ -157,20 +231,40 @@ export class WritingWorkspace implements OnDestroy {
       const token = ++this.routeToken;
       const campaign = params.get('campaign') ?? this.library.selected()?.id;
       void this.loadCampaign(campaign, token).then(async () => {
-        if (this.active && token === this.routeToken && params.get('draft'))
-          await this.state.open(params.get('draft')!);
+        if (!this.active || token !== this.routeToken) return;
+        const saved = this.research.returnTo();
+        const returning =
+          params.get('research') === 'return' ||
+          (this.research.away() &&
+            !!saved &&
+            saved?.campaign === campaign &&
+            (!params.get('draft') || params.get('draft') === saved.draft));
+        const draft = params.get('draft') ?? (returning ? saved?.draft : null);
+        if (draft && this.state.current()?.id !== draft) await this.state.open(draft);
+        if (
+          this.active &&
+          token === this.routeToken &&
+          returning &&
+          draft &&
+          this.state.current()?.id === draft
+        ) {
+          this.restoreResearch(draft);
+          this.research.away.set(false);
+        }
       });
     });
   }
   private async loadCampaign(campaign: string | undefined, token: number) {
     this.ready.set(false);
-    if (campaign && campaign !== this.library.selected()?.id) await this.library.select(campaign);
+    if (campaign && campaign !== this.library.selected()?.id)
+      await this.library.select(campaign, false);
     if (!this.active || token !== this.routeToken) return;
     const selected = this.library.selected()?.id;
     if (selected && selected !== this.state.campaign()) await this.state.selectCampaign(selected);
     if (this.active && token === this.routeToken) this.ready.set(true);
   }
   async selectCampaign(id: string) {
+    this.researchRequest++;
     if (!(await this.state.allowLeave())) return;
     await this.router.navigate(['/writing'], { queryParams: { campaign: id, view: 'library' } });
   }
@@ -185,6 +279,7 @@ export class WritingWorkspace implements OnDestroy {
     });
   }
   changeMode(mode: WorkbenchMode) {
+    this.researchRequest++;
     if (mode === 'library') {
       void this.router.navigate(['/library'], { queryParams: this.route.snapshot.queryParams });
     } else if (mode !== 'write') void this.prepare(mode);
@@ -200,8 +295,14 @@ export class WritingWorkspace implements OnDestroy {
     if (input.files?.[0]) this.state.selectArtwork(input.files[0]);
     input.value = '';
   }
+  async openDraft(id: string) {
+    this.researchRequest++;
+    await this.state.open(id);
+  }
   async create() {
+    this.researchRequest++;
     await this.state.create(this.newType, this.template);
+    this.editorTab.set('document');
     this.full.set(false);
     this.newOpen.set(false);
   }
@@ -219,6 +320,7 @@ export class WritingWorkspace implements OnDestroy {
   }
   ngOnDestroy() {
     this.active = false;
+    this.researchRequest++;
     this.subscription?.unsubscribe();
     if (this.library.beforeSelect === this.selectGuard)
       this.library.beforeSelect = async () => true;

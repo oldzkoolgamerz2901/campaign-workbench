@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { PlayWorkspaceState } from '../playthroughs/workspace-state';
 import { transferError } from '../shared/transfer-error';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import {
   PreparationControllerService,
   SessionData,
@@ -10,6 +10,8 @@ import {
   RenderedMarkdown,
   SessionView,
   PortableSessionControllerService,
+  SessionLibraryControllerService,
+  LibraryEntry,
 } from '../../api/generated';
 
 export interface SourceSelection {
@@ -25,6 +27,7 @@ export interface AdditionProgress extends SourceSelection {
 export class SessionState {
   readonly play = inject(PlayWorkspaceState);
   private readonly api = inject(PreparationControllerService);
+  private readonly sessionLibrary = inject(SessionLibraryControllerService);
   private readonly portable = inject(PortableSessionControllerService);
   readonly transferBusy = signal(false);
   readonly sessions = signal<SessionSummary[]>([]);
@@ -36,6 +39,7 @@ export class SessionState {
   readonly rendered = signal<SessionView | null>(null);
   readonly previews = signal<Record<string, RenderedMarkdown>>({});
   readonly mutating = signal(false);
+  readonly checkingRemoval = signal(false);
   readonly queueRunning = signal(false);
   readonly additions = signal<AdditionProgress[]>([]);
   private queueIdentity?: { campaign: string; session: string; capture: string };
@@ -60,6 +64,7 @@ export class SessionState {
       this.dirty ||
       !!this.saving ||
       this.mutating() ||
+      this.checkingRemoval() ||
       this.queueRunning()
     );
   }
@@ -215,7 +220,147 @@ export class SessionState {
     if (this.queueRunning()) return;
     const items = this.current()!.items.filter((i) => i.id !== id);
     this.edit({ items });
+    this.current.update((s) =>
+      s
+        ? { ...s, sceneLinks: s.sceneLinks.filter((link) => link.scene !== id && link.item !== id) }
+        : s,
+    );
     if (this.selectedItem() === id) this.selectItem(items[0]?.id ?? null);
+  }
+  async changeSceneLink(scene: string, item: string, linked: boolean) {
+    return this.sessionCommand((s) =>
+      this.api.changeSceneAssociation(
+        s.campaign,
+        s.id,
+        scene,
+        item,
+        { revision: s.revision, linked },
+        'body',
+        false,
+        { httpHeaderAccept: 'application/json' },
+      ),
+    );
+  }
+  async replaceFromLibrary(item: string, entry: LibraryEntry, capture: string | null) {
+    return this.sessionCommand((s) =>
+      this.sessionLibrary.replacePreparedLibraryCard(
+        s.campaign,
+        s.id,
+        item,
+        {
+          revision: s.revision,
+          key: entry.key!,
+          capture,
+          draft: entry.draft ?? null,
+          draftRevision: entry.revision ?? null,
+        },
+        'body',
+        false,
+        { httpHeaderAccept: 'application/json' },
+      ),
+    );
+  }
+  async removeWithConfirmation(id: string) {
+    const epoch = this.epoch;
+    if (
+      this.queueRunning() ||
+      this.mutating() ||
+      this.checkingRemoval() ||
+      !(await this.flush()) ||
+      epoch !== this.epoch
+    )
+      return false;
+    const snapshot = this.current();
+    if (!snapshot) return false;
+    this.checkingRemoval.set(true);
+    try {
+      const impact = await firstValueFrom(
+        this.api.preparedRemovalImpact(snapshot.campaign, snapshot.id, id),
+      );
+      if (epoch !== this.epoch || !this.current()?.items.some((i) => i.id === id)) return false;
+      if (impact.revision !== this.current()?.revision) {
+        this.error.set('The session changed. Reload the session before removing this card.');
+        return false;
+      }
+      if (
+        impact.scenes.length &&
+        !window.confirm(
+          `Remove this prepared card? This also removes its links with Scenes: ${impact.scenes.map((s) => s.title).join(', ')}. Library documents remain available.`,
+        )
+      )
+        return false;
+      return await this.sessionCommand((s) =>
+        this.api.saveSession(
+          s.campaign,
+          s.id,
+          {
+            revision: s.revision,
+            title: s.title,
+            objective: s.objective,
+            notes: s.notes,
+            items: s.items.filter((i) => i.id !== id).map((i) => ({ id: i.id, notes: i.notes })),
+          },
+          'body',
+          false,
+          { httpHeaderAccept: 'application/json' },
+        ),
+      );
+    } catch (error) {
+      if (epoch === this.epoch) this.fail(error);
+      return false;
+    } finally {
+      this.checkingRemoval.set(false);
+    }
+  }
+  private async sessionCommand(
+    command: (snapshot: SessionData) => Observable<SessionData>,
+  ): Promise<boolean> {
+    const epoch = this.epoch;
+    if (
+      this.queueRunning() ||
+      this.mutating() ||
+      !(await this.flush()) ||
+      this.mutating() ||
+      epoch !== this.epoch
+    )
+      return false;
+    const snapshot = this.current();
+    if (!snapshot) return false;
+    this.mutating.set(true);
+    this.error.set('');
+    let completed = false;
+    this.mutation = (async () => {
+      try {
+        const saved = await firstValueFrom(command(snapshot));
+        if (epoch !== this.epoch) return;
+        // Notes can be edited while an explicit command is in flight. Keep those edits local.
+        this.current.update((local) =>
+          local && this.dirty
+            ? {
+                ...saved,
+                title: local.title,
+                objective: local.objective,
+                notes: local.notes,
+                items: saved.items.map((item) => ({
+                  ...item,
+                  notes: local.items.find((i) => i.id === item.id)?.notes ?? item.notes,
+                })),
+              }
+            : saved,
+        );
+        if (!saved.items.some((i) => i.id === this.selectedItem()))
+          this.selectItem(saved.items[0]?.id ?? null);
+        this.status.set(this.dirty ? 'pending' : 'saved');
+        await this.renderSources();
+        completed = epoch === this.epoch;
+      } catch (error) {
+        if (epoch === this.epoch) this.fail(error);
+      } finally {
+        this.mutating.set(false);
+      }
+    })();
+    await this.mutation;
+    return completed;
   }
   async initializeTable() {
     const session = this.current(),
@@ -421,7 +566,7 @@ export class SessionState {
     return completed;
   }
   async allowLeave(): Promise<boolean> {
-    if (this.transferBusy() || this.mutating() || this.queueRunning()) {
+    if (this.transferBusy() || this.mutating() || this.checkingRemoval() || this.queueRunning()) {
       this.error.set('Wait for the current operation to finish before leaving.');
       return false;
     }

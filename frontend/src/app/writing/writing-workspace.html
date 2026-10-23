@@ -34,7 +34,7 @@
     </button>
   </mat-menu>
   <div class="context-toolbar">
-    <h2>{{ state.current()?.fields?.title || 'Choose or create a draft' }}</h2>
+    <h2>{{ state.current()?.fields?.title || 'Choose or create a document' }}</h2>
     @if (state.current(); as draft) {
       <small>{{ draft.fields.type }} · {{ draft.fields.status }}</small>
     }
@@ -46,19 +46,32 @@
     >
       Copy source
     </button>
+    <label
+      >Supporting panel<select
+        aria-label="Supporting panel"
+        [ngModel]="support()"
+        (ngModelChange)="support.set($event); previewOpen.set(true)"
+      >
+        <option value="preview">Preview</option>
+        <option value="library">Library</option>
+      </select></label
+    >
+    <button matButton (click)="previewOpen.set(!previewOpen())">
+      {{ previewOpen() ? 'Hide supporting panel' : 'Show supporting panel' }}
+    </button>
     <button matButton [matMenuTriggerFor]="writingView">View ▾</button>
     <mat-menu #writingView="matMenu">
       <button mat-menu-item (click)="previewOpen.set(!previewOpen())">
         {{ previewOpen() ? 'Hide' : 'Show' }} preview
       </button>
-      <button mat-menu-item (click)="detailsOpen.set(!detailsOpen())">Card details</button>
+      <button mat-menu-item (click)="selectEditor('card')">Card details</button>
     </mat-menu>
     <button
       matButton="filled"
       (click)="reviewExport()"
       [disabled]="!state.current() || state.deleting()"
     >
-      Review export
+      Export to campaign
     </button>
   </div>
   @if (management()) {
@@ -178,7 +191,7 @@
               <button
                 [disabled]="!ready() || state.loading() || state.deleting()"
                 [attr.aria-current]="state.current()?.id === draft.id ? 'page' : null"
-                (click)="state.open(draft.id)"
+                (click)="openDraft(draft.id)"
                 style="padding-left: calc(var(--writing-thumbnail-width, 40px) + 16px)"
               >
                 <strong>{{ draft.fields.title || 'Untitled ' + draft.fields.type }}</strong
@@ -194,7 +207,7 @@
           [open]="newOpen()"
           (toggle)="newOpen.set($any($event.target).open)"
         >
-          <summary>New draft</summary>
+          <summary>Create document</summary>
           <form (ngSubmit)="create()" class="create-draft">
             <label
               >New card type<select aria-label="New card type" name="newType" [(ngModel)]="newType">
@@ -212,7 +225,7 @@
               type="submit"
               [disabled]="!ready() || state.loading() || state.deleting() || !state.catalog()"
             >
-              Create draft
+              Create document
             </button>
           </form>
         </details>
@@ -223,89 +236,108 @@
           aria-label="Draft editor"
           [disabled]="state.loading() || state.deleting() || !ready()"
         >
+          <nav aria-label="Editing tabs">
+            <button
+              matButton
+              [attr.aria-pressed]="editorTab() === 'document'"
+              (click)="selectEditor('document')"
+            >
+              Document
+            </button>
+            <button
+              matButton
+              [attr.aria-pressed]="editorTab() === 'card'"
+              (click)="selectEditor('card')"
+            >
+              Card
+            </button>
+          </nav>
           <label
             >Title<input
               [ngModel]="draft.fields.title"
               (ngModelChange)="state.edit({ title: $event })"
           /></label>
-          <details
-            class="card-details"
-            [open]="detailsOpen()"
-            (toggle)="detailsOpen.set($any($event.target).open)"
-          >
-            <summary>Card details · {{ draft.fields.type }} · {{ draft.fields.status }}</summary>
-            <label
-              >Card artwork<input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                (change)="chooseArtwork($event)"
-            /></label>
-            <p class="hint">
-              JPEG, PNG or WebP · at most 10 MiB. Artwork is separate from the Markdown document.
-            </p>
-            <button
-              type="button"
-              (click)="state.removeArtwork()"
-              [disabled]="!draft.image && !state.localArtwork()"
+          <div [hidden]="editorTab() !== 'card'">
+            <details
+              class="card-details"
+              [open]="detailsOpen()"
+              (toggle)="detailsOpen.set($any($event.target).open)"
             >
-              Remove artwork
-            </button>
-            @if (state.pendingArtwork() !== 'keep') {
-              <p role="status">
-                Unsaved artwork {{ state.pendingArtwork() === 'remove' ? 'removal' : 'selection' }}
+              <summary>Card details · {{ draft.fields.type }} · {{ draft.fields.status }}</summary>
+              <label
+                >Card artwork<input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                  (change)="chooseArtwork($event)"
+              /></label>
+              <p class="hint">
+                JPEG, PNG or WebP · at most 10 MiB. Artwork is separate from the Markdown document.
               </p>
-            }
-            @if (state.artworkError()) {
-              <p role="alert">{{ state.artworkError() }}</p>
-            }
-            <div class="metadata-row">
-              <label
-                >Content type<select
-                  aria-label="Content type"
-                  [ngModel]="draft.fields.type"
-                  (ngModelChange)="state.edit({ type: $event })"
-                >
-                  @for (type of state.catalog()?.types ?? []; track type) {
-                    <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
-                  }
-                </select></label
+              <button
+                type="button"
+                (click)="state.removeArtwork()"
+                [disabled]="!draft.image && !state.localArtwork()"
               >
-              <label
-                >Metadata status<select
-                  aria-label="Metadata status"
-                  [ngModel]="draft.fields.status"
-                  (ngModelChange)="state.edit({ status: $event })"
+                Remove artwork
+              </button>
+              @if (state.pendingArtwork() !== 'keep') {
+                <p role="status">
+                  Unsaved artwork
+                  {{ state.pendingArtwork() === 'remove' ? 'removal' : 'selection' }}
+                </p>
+              }
+              @if (state.artworkError()) {
+                <p role="alert">{{ state.artworkError() }}</p>
+              }
+              <div class="metadata-row">
+                <label
+                  >Content type<select
+                    aria-label="Content type"
+                    [ngModel]="draft.fields.type"
+                    (ngModelChange)="state.edit({ type: $event })"
+                  >
+                    @for (type of state.catalog()?.types ?? []; track type) {
+                      <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+                    }
+                  </select></label
                 >
-                  @for (status of state.catalog()?.statuses ?? []; track status) {
-                    <option [value]="status">{{ status }}</option>
-                  }
-                </select></label
-              >
-            </div>
-            <label
-              >Tags (comma separated)<input
-                [ngModel]="draft.fields.tags.join(',')"
-                (ngModelChange)="tags($event)"
-                list="writing-tags"
-            /></label>
-            <label
-              >Card summary<textarea
-                rows="3"
-                [ngModel]="draft.fields.summary"
-                (ngModelChange)="state.edit({ summary: $event })"
-              ></textarea>
-            </label>
-            <label
-              >Suggested export path<input
-                [ngModel]="draft.fields.path"
-                (ngModelChange)="state.edit({ path: $event })"
-            /></label>
-            <p class="hint">
-              Purpose: session. Metadata status does not approve session use. Export and placement
-              checks appear below. Place downloaded files in the campaign repository manually.
-            </p>
-          </details>
-          <label
+                <label
+                  >Metadata status<select
+                    aria-label="Metadata status"
+                    [ngModel]="draft.fields.status"
+                    (ngModelChange)="state.edit({ status: $event })"
+                  >
+                    @for (status of state.catalog()?.statuses ?? []; track status) {
+                      <option [value]="status">{{ status }}</option>
+                    }
+                  </select></label
+                >
+              </div>
+              <label
+                >Tags (comma separated)<input
+                  [ngModel]="draft.fields.tags.join(',')"
+                  (ngModelChange)="tags($event)"
+                  list="writing-tags"
+              /></label>
+              <label
+                >Card summary<textarea
+                  rows="3"
+                  [ngModel]="draft.fields.summary"
+                  (ngModelChange)="state.edit({ summary: $event })"
+                ></textarea>
+              </label>
+              <label
+                >Suggested export path<input
+                  [ngModel]="draft.fields.path"
+                  (ngModelChange)="state.edit({ path: $event })"
+              /></label>
+              <p class="hint">
+                Purpose: session. Metadata status does not approve session use. Export and placement
+                checks appear below. Place downloaded files in the campaign repository manually.
+              </p>
+            </details>
+          </div>
+          <label [hidden]="editorTab() !== 'document'"
             >Markdown body<textarea
               class="body-editor"
               rows="16"
@@ -328,7 +360,11 @@
             }
           }
         </fieldset>
-        <section class="preview-panel" aria-label="Draft preview" [hidden]="!previewOpen()">
+        <section
+          class="preview-panel"
+          aria-label="Draft preview"
+          [hidden]="!previewOpen() || support() !== 'preview'"
+        >
           <nav class="preview-tabs">
             <button
               matButton
@@ -371,6 +407,18 @@
             />
           }
         </section>
+        @if (previewOpen() && support() === 'library') {
+          <section
+            class="reference-panel"
+            aria-label="Writing reference panel"
+            [hidden]="!previewOpen() || support() !== 'library'"
+          >
+            <library-references
+              [campaign]="state.campaign()!"
+              (openDocument)="openReference($event)"
+            />
+          </section>
+        }
         <writing-export-panel
           #exportPanel
           id="writing-export"
@@ -387,8 +435,9 @@
           </p>
           <p class="hint">
             Drafts save locally. Copy captured sources or create a new card, then inspect and
-            download Markdown. Approve saved revisions from Prepare, or back up your drafts through
-            Writing recovery.
+            download Markdown. Place it manually in the campaign folder, then explicitly refresh
+            Library. Add saved cards to sessions from Library, or back up drafts through Writing
+            recovery.
           </p>
         </section>
       }

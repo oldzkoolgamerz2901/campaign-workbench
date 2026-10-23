@@ -122,6 +122,7 @@ test('deletes working drafts without losing prepared copies or retained history'
     await page.reload();
     await expect(page.getByLabel('Writing library')).not.toContainText('Delete Captain');
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
+    await page.getByRole('button', { name: 'Add source material', exact: true }).click();
     await page.getByRole('button', { name: 'Drafts', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Drafts for session' })).not.toContainText(
       'Delete Captain',

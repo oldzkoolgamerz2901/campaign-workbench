@@ -10,6 +10,7 @@ import {
   PreparationControllerService,
 } from '../../api/generated';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
+import { ResearchContext } from '../writing/research-context';
 import { NavigationContext } from '../shared/navigation-context';
 import { ArtworkImage, ArtworkSource } from '../shared/artwork/artwork-image';
 import { PlayingCard } from '../shared/playing-card/playing-card';
@@ -41,6 +42,7 @@ import { UnifiedLibraryState } from './unified-library-state';
 export class UnifiedLibrary implements OnDestroy {
   readonly state = inject(UnifiedLibraryState);
   readonly campaigns = inject(LibraryState);
+  readonly research = inject(ResearchContext);
   readonly context = inject(NavigationContext);
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -55,6 +57,20 @@ export class UnifiedLibrary implements OnDestroy {
   private subscription?: Subscription;
   private active = true;
   private routeRequest = 0;
+  private openedReference: string | null = null;
+  returnToWrite() {
+    const saved = this.research.returnTo();
+    if (saved)
+      return this.router.navigate(['/writing'], {
+        queryParams: {
+          campaign: saved.campaign,
+          session: saved.session,
+          draft: saved.draft,
+          research: 'return',
+        },
+      });
+    return Promise.resolve(false);
+  }
   constructor() {
     effect(() => {
       const selected = this.campaigns.selected()?.id;
@@ -90,12 +106,34 @@ export class UnifiedLibrary implements OnDestroy {
         if (campaign && campaign !== this.campaigns.selected()?.id)
           await this.campaigns.select(campaign, false);
         if (!this.active || request !== this.routeRequest) return;
+        const sameContext =
+          campaign === this.state.campaign() &&
+          (params.get('session') ?? '') === this.state.session();
         await this.state.bind(campaign, params.get('session') ?? '');
+        if (sameContext) await this.state.reload();
+        if (!this.active || request !== this.routeRequest) return;
+        const reference = params.get('reference');
+        if (reference && reference !== this.openedReference) {
+          this.openedReference = reference;
+          await this.state.openKey(
+            reference,
+            params.has('referenceCapture')
+              ? {
+                  capture: params.get('referenceCapture') || null,
+                  draft: params.get('referenceDraft') || null,
+                  revision: params.has('referenceRevision')
+                    ? Number(params.get('referenceRevision'))
+                    : null,
+                }
+              : undefined,
+          );
+          if (!this.state.stale())
+            this.revealTarget(params.get('referenceSection'), params.get('referenceAnchor'));
+        }
         if (this.active && request === this.routeRequest && params.get('session'))
           this.choosing.set(false);
       })();
     });
-    await this.state.reload();
   }
   ngOnDestroy() {
     this.active = false;
@@ -173,18 +211,22 @@ export class UnifiedLibrary implements OnDestroy {
       Partial<Pick<CheckedLink, 'path' | 'draft' | 'section' | 'anchor'>>,
   ) {
     await this.state.follow(link);
+    const entry = this.state.document()?.entry;
+    if (
+      link.kind === 'draft'
+        ? entry?.draft !== link.draft
+        : !entry?.sources?.some((s) => s.path === link.path)
+    )
+      return;
+    this.revealTarget(link.section, link.anchor);
+  }
+  private revealTarget(sectionId?: string | null, anchor?: string | null) {
+    const expected = this.state.document();
     setTimeout(() => {
-      if (!this.active) return;
+      if (!this.active || this.state.document() !== expected) return;
       const document = this.state.document();
-      const entry = document?.entry;
-      if (
-        link.kind === 'draft'
-          ? entry?.draft !== link.draft
-          : !entry?.sources?.some((s) => s.path === link.path)
-      )
-        return;
       const preview = document?.draftPreview?.preview;
-      const section = link.section ?? (link.anchor ? preview?.anchors[link.anchor] : null);
+      const section = sectionId ?? (anchor ? preview?.anchors[anchor] : null);
       if (!section) return;
       const sections = preview?.sections ?? document?.source?.sections ?? [];
       const index = sections.findIndex((s) => s.id === section);

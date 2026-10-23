@@ -19,15 +19,25 @@ test('writes grouped durable drafts with card and safe full-document previews', 
     await page.goto(`/?campaign=${campaign.id}`);
     await page.getByRole('button', { name: 'Write', exact: true }).click();
     await page.locator('.new-draft > summary').click();
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click();
+    await page.getByRole('button', { name: 'Create document', exact: true }).click();
     await expect(page.getByLabel('Markdown body')).toBeInViewport();
-    await page.locator('.card-details > summary').click();
-    const firstSave = page.waitForResponse((response) =>
-      response.request().method() === 'PUT' && response.url().includes('/drafts/') && response.ok(),
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
+    const firstSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PUT' &&
+        response.url().includes('/drafts/') &&
+        response.ok(),
     );
     await page.getByLabel('Title', { exact: true }).fill('Captain Mira');
     await page.getByLabel('Tags (comma separated)').fill('Harbour, ally');
     await page.getByLabel('Card summary', { exact: true }).fill('A watchful harbour captain.');
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Document', exact: true })
+      .click();
     await page
       .getByLabel('Markdown body')
       .fill(
@@ -77,20 +87,34 @@ test('writes grouped durable drafts with card and safe full-document previews', 
     await expect(page.getByLabel('Markdown body')).toHaveValue(/Protect the crew/);
     await page.locator('.new-draft > summary').click();
     await page.getByLabel('New card type').selectOption('scene');
-    await page.getByRole('button', { name: 'Create draft', exact: true }).click();
-    await page.locator('.card-details > summary').click();
+    await page.getByRole('button', { name: 'Create document', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     await expect(page.getByLabel('Content type', { exact: true })).toHaveValue('scene');
     await page.getByLabel('Title', { exact: true }).fill('Arrival');
-    const sceneSave = page.waitForResponse((response) =>
-      response.request().method() === 'PUT' && response.url().includes('/drafts/') && response.ok(),
+    const sceneSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PUT' &&
+        response.url().includes('/drafts/') &&
+        response.ok(),
     );
     const longText =
       '# Arrival\n\n' + 'A long scene remains available in the full document. '.repeat(250);
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Document', exact: true })
+      .click();
     await page.getByLabel('Markdown body').fill(longText);
     await sceneSave;
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
     await page.getByRole('button', { name: 'Open full document' }).click();
     await expect(page.locator('draft-reader')).toContainText('A long scene remains available');
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     await page.getByLabel('Content type', { exact: true }).selectOption('location');
     await expect(page.getByLabel('Markdown body')).toHaveValue(longText);
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
@@ -224,19 +248,26 @@ test('copies captured sources and downloads immutable Markdown for manual incorp
     '---\ncustom: {rating: 7, text: "007"}\nworkbench:\n  schema: 1\n  id: 92bb19a9-0741-4d9c-9df9-b74b969a649f\n  title: Captain\n  type: npc\n  purpose: session\n  status: current\n  tags: [Harbour]\n  summary: A captain\n  extension: {enabled: true}\n---\n' +
     body;
   await writeFile(join(root, 'captain.md'), original);
-  await writeFile(join(root, 'harbour.md'), '# Dock\nA safe harbour');
+  await writeFile(
+    join(root, 'harbour.md'),
+    '# Harbour\nArrival.\n## Background\n### Dock\nA safe harbour',
+  );
   await writeFile(join(root, 'legacy.md'), '# Legacy\nOld notes');
   await writeFile(join(root, 'unsafe.md'), '---\nworkbench: {schema: 2}\n---\nStill readable');
   try {
     const campaign = await (
       await request.post('/api/campaigns', { data: { name: 'Export browser', directory: root } })
     ).json();
+    await request.post(`/api/campaigns/${campaign.id}/sources/refresh`);
     await page.goto(`/writing?campaign=${campaign.id}`);
     await page.getByRole('button', { name: 'Copy source', exact: true }).click();
     await page.getByRole('button', { name: 'captain.md', exact: true }).click();
     await page.getByRole('button', { name: 'Copy document to draft', exact: true }).click();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Captain');
-    await page.locator('.card-details > summary').click();
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Card', exact: true })
+      .click();
     await expect(page.getByLabel('Metadata status')).toHaveValue('draft');
     const list = await (await request.get(`/api/campaigns/${campaign.id}/drafts`)).json();
     const draft = list.drafts[0];
@@ -246,9 +277,12 @@ test('copies captured sources and downloads immutable Markdown for manual incorp
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
     await page.getByRole('button', { name: 'Open full document', exact: true }).click();
     await page.locator('draft-reader').getByRole('link', { name: 'Harbour', exact: true }).click();
-    await expect(page.locator('#source-reader')).toContainText('A safe harbour');
-    await page.getByRole('button', { name: 'Close sources', exact: true }).click();
-    await page.getByRole('button', { name: 'Review export', exact: true }).click();
+    await expect(page.getByRole('article', { name: 'Selected Library document' })).toContainText(
+      'A safe harbour',
+    );
+    await expect(page.getByText('A safe harbour', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Return to Write', exact: true }).click();
+    await page.getByRole('button', { name: 'Export to campaign', exact: true }).click();
     await page.getByRole('button', { name: 'Inspect export', exact: true }).click();
     await expect(page.getByLabel('Markdown export')).toContainText('Unknown Workbench field');
     await page.getByLabel('I reviewed the warnings for this export.').check();

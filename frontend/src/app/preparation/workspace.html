@@ -261,6 +261,18 @@
       </p>
     }
   </div>
+  @if (unifiedLibraryOpen() && libraryDestination(); as destination) {
+    <preparation-library
+      [campaign]="destination.campaign"
+      [session]="destination.session"
+      [title]="destination.title"
+      [busy]="state.loading() || busy()"
+      (close)="unifiedLibraryOpen.set(false)"
+      (openDocument)="readLibraryReference($event.key)"
+      (prepared)="openLibraryPrepared($event)"
+      (added)="refreshPreparedLibrary()"
+    />
+  }
   @if (adventure(); as document) {
     <adventure-assembly [document]="document" (close)="adventure.set(null)" />
   }
@@ -369,12 +381,44 @@
       [disabled]="!campaignReady() || busy()"
       (selectItem)="selectPrepared($event)"
       (moveItem)="state.move($event.id, $event.delta)"
-      (removeItem)="state.remove($event)"
+      (removeItem)="state.removeWithConfirmation($event)"
+      (addLibrary)="openPrepareLibrary()"
       (addSource)="browse()"
       (sessionNotes)="sessionNotes()"
     />
     <article class="source-page" [hidden]="showingLibrary()" aria-label="Prepared source">
       @if (item(); as prepared) {
+        @if (!reading()) {
+          @if (inspectedScene()) {
+            <button matButton (click)="backToScene()">Back to scene</button>
+          }
+          <nav aria-label="Prepared view">
+            <button
+              matButton
+              [attr.aria-pressed]="!planning()"
+              (click)="planning.set(false); cardOpen.set(false)"
+            >
+              Read
+            </button>
+            @if (isScene()) {
+              <button
+                matButton
+                [attr.aria-pressed]="planning()"
+                (click)="planning.set(true); cardOpen.set(false)"
+              >
+                Scene planning
+              </button>
+            }
+          </nav>
+          <preparation-planning
+            [session]="state.current()!"
+            [item]="prepared"
+            [planning]="planning()"
+            [disabled]="busy()"
+            (inspect)="inspectSceneCard($event)"
+          />
+        }
+
         @if (reading() && state.play.inspectionItemId() === prepared.id) {
           <p class="eyebrow">Temporary document inspection</p>
         } @else if (reading() && state.play.expandedItemId() === prepared.id) {
@@ -417,7 +461,10 @@
             }
           }
         </details>
-        @if (!reading() && prepared.capturedSource?.classification?.metadata; as card) {
+        @if (
+          !reading() && !planning() && prepared.capturedSource?.classification?.metadata;
+          as card
+        ) {
           <nav class="document-tabs" aria-label="Prepared presentation">
             <button matButton [attr.aria-pressed]="cardOpen()" (click)="cardOpen.set(true)">
               Card
@@ -439,14 +486,14 @@
         }
         <prepared-markdown
           #sourceReader
-          [hidden]="!reading() && cardOpen()"
+          [hidden]="!reading() && (cardOpen() || planning())"
           [content]="source()"
           [readingTools]="true"
           [typed]="!!prepared.capturedSource?.classification?.metadata"
           [identity]="prepared.id"
           (capturedTarget)="followCaptured($event)"
         />
-        @if (prepared.capturedSource?.relationships?.length) {
+        @if (!planning() && prepared.capturedSource?.relationships?.length) {
           <aside aria-label="Captured relationships">
             <h4>Captured relationships</h4>
             @for (
