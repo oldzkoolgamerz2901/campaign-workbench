@@ -22,7 +22,15 @@
 }
 .feedback {
   margin: 0.25rem 1rem;
+  padding: 0.5rem 0.75rem;
+  border-inline-start: 3px solid #8eae89;
+  background: #20372a;
   overflow-wrap: anywhere;
+}
+.feedback[role='alert'] {
+  color: #ffb4a5;
+  border-color: #ffb4a5;
+  background: #382820;
 }
 .library-columns {
   display: grid;

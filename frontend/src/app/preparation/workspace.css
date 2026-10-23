@@ -381,6 +381,12 @@ button:disabled {
   margin-inline: auto;
 }
 
+/* Keep Play's existing presentation while improving Prepare's light-panel focus. */
+.campaign-desk:not(.reading-desk) .source-page,
+.campaign-desk:not(.reading-desk) .notes-page {
+  --workbench-focus: #435b38;
+}
+
 .provenance pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

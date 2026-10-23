@@ -770,6 +770,12 @@ The owner explicitly discontinued section capture in the intended Prepare workfl
 - Review actual rendered screenshots with the owner; automated geometry tests alone do not establish visual acceptance.
 - Preserve the shared PlayingCard 243:420 geometry, 320px default, full-card artwork and bottom parchment panel, and all existing frozen-content/recovery behavior.
 
+#### UX-C5 — accepted bounded visual refinement — 2026-10-23
+
+The owner approved dark green text and focus indicators on Write's parchment editor and Prepare's light panels; filled-button emphasis for Library's Add to session action while Edit and destination selection stay secondary; and distinct Library error/success feedback through color, border and spacing, retaining existing messages and accessibility roles. Preserve layout, shared card geometry, save/navigation guards and state ownership. Scope shared-style effects to Library, Write and Prepare; Play presentation remains unchanged. No new components, dependencies or backend changes.
+
+Acceptance: inspect actual rendered control/focus contrast and error/success/disabled/saved feedback, keyboard access, independent scrolling and no horizontal overflow at 1280×800, 1440×900 and a narrow viewport. Run relevant regressions and separately authorized formal verification; present screenshots for owner visual acceptance. Automated checks do not grant aesthetic acceptance.
+
 **Source-grounded visual observations:** Owner screenshots show oversized/misaligned search controls, shortened reference results, dropdown-based support selection and old Add material routing. Targeted source inspection found `library-filters.ts` still renders Search all/Filters, `library-references.ts` caps results at 220px, `writing-workspace.html` renders Copy source and the supporting dropdown, and `preparation/workspace.html` retains Sources/Drafts selection alongside unified Library. These are implementation investigation leads, not evidence that all old code is safe to delete.
 
 **Not yet decided / preserve existing behavior:** Whether to relocate the independent Source fork action is not a requirement to implement it now. Retain existing APIs and archive semantics. Do not conflate simplified default Library search with indiscriminate disclosure of private or invalid data; continue existing campaign isolation and safe diagnostic presentation.

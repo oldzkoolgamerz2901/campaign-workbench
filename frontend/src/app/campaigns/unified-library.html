@@ -100,7 +100,7 @@
               }
             } @else if (!state.session()) {
               <button
-                matButton
+                matButton="filled"
                 [disabled]="!state.document() || state.blocked()"
                 (click)="choosing.set(true); context.reload()"
               >
@@ -108,7 +108,7 @@
               </button>
             } @else {
               <button
-                matButton
+                matButton="filled"
                 [disabled]="
                   state.blocked() ||
                   state.loading() ||

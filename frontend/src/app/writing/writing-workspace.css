@@ -125,8 +125,7 @@ small {
 }
 .draft-editor [role='status'] {
   font-size: 0.75rem;
-  color: var(--accent);
-  white-space: nowrap;
+  color: #435b38;
 }
 .metadata-row {
   display: grid;
@@ -245,6 +244,10 @@ small {
 .draft-editor {
   background: #eee8d7;
   color: #302f27;
+  --workbench-focus: #435b38;
+  --mat-button-text-label-text-color: #435b38;
+  --mat-button-outlined-label-text-color: #435b38;
+  --mat-sys-primary: #435b38;
   padding: 1rem;
   border: 1px solid #b9b79e;
   border-radius: 4px;
@@ -261,6 +264,17 @@ small {
 }
 .draft-editor .hint {
   color: #59624e;
+}
+.draft-editor button:not([matButton]) {
+  color: #435b38;
+  background: transparent;
+  border: 1px solid #9ca588;
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+}
+.draft-editor button:not([matButton]):disabled {
+  color: #686b60;
+  border-color: #b9b79e;
 }
 
 .writing-desk {
