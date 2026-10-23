@@ -9,6 +9,7 @@ interface RecoverySource {
     fun size(campaign: UUID): RecoverySize
     fun approved(campaign: UUID): List<RecoveryApproval>
     fun exports(campaign: UUID): List<RecoveryExport>
+    fun associations(campaign: UUID): List<SourceAssociationData> = emptyList()
 }
 interface RecoveryStore {
     fun list(): List<RecoverySummary>

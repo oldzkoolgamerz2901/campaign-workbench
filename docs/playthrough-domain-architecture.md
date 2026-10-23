@@ -2,24 +2,26 @@
 
 **Status:** Accepted architecture, 2026-10-22. Documentation only; implementation planning and code changes require separate approval. Derived from the accepted tabletop requirements in [product-specification.md](product-specification.md) (Q10f–Q10x), Increment 5 card-table behavior, and Increment 6A–6C image implementation in [implementation-plan.md](implementation-plan.md).
 
+**Accepted reconciliation, 2026-10-23:** [Unified-workspace architecture](implementation-plan.md#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23) is authoritative for Library composition, Writing-owned Source associations, atomic Preparation Add, same-type revision replacement and frontend navigation context. Preparation now owns persisted session-specific Scene→PreparedItem associations; only those drive Play contextual cards. This supersedes the earlier Markdown-derived suggestion/no-relationship-store decision. Ordinary Markdown navigation retains exact frozen-target resolution. P4R's implemented behavior remains historical evidence until an authorized increment replaces it. PlayNotes/history remain future implementation; approval of this architecture does not authorize planning or code.
+
 **Approved gap closure, 2026-10-22:** The identity, suggestion, contract, concurrency, note-context and archive rules below incorporate the owner's subsequent approval. Existing saved objects and archives are disposable, including in future increments: no conversion, compatibility adapter or older-format importer is required to preserve them. Keep Flyway evolution reproducible; actual resets require explicit, scoped execution authorization. Complete round trips of each increment's newly created state remain required. Card backs/flipping are excluded; 243:420 geometry is a separate presentation change using existing fields and the shared renderer.
 
 ## Domain ownership
 
 ```mermaid
 flowchart TD
-    SW["Sources / Writing<br/>authored Markdown, stable card identity,<br/>relationships, editable artwork"]
-    P["Preparation<br/>Session, PreparedItem,<br/>frozen text and artwork,<br/>preparation notes, starting order"]
+    SW["Sources / Writing<br/>authored Markdown, logical identity,<br/>Source associations, editable artwork"]
+    P["Preparation<br/>Session, PreparedItem,<br/>frozen text and artwork,<br/>Scene associations, notes, starting order"]
     PT["Playthroughs<br/>PlayWorkspace, PlayNote,<br/>runtime table, active scene, focus, history"]
     X["Session archive coordinator<br/>versioned ZIP, validation, ID remapping"]
-    SW -->|"approved draft snapshot / source capture"| P
-    PT -->|"public read contract: prepared membership,<br/>frozen content, scene classification"| P
-    PT -->|"public read contract: resource identity / links"| SW
+    P -->|"public Writing API: reuse/create Draft<br/>and approve exact saved revision"| SW
+    PT -->|"public read contract: prepared membership,<br/>frozen identity, Scene associations"| P
+    PT -->|"public read contract: Library inspection"| SW
     X -->|"public module contracts"| P
     X -->|"public module contracts"| PT
 ```
 
-Arrows indicate requests/data access, **not** cross-module repository access. Preparation does not own actual-play history. Playthroughs does not own artwork bytes, prepared text or source documents. The application-level coordinator handles cross-module archive transfers. No new Assets module or image store is introduced. Existing Preparation `CardTable` persistence is the current authority until a coordinated migration to Playthroughs; do not create two competing tables.
+Arrows indicate requests/data access, **not** cross-module repository access. Preparation does not own actual-play history. Playthroughs does not own artwork bytes, prepared text or source documents. The application-level coordinator handles cross-module archive transfers. No new Assets module or image store is introduced. Playthroughs became the sole runtime table authority in P1/P2; the earlier Preparation authority is historical, not a migration still to perform.
 
 ## Conceptual domain model
 
@@ -53,6 +55,10 @@ classDiagram
         +UUID? activeSceneItemId
         +UUID[] focusedItemIds
     }
+    class SceneAssociation {
+        +UUID sceneItemId
+        +UUID targetItemId
+    }
     class PlayNote {
         +UUID id
         +Long revision
@@ -82,6 +88,8 @@ classDiagram
     }
     Campaign "1" --> "*" Session : contains
     Session "1" *-- "*" PreparedItem : prepared copies
+    Session "1" *-- "*" SceneAssociation : same revision
+    SceneAssociation ..> PreparedItem : same-session endpoints
     Session "1" --> "0..1" PlayWorkspace : runtime state
     Session "1" --> "*" PlayNote : actual-play notes
     PreparedItem --> "0..1" ImageMetadata : frozen image descriptor
@@ -103,13 +111,13 @@ Resource snapshots may retain a title without a logical reference when captured 
 - **Inspection:** unprepared library cards can be inspected without adding or focusing them. Explicit addition uses existing capture/approval boundaries and produces a frozen prepared copy. Source-only cards retain placeholder artwork; no new source-image assignment.
 - **PlayNotes:** independent timestamped Markdown records, no mandatory category or structured discovery state; optional one explicit primary resource, plus scene snapshot automatically captured at creation. Inspection/focus alone never assigns the primary resource. Scene changes affect future notes only. Editing content changes `updatedAt`, never `createdAt`; an explicit association correction captures the new title. Pinning does not alter chronology; pinned notes remain in full history. Deleting/renaming a source or removing a prepared item does not rewrite historical notes.
 - **History:** session notes newest-first by immutable `createdAt`, with stable ID tie-break; separately query primary-resource history and captured-scene history by campaign-qualified `ResourceReference`. No duplicate note storage or implicit merging of these queries. Query visibility is restricted to sessions belonging to the requested/authorized containing campaign; origin identity may point to a different campaign after import. Never merge by title, path or image hash.
-- **Relationships:** derive suggestions from the explicitly active scene's frozen relationships, reusing existing capture/revision-aware link resolution. Logical UUID equality alone does not satisfy an exact captured target. Show prepared matches in preparation order, retaining section targets and Used indicators; collapse repeated links to the same exact target. Multiple eligible prepared copies require explicit selection. Unprepared targets offer inspection and deliberate capture; absent, unsafe or incompatible targets remain labelled unavailable. A current library version may be inspected explicitly but never silently substitutes for an unavailable captured version. One-click focus uses a free slot; full slots use temporary inspection and explicit replacement. Suggestions never rearrange the table, return Used cards or activate scenes. No inferred relationships or new relationship store.
+- **Scene relationships — reconciled 2026-10-23:** contextual suggestions consume only Preparation-owned session Scene→PreparedItem associations, in preparation order and with Used indicators. Membership and linking are separate; endpoints are already-prepared items in the same session. One-click focus uses a free slot; full slots use temporary inspection and explicit replacement. Suggestions never rearrange the table, return Used cards or activate scenes. Association ownership, update/removal semantics and archives are defined in the unified-workspace architecture. The earlier frozen-Markdown suggestion mechanism is superseded; exact captured-target resolution remains required for ordinary reader links.
 - **Artwork:** Play renders frozen Preparation image derivatives through existing scoped APIs; Playthroughs does not retain bytes or image references. No artwork in PlayNotes. Historical notes remain readable even if a removed prepared item's artwork is pruned.
 - **Concurrency:** workspace, Preparation and individual notes have independent optimistic revisions. All Playthrough writes and archive snapshots participate in the existing campaign-row lock through the Campaigns public contract, inside one transaction. Acquire the containing campaign lock before reading session/workspace/note rows; do not lock origin campaigns when importing historical references. This serializes same-campaign writes, an accepted local-app tradeoff. Reconcile membership before validating workspace commands; reject stale user mutations without overwriting them. Persist reconciliation only when state changes; conflict responses must not discard local edits. Notes persist independently from workspace changes. Preserve originating campaign/session context on asynchronous UI operations.
 
 ### Public contracts and note capture
 
-Preparation exposes a campaign-scoped immutable session snapshot: session identity/revision, ordered prepared membership, frozen titles/types, origin identity/provenance, anchors and frozen relationships. Its public resolver returns exact prepared candidates and explicit unresolved outcomes, sharing semantics with the existing frozen reader. Sources remains the live-library inspection boundary, Writing the exact-revision approval boundary. Preparation has no dependency on Playthroughs; reconciliation occurs on Playthrough access/mutation and archive snapshotting, not through reverse calls or events.
+Preparation exposes a campaign-scoped immutable session snapshot: session identity/revision, ordered prepared membership, frozen titles/types, origin identity/provenance, anchors and session Scene associations. Its frozen-reader resolver retains exact prepared candidates and explicit unresolved outcomes for Markdown navigation; it no longer supplies contextual Scene suggestions. Sources remains the captured-library inspection boundary, Writing the association and exact-revision approval boundary. Preparation orchestrates unified Add through Writing's public API. Preparation has no dependency on Playthroughs; reconciliation occurs on Playthrough access/mutation and archive snapshotting, not through reverse calls or events.
 
 Note creation carries an operation ID and expected active-scene item ID, including explicit null. Under the campaign lock, reconcile membership, compare scene context, validate the optional selected resource against an authorized public snapshot, and capture titles/references on the server. A changed or removed scene returns a context conflict; retain text and require explicit confirmation/retry rather than silently changing its association. Unrelated workspace reorders do not invalidate creation. An operation ID is unique within the containing campaign/session: an identical retry returns the original note, a different payload using that ID conflicts. Edits/pins use the note's own revision; creation time never changes. Transport retry identity is not resource identity and must not prevent an imported session from accepting new notes.
 
@@ -196,7 +204,7 @@ These are conceptual operations, not final REST endpoints or module interfaces. 
 1. **Ownership transfer:** replace Preparation's persisted CardTable authority with Playthroughs; no data conversion or dual writes. Separate frontend revisions and save guards.
 2. **Consistency evidence:** test simultaneous Prepare membership changes, Play writes, note capture and archive snapshots using the common campaign lock; independent revisions are not sufficient evidence.
 3. **Identity evidence:** test invalid/duplicate metadata, sections, multiple copies, missing originals and imported foreign origins without history leakage.
-4. **Suggestion evidence:** give exact resolution, deterministic ordering, ambiguity, Used and unavailable targets an explicit delivery increment.
+4. **Suggestion evidence — reconciled 2026-10-23:** verify persisted same-session Scene associations, preparation ordering, Used behavior, atomic removal, revision-update preservation and archive endpoint remapping. Keep exact frozen-link reader evidence separately. A revised increment requires separately authorized planning.
 5. **Archive completeness:** implement round trips alongside each new persisted capability; no later archive-cleanup gate and no legacy compatibility work.
 6. **Presentation:** retain the shared renderer, artwork fallback, full-document reader, preparation notes, navigation protection and save status. Deliver 243:420 geometry separately with 320px default width, accessible overflow for long text, no backs and no new content fields or image service.
 

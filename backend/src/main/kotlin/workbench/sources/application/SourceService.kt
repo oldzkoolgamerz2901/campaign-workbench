@@ -13,6 +13,18 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 
 class SourceService(private val campaigns: Campaigns, private val store: CaptureStore, private val scanner: SourceScanner, private val markdown: Markdown, private val tx: Transactions) : Sources {
+    override fun catalogue(campaign: UUID): Either<Failure, SourceCatalogue> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val capture = store.get(campaign) ?: return@either SourceCatalogue(campaign, null, emptyList())
+        val documents = parsed(capture)
+        SourceCatalogue(campaign, capture.id, documents.toSortedMap().map { (path, parsed) ->
+            val raw = capture.documents.getValue(path)
+            val hash = java.security.MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+            val links = relationships(path, parsed, documents)
+            CatalogueSource(path, raw, parsed.declaredId, hash,
+                SourceDocument(campaign, capture.id, path, parsed.sections, links.map { it.target }, parsed.classification, links))
+        })
+    } }
     override fun authoringLibrary(campaign: UUID): Either<Failure, AuthoringLibrary> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val captured = store.get(campaign)

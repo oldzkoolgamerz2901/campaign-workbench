@@ -13,7 +13,7 @@ import java.util.UUID
 class RecoveryService(private val campaigns: Campaigns, private val drafts: DraftStore, private val source: RecoverySource,
     private val store: RecoveryStore, private val codec: RecoveryCodec, private val authoring: Authoring, private val tx: Transactions, private val images: WritingImageStore? = null) {
     private val validation = RecoveryValidation(authoring)
-    private fun invalid() = Failure.Invalid("writing.recovery-invalid", "Invalid, unsupported or oversized Writing archive. No recovery workspace created. Limits: 64 MiB, 1,000 current drafts and 10,000 retained records.")
+    private fun invalid() = Failure.Invalid("writing.recovery-invalid", "Invalid, unsupported or oversized Writing archive. No recovery workspace created. Limits: 64 MiB, 1,000 current drafts and 10,000 retained records/associations combined.")
     private fun missing() = Failure.NotFound("writing.recovery-not-found", "Recovery workspace or record not found.")
     private fun <T> checked(block: () -> T): Either<Failure, T> = try { Either.Right(block()) } catch (_: Exception) { Either.Left(invalid()) }
     fun backup(campaign: UUID): Either<Failure, ByteArray> = either {
@@ -26,8 +26,8 @@ class RecoveryService(private val campaigns: Campaigns, private val drafts: Draf
         // the exact 64 MiB wire cap, and approved enumeration omits stored rendering entirely.
         val size = source.size(campaign)
         ensure(size.drafts <= 1000 && size.retained <= 10000 && size.bytes <= RECOVERY_BYTES * 2L) { invalid() }
-        val archive = WritingArchive("workbench-writing-recovery", if (illustrated) 2 else 1, campaign, c.name, Instant.now().toString(), drafts.list(campaign).map(::draftData),
-            source.approved(campaign), source.exports(campaign))
+        val archive = WritingArchive("workbench-writing-recovery", if (illustrated) 4 else 3, campaign, c.name, Instant.now().toString(), drafts.list(campaign).map(::draftData),
+            source.approved(campaign), source.exports(campaign), source.associations(campaign))
         ensure(illustrated || artwork(archive).isEmpty()) { Failure.Invalid("writing.artwork-archive", "Artwork requires portable ZIP export.") }
         checked { validation.validate(archive) }.bind(); archive
     } }
@@ -46,7 +46,7 @@ class RecoveryService(private val campaigns: Campaigns, private val drafts: Draf
     fun archive(id: UUID): Either<Failure, ByteArray> = either {
         val a = workspace(id).bind()
         ensure(artwork(a).isEmpty()) { Failure.Invalid("writing.artwork-archive", "Artwork requires portable ZIP export.") }
-        checked { codec.write(a.copy(version = 1)) }.bind()
+        checked { codec.write(a.copy(version = 3)) }.bind()
     }
     private fun records(a: WritingArchive) = a.drafts.map { RecoveryRecord("draft:${it.id}", "draft", it.id, it.revision, it.fields.title, it.fields.type) } +
         a.approved.map { r -> r.snapshot.let { RecoveryRecord("approved:${it.id}:${it.revision}", "approved", it.id, it.revision, it.fields.title, it.fields.type) } } +

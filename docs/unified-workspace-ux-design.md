@@ -1,6 +1,6 @@
 # Unified Library / Write / Prepare / Play — Accepted UX design
 
-**Status:** UX design accepted through Decision 27 (2026-10-23); documentation-only handoff. Not implemented. Architecture reconciliation and review remain required before planning. This document describes intended UX, not necessarily current application behavior.
+**Status:** UX design accepted through Decision 27 (2026-10-23). Subsequent [architecture reconciliation](implementation-plan.md#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23) is approved and documented. Not implemented; planning requires separate authorization. This document describes intended UX, not necessarily current application behavior.
 
 **Authority:** [Product specification](product-specification.md), [Playthrough architecture](playthrough-domain-architecture.md), and the project development workflow. This refinement supersedes conflicting *future UX direction*, not implemented features or previous historical records. No code or migration authorization follows from this document.
 
@@ -81,4 +81,4 @@ flowchart LR
 4. Verify 1280×800 and 1440×900 layouts against actual CSS and card sizes, reader/notes overflow, keyboard focus/accessibility, navigation guards, and saving behavior.
 5. Update implementation plans *only in a separately authorized planning phase*. The existing accepted Playthrough increments and P4R implementation history are not retroactively rewritten by these UX requirements.
 
-**Status:** UX requirements refinement complete at interaction level, awaiting approved architecture reconciliation. No code implementation, database changes, migrations, or planning authorized.
+**Status:** UX requirements refinement and subsequent architecture reconciliation are accepted. The architecture record resolves ownership, identity, atomic Add, Scene associations, replacement and navigation boundaries. Physical persistence details and browser layout validation remain later work within those boundaries. No code implementation, database changes, migrations, or planning authorized.

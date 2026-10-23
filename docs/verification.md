@@ -1,5 +1,94 @@
 # Verification evidence
 
+## UW1 corrective re-verification — V-UW1-01 and V-UW1-02 — 2026-10-23
+
+**Assessment: PASS within the assessed UW1 scope. V-UW1-01 and V-UW1-02 are resolved.** Independent HTTP reproductions now pass, including positive current-representation reads and negative stale-identity reads. No remaining acceptance-blocking UW1 defect was identified in this pass. Recommend owner acceptance within the recorded limits; later increments remain separately gated. The original failed assessment is preserved below.
+
+### Authorization, scope and method
+
+The owner authorized verification of V-UW1-01, correction of V-UW1-02 and subsequent verification without intermediate confirmation. The initial seven-test Library integration run passed, including the V-UW1-01 regression. A new HTTP regression then reproduced V-UW1-02 before its fix. The bounded correction and developer evidence are recorded in [implementation-plan.md](implementation-plan.md#uw1--v-uw1-02-corrective-implementation--2026-10-23).
+
+Assessed the current uncommitted working tree based on `65aafc8` against the original UW1 scope, approved identity architecture and the two failed findings below. This is a separate verification pass by the implementing agent, not an independent reviewer. Application changes stopped before final verification; only this formal assessment was added during that pass. Derived client/build artifacts and temporary diagnostic probes are evidence, not new application features.
+
+### Resolution
+
+| Finding | Resolution and evidence |
+| --- | --- |
+| V-UW1-01 — secondary conflicting Sources absent from search | Source-only search considers every candidate's rendered sections, path and decoded title/tags/summary without assigning authoritative classification. The regression covers both candidate positions, filename reordering, explicit reader choice, blocked readiness, no implicit Draft creation and effective-Draft precedence. Separate HTTP probes now find both body needles and secondary/renamed paths before and after candidate reordering; reader choice still requires an explicit path. |
+| V-UW1-02 — same revision number accepts a replacement Draft | Detail reads compare both the expected Draft ID and revision from the catalogue. `GET .../cards/document` now accepts `draft` alongside `revision`; both are required for an effective Draft and both omitted for Source-only reads. The original old-Draft request at revision 1 now returns 409 after replacement by another Draft at revision 1. A current pair returns 200 with the exact expected Draft ID and text. Missing identity/revision, wrong identity, stale numeric revision and a stale Source-only selection all conflict. Existing capture and explicit candidate checks remain intact. |
+
+The change is confined to the owning Library API/service/controller and their tests, plus README/API guidance. No persistence migration or archive change accompanies V-UW1-02. Existing frontend screens do not call the new Library detail endpoint; the generated client was updated to expose its additional UUID query parameter.
+
+### Fresh execution evidence
+
+- Final verification ran `/tmp/uw1-reverification.sh`, derived from the existing isolated integration check, with `cleanTest test bootJar` and an independent HTTP probe before frontend checks. **76 freshly executed backend tests across 23 suites passed**, zero failures/errors/skips. This includes both correction regressions, Modulith/ArchUnit and the existing migration, rollback, recovery, artwork, Preparation and Playthrough checks. XML totals were inspected.
+- **All 45 independent HTTP checks passed.** The probe retains the original conflict and replacement-Draft reproductions, using fresh synthetic campaign/source/draft records. It sends the old expected Draft ID with its colliding revision, confirms 409, then independently checks the replacement pair's identity/text and incomplete/incorrect pairs. Other checks cover explicit Source inspection, concurrency, captured-only behavior, missing Sources, safe typed moves/old-path reuse, JSON v3/ZIP v4 association preservation and detached-copy behavior. Temporary campaign directories were removed.
+- Live-Spring OpenAPI/client generation and version checks passed. The served OpenAPI describes the Draft identity/revision pair and exposes the `draft` UUID query parameter; the generated Angular `readLibraryCard` method includes it. **98 frontend tests across 15 files**, the production frontend build and **all 31 Chromium browser regressions** passed. PostgreSQL installation-state preservation across restart passed; the isolated server/database lifecycle completed and cleaned up. No JAR rebuild overlapped the running verification server.
+- Evidence: `/tmp/uw1-reverification.log`, `/tmp/uw1-reverification-probe.py`, `/tmp/uw1-reverification-probe-results.json`, `/tmp/uw1-reverification.sh`. Original failure artifacts remain separate. Generated client files are ignored; no tracked frontend application code changed.
+
+### Limits and exit
+
+Existing Angular bundle/style budget and OpenAPI-generator 3.1 warnings remain nonblocking. Verification does not establish maximum-size catalogue performance, exhaustive concurrency schedules, Safari/WebKit or the future unified-workspace layouts. Browser checks establish compatibility of existing screens; the new backend contracts are exercised by database-backed/HTTP tests and separate probes. UW2 Add/update, Scene planning and PlayNotes/history remain outside UW1.
+
+`git diff --check` passed. No production database migration/reset, independent campaign-repository edit or commit occurred. Stop at UW1 verification handover; owner acceptance and later increment authorization remain separate.
+
+## UW1 — Identity, Source associations and Library backend — 2026-10-23
+
+**Assessment: FAIL — corrections V-UW1-01 and V-UW1-02 required before acceptance.** Existing tests pass, but independent HTTP probes reproduce incomplete conflict search and a stale-read identity substitution after Draft deletion/recreation. These concern UW1's delivered discovery/detail contracts, not deferred Library UI or UW2 session mutations.
+
+### Authorization, scope and method
+
+The owner explicitly requested verification after the UW1 implementation handover. Reviewed the uncommitted working tree based on `65aafc8` against the [UW1 plan and developer evidence](implementation-plan.md#uw1--accepted-implementation-plan--2026-10-23), [accepted architecture reconciliation](implementation-plan.md#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23), unified requirements and accepted workspace UX. This is a separate verification pass by the implementing agent, not an independent reviewer. No application, test or configuration source was changed. Only this assessment was added to repository documentation; temporary probes and generated/build outputs are derived evidence.
+
+### Blocking findings
+
+#### V-UW1-01 — Conflicting Source candidates disappear from search (medium)
+
+**Evidence:** `CardLibraryService.list`, lines 105–114, searches only `item.sources.firstOrNull()` when there is no effective Draft. Snapshot composition groups duplicate declared identities into one conflicted entry containing all Source candidates. As a result, only the first candidate's body/path contributes to discovery.
+
+**Independent HTTP reproduction:** Capture `a.md` and `b.md` with the same declared card UUID, with distinct `PrimaryNeedle` and `SecondaryNeedle` body text. Unfiltered `/cards` exposes one conflicted entry with both paths and `ready=false`; an explicit `/cards/document?...&sourcePath=b.md` successfully reads the second candidate. However, `/cards?query=SecondaryNeedle` and `/cards?query=b.md` both return zero entries, while `PrimaryNeedle` returns the conflicted entry.
+
+**Impact:** An affected Source is readable if its path is already known but cannot be found through its own content or filename. This fails the UW1 completion criterion that incomplete/conflicting material remains discoverable and lets path order decide which conflicting evidence participates in search.
+
+**Required correction:** Search all eligible Source candidates in a conflicted Source-only entry, retaining explicit reader choice and the established effective-Draft precedence for associated cards. Cover secondary body/path matches and deterministic behavior when candidate order changes. No identity merge or automatic authority selection is needed.
+
+#### V-UW1-02 — Revision checks accept a different Draft with the same revision number (medium)
+
+**Evidence:** `CardLibraries.document` identifies a selection by logical card key, Source capture and numeric revision. `CardLibraryService.document`, line 122, compares only `item.draft?.revision` with the request. The request carries no expected Draft identity, although revisions are scoped to a Draft and deletion/recreation deliberately preserves logical card identity with a new Draft ID.
+
+**Independent HTTP reproduction:** Edit a Source into Draft A and save revision 1 with body `OldDraftNeedle`; retain its catalogue key/capture/revision. Delete A, recreate its associated Draft B from the same unchanged Source capture, and save B to revision 1 with body `ReplacementNeedle`. A and B have the same logical card UUID and numeric revision but different Draft IDs. Reading with A's old catalogue key/capture/revision returns HTTP 200, B's ID and B's replacement body. The expected result for the stale saved-revision selection is a conflict requiring catalogue reload.
+
+**Impact:** A stale reader can silently substitute another Draft's saved revision. This fails UW1's capture/revision-checked detail contract and the accepted distinction between logical card identity and Draft identity/revision. No lost write or historical-note mutation was observed; the failure is incorrect stale-read validation.
+
+**Required correction:** Validate the expected Draft ID together with its revision, through an explicit identity parameter or equivalent representation token. Preserve capture checks, Source-only reads and normal current-Draft reads. Cover deletion/recreation with equal revision numbers as well as ordinary stale revisions, and regenerate the API client for any contract change.
+
+### Fresh execution evidence
+
+- `./gradlew cleanTest test bootJar` passed with **74 freshly executed backend tests across 23 suites**, zero failures/errors/skips. Modulith/ArchUnit, persistence/migration, Source, Writing, recovery, artwork, Preparation, Play workspace and P4R regressions passed. XML totals were inspected; the existing tests do not cover the two reproductions above.
+- Ran `/tmp/uw1-verification.sh`, a temporary copy of the existing isolated integration check with an independent Python HTTP probe inserted before frontend checks. The probe used fresh synthetic campaigns, captured Source files and Drafts, then removed its temporary campaign directories. **31 of 34 recorded checks passed**; three failed assertions reproduce the two findings (secondary body/path search, and replacement-Draft rejection). The positive diagnostic check confirming that the returned identity is B is included in those totals.
+- Positive independent HTTP checks cover explicit conflict inspection, blocked conflicting associated creation, four concurrent associated edits reusing one Draft, ordinary effective-Draft search, typed moves with old-path reuse, missing-Source readiness/status, obsolete capture rejection, JSON v3/ZIP v4 association preservation, strict duplicate-association rejection, and detached recovery copying with fresh logical identity and no live Source binding.
+- Live-Spring OpenAPI/client generation, version checks, **98 frontend tests across 15 files**, the production frontend build and **all 31 Chromium browser regressions** passed in the verification integration run. PostgreSQL installation-state preservation across restart passed; the isolated backend/database lifecycle completed and cleaned up. Existing browser journeys establish compatibility of existing screens, not coverage of the two new backend cases above.
+- Temporary evidence: `/tmp/uw1-verification.log`, `/tmp/uw1-verification-probe.py`, `/tmp/uw1-verification-probe-results.json`, `/tmp/uw1-verification.sh`. Probe failures are retained as assessment evidence; they deliberately do not stop the existing compatibility checks from running.
+
+### Acceptance assessment
+
+| UW1 criterion | Assessment |
+| --- | --- |
+| Writing association ownership, public Sources boundary, no persistence-owning Library | Pass in code review and fresh module checks. Association evidence remains Writing-owned and independent of Draft deletion. |
+| Draft precedence, associated reuse, independent derivatives | Pass for covered cases in fresh tests and independent concurrency/search probes. |
+| Explicit capture refresh, changes/absence/restoration, safe UUID moves and conservative untyped handling | Pass for covered cases in fresh tests; independent probes confirm typed moves, old-path reuse and unavailable originals without Draft invalidation. |
+| Incomplete/conflicting discovery and explicit inspection | Partial. Classification/readiness and reader choice pass; secondary conflict search fails V-UW1-01. |
+| Capture and exact saved-Draft read validation | Partial. Ordinary stale revision/capture checks pass; Draft replacement with equal revision fails V-UW1-02. |
+| Campaign isolation, rollback, retained history and restart | Pass for covered automated integration cases, including campaign-qualified identity and deletion/recreation with retained approvals. |
+| Association recovery and detached-copy behavior | Pass in fresh tests and separate JSON/ZIP probes; older archive rejection is the accepted disposable-artifact policy. |
+| Scope | No frontend feature, Preparation mutation, Scene-link persistence, session archive evolution, PlayNotes/history or production data reset introduced by UW1. |
+
+### Limits and exit
+
+Existing Angular bundle/style budget warnings and OpenAPI-generator 3.1 warnings remain nonblocking build observations. This assessment does not establish maximum-size catalogue performance, exhaustive concurrency schedules, Safari/WebKit, or the future Library/Write/Prepare laptop layouts. New session Add/update, Scene planning and PlayNotes/history remain outside UW1. Catalogue reads retain observed association/locator evidence under the campaign lock as documented in the implementation record; they do not refresh files or overwrite Draft text.
+
+`git diff --check` passed. Recommend a bounded correction for both findings followed by re-verification before UW1 acceptance. Verification authorizes neither application fixes nor UW2. No development database reset, independent campaign-repository edit or commit occurred.
+
 ## P4R — Contextual relationship suggestions — 2026-10-23
 
 **Assessment: PASS within the assessed P4R scope; no blocking defect identified.** Exact frozen targets, prepared-copy choice, section constraints, Used preservation and explicit focus/inspection/replacement satisfy the bounded increment. Unprepared-target inspection/capture remains the explicitly accepted P7 dependency; this assessment does not claim full suggestion acceptance across P4R/P7. Recommend owner acceptance of P4R within these limits.

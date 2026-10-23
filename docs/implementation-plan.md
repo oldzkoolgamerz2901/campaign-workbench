@@ -1,4 +1,182 @@
+## UW1 — accepted implementation plan — 2026-10-23
+
+**Scope:** Backend identity, Writing-owned explicit Source associations, unified Library read/search/filter/detail contracts, associated Source editing/reuse, and complete Writing recovery for new association state. The owner approved this bounded increment by explicitly authorizing UW1 implementation after reviewing its proposed scope. Later increments remain separately gated.
+
+Preparation Add/update, session Scene associations, frontend navigation/UX, session archive changes, data resets and old-data conversion are excluded. Existing Source-copy behavior remains an independent derivative operation. New Library composition uses public module contracts and owns no persistence. Sources exposes captured declared identity claims including collision diagnostics; reads never refresh files. Writing persists association evidence separately from immutable provenance, retaining identity after working-Draft deletion. Replace global live Draft card uniqueness with campaign-qualified uniqueness. Keep retained historical Draft identities independently recoverable.
+
+Completion: associated entries use Draft precedence; concurrent associated-edit requests reuse one Draft; explicit refresh handles changes, absence, safe restoration and collisions without overwrites; unique UUID moves reconnect and untyped moves do not; incomplete/conflicting entries stay discoverable; deletion/recreation preserves identity and history; new state survives restart and strict current-format Writing recovery round trips without live rebinding from detached recovery. Existing frontend and Write/Prepare/Play behavior continue to compile and pass regressions.
+
+Expected components: Sources public catalogue contract/service; Writing domain/API/application/persistence/web/configuration; read-only Library composition; additive Flyway migration after V16; Writing recovery enumeration/codec/validation/portable transfer; focused backend/database/HTTP tests and generated Angular API compatibility checks. Check concurrency, rollback, campaign isolation, export/refresh identity, safe rendering, deletion/recreation, malformed recovery and archive round trips; run backend tests/build/module checks, generate the Spring API client and run frontend checks/build. Formal verification remains separate. Record developer evidence here and stop at UW1.
+
+### UW1 — implementation and developer evidence — 2026-10-23
+
+**Status:** Implementation and developer checks complete. Formal verification and owner acceptance remain separate gates.
+
+Implemented the backend foundation in Writing and Sources; no new persistence-owning Library module or frontend feature was introduced. Sources exposes captured raw identity claims alongside safe existing reader output, retaining duplicate-ID evidence even when classification suppresses metadata. Writing's `CardLibraries` public API composes discovery, effective-Draft search/filtering and revision/capture-checked detail reads. HTTP operations are `GET /api/campaigns/{campaign}/cards`, `GET .../cards/document` and `POST .../cards/edit-source` (capture/path, bounded to 64 KiB). Source-only conflicting candidates require explicit `sourcePath` for document inspection; no arbitrary candidate supplies the reader. Draft detail uses the existing renderer and checked-link interpreter, and exposes retained original evidence through the saved Draft snapshot.
+
+V17 adds `writing.source_association` and changes live Draft card uniqueness from global to `(campaign, card)`. The association is independent of the working Draft: its current path/declared-ID locator can follow a unique UUID across moves, while capture/hash retain the review baseline. Untyped moves are not inferred. A different card can safely reuse the former path after a unique UUID move; unresolved competing path/identity claims remain conflicts. Associated editing preserves a valid logical UUID or assigns a UUID to incomplete untyped material, and captures immutable raw origin evidence. The existing fork operation continues to produce fresh logical identity. New Draft creation, binding retention and stale-capture checks share the campaign lock and one transaction; invalid/oversized/unsafe input commits no partial Draft or association.
+
+Writing materializes uniquely observed Source/Draft UUID associations when composing a successful catalogue read, under the same campaign lock. This retains evidence of an incorporated exported Source if a later capture removes it. It also updates safely resolved locators. Library composition owns no persistence: these writes retain Writing association evidence, never scan files, mutate Draft text or imply canon authority. A stale detail/edit request rolls back its transaction. Source status reports available/current/changed/unavailable/conflict separately from Draft readiness. Deleting a working Draft preserves association identity, retained approval/export history and frozen Preparation content.
+
+Writing recovery now emits strict image-less JSON v3 and illustrated ZIP manifest v4; v1/v2 inputs are rejected under the accepted disposable-artifact policy. Associations round-trip in detached workspace payloads and re-exports, without binding to live Sources. Recovery copying retains its existing fresh Draft/card identity policy. Validation permits multiple historical Draft IDs for one logical card after deletion/recreation, while current Draft identities remain unique and each Draft's retained revisions stay internally consistent. Associations count within the 10,000 combined retained-record/evidence budget and the existing 64 MiB manifest/256 MiB portable limits; storage preflight includes their counts/bytes. Session manifest v7 and session persistence are unchanged.
+
+Developer checks:
+
+- Added six PostgreSQL/HTTP integration journeys covering concurrent associated edits, complete transaction rollback, captured-only reads, effective-Draft search/filtering/artwork, checked links and safe HTML, stale captures/revisions, independent forks, exported Source recognition, missing/restored/moved Sources, path reuse, incomplete legacy material, identity conflicts and explicit candidate inspection, campaign-qualified identity, deletion/recreation with retained approvals, restart, strict malformed/oversized association archives, detached recovery and JSON/ZIP round trips.
+- Final `./gradlew test bootJar` passed after the locator/path-reuse refinement: 74 freshly executed tests across 23 suites, zero failures/errors/skips, including Modulith/ArchUnit and existing migration/regression coverage. `git diff --check` and new-file whitespace/newline checks passed.
+- The serialized `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` passed: live-Spring OpenAPI/client generation, version checks, 98 frontend tests in 15 files, production frontend build, all 31 Chromium browser regressions and isolated PostgreSQL persistence across restart. Generated clients remain ignored; no tracked frontend files changed. These browser checks establish compatibility of existing screens, not the future unified Library UX. The final locator refinement changes only the new backend composition path and its integration test; API shape and existing frontend behavior are unchanged.
+- The first integrated browser run was invalidated by an overlapping `bootJar` rebuild of the smoke server's running artifact, producing class-loading failures and three failed browser tests. The serialized rerun above passed all 31 without an application correction for those failures. Existing nonblocking Angular bundle/style budget warnings, OpenAPI-generator 3.1 warnings and test Kotlin warnings remain.
+
+Limits: no new Library UI, session Add/update, Scene associations, PlayNotes/history, legacy conversion, production database reset, campaign-content edits, formal verification or commits. Maximum-size catalogue performance and the new UX's laptop layouts have not been assessed. The development database was not migrated or reset by these checks; databases and campaign fixtures used for testing were isolated. UW1 developer completion does not authorize UW2 or formal verification.
+
+### UW1 — V-UW1-01 corrective implementation — 2026-10-23
+
+The owner authorized the bounded V-UW1-01 correction after the failed formal assessment. Source-only Library search now includes every conflicting candidate's rendered body/headings, path, title, tags and summary. Candidate labels are decoded through Sources' existing public Authoring contract; they do not become authoritative classification. Associated entries continue to search only the effective Draft. The conflict, readiness, explicit Source-reader choice, API contracts and persistence behavior are unchanged. V-UW1-02 is outside this correction and remains outstanding.
+
+Added a database-backed regression covering primary/secondary body and filename matches, secondary headings/metadata, missing-query results, preserved conflict status and explicit reader choice, no implicit Draft creation, reversed filename ordering after refresh, and effective-Draft precedence after the conflict is resolved. The regression failed against the original implementation, then passed after the change. Final `./gradlew test bootJar` passed with 75 tests across 23 suites, zero failures/errors/skips, including module checks and the existing backend regressions. `git diff --check` and new-file whitespace checks passed.
+
+Changed application scope is limited to `CardLibraryService.list` and the regression in `CardLibraryIntegrationTest`; this entry records developer evidence. Frontend/browser checks were not repeated because no frontend or HTTP/schema contract changed and the corrected backend path has direct regression coverage. No production database reset/migration, campaign-repository edit, commit or formal re-verification was performed. The original failed assessment remains in `verification.md`; re-verification and V-UW1-02 correction require separate authorization.
+
+### UW1 — V-UW1-02 corrective implementation — 2026-10-23
+
+The owner requested V-UW1-01 re-verification, the bounded V-UW1-02 fix and subsequent verification, explicitly permitting intermediate authorization gates to be crossed for that work. The correction keeps the accepted logical-card/Draft identity distinction: Library detail reads now compare the catalogue's Draft ID and numeric revision together. `GET .../cards/document` adds the `draft` UUID query parameter, required with `revision` when the selected representation is a Draft; Source-only reads omit both. A mismatched/missing pair returns `409 writing.stale-revision`. Capture validation and explicit Source-candidate selection remain unchanged. No persistence or archive format changes are needed.
+
+Added an HTTP regression reproducing the original deletion/recreation failure: two different Draft IDs share logical card identity, Source capture and revision 1. The old request returned the replacement before the correction; it now conflicts. Coverage also checks current replacement identity/text, missing ID/revision, incorrect ID, stale numeric revision, Source→Draft and deleted-Draft→Source transitions, standalone Drafts and stale captures. Existing Draft-read integration callers now send their catalogue Draft ID; README and OpenAPI operation guidance document the pair. V-UW1-01's search regression passed before and after this change.
+
+Developer checks: the new HTTP regression failed before the fix; final `./gradlew test bootJar` passed with 76 tests across 23 suites, zero failures/errors/skips, including module checks. Application changes are confined to the Library public read contract, owning service and HTTP controller, plus integration tests and documentation. Generated-client compatibility and formal re-verification are recorded separately in `verification.md` after their authorized run. No later UW increment, database reset, campaign-repository edit or commit is included.
+
+## Unified Library / Write / Prepare / Play — accepted architecture reconciliation — 2026-10-23
+
+**Status:** Architecture approved by the owner, followed by authorization to document it. This section records the accepted target design and supersedes conflicting earlier architectural direction. It does not authorize implementation planning, application changes, migrations, resets or commits. Existing increment plans and implementation/verification evidence remain historical records until separately authorized planning reconciles them.
+
+**Requirements and UX:** [Unified requirements](product-specification.md#unified-library-writing-and-preparation--accepted-requirements--2026-10-22) and [accepted workspace UX](unified-workspace-ux-design.md). Retained Playthrough invariants and historical-note contracts are in [Playthrough architecture](playthrough-domain-architecture.md).
+
+### Current implementation and gaps
+
+Sources implements explicit captured-library refresh, classification, search and document navigation. Writing implements revisioned Drafts, source-copy provenance, retained exact-revision approvals, artwork, manual exports and recovery. Preparation implements ordered frozen items, notes and artwork through separate Source and Draft addition paths. Playthroughs implements independently revisioned Active/Used, active Scene and ordered focus, with membership reconciliation. P4R currently derives contextual suggestions from frozen Markdown links. Session archives coordinate these owners through v7 manifests and ID remapping. PlayNotes/history remain approved future P5/P6 behavior, not implemented capabilities.
+
+The frontend has a separate Writing route and combined Prepare/Play workspace, separate Source/Draft selectors, shared card/reader components and save guards. It does not yet implement the accepted dedicated unified Library, explicit shared session selection, Write research-return context or Prepare Scene-planning relationships. Source copying currently creates a fresh card UUID; addition appends a fresh PreparedItem without whole-card deduplication. Explicit prepared revision replacement and persisted session Scene associations are absent.
+
+### Ownership and integration boundaries
+
+| Owner | Accepted responsibility |
+| --- | --- |
+| Sources | Captured Markdown, explicit refresh, classification, declared identity claims and document navigation |
+| Writing | Drafts and revisions, logical card identity, explicit Source association, immutable origin evidence, approval retention, artwork, manual export and recovery |
+| Library composition | Unified discovery over public Sources/Writing contracts, Draft precedence, validation/conflict status and session-specific Add status; no persistence ownership |
+| Preparation | Session membership, frozen items/artwork, order, preparation notes, Scene associations, atomic Add and explicit revision replacement |
+| Playthroughs | Active/Used, active Scene, focus, PlayNotes and historical queries; consumption of Preparation snapshots |
+| Session archive coordinator | Consistent cross-module snapshots, strict transfer validation and ID remapping |
+| Frontend navigation context | Explicit selected campaign/session across workspaces; content and save lifecycles remain with their existing owners |
+
+```mermaid
+flowchart LR
+    Sources[Sources capture] --> Library[Library composition]
+    Writing[Writing Drafts and associations] --> Library
+    Library -->|Add command| Preparation
+    Preparation -->|Public approval API| Writing
+    Preparation -->|Frozen snapshot and Scene links| Playthroughs
+    Preparation --> Archives[Session archive coordinator]
+    Playthroughs --> Archives
+```
+
+Arrows show composition/data flow, not repository access. Preparation has no dependency on Playthroughs. Existing campaign-row locking and public module contracts remain the consistency boundary; no event infrastructure, cross-module table access or new global state framework is introduced.
+
+### Identity, association and refresh
+
+Logical card identity, captured Source identity, Draft ID/revision and PreparedItem ID remain distinct. A Source association is explicit Writing-owned state; immutable provenance records evidence and does not by itself establish a same-card association. Library composes the current capture and Writing state, using Draft content/metadata/artwork for associated entries while exposing the Source and provenance in Details.
+
+- Editing or adding a valid Source with a unique declared UUID preserves that logical UUID in its reusable associated Draft. Independent copying creates a new logical identity. Existing independent copies are not reassociated merely because their origin records mention a Source.
+- Editing an untyped Source assigns a new Writing card UUID and records an explicit association to the selected Source separately from immutable origin evidence. Missing essential metadata blocks new preparation, while incomplete Drafts remain editable and saveable.
+- Refresh recognizes a Source exported from a Draft by its logical UUID only when campaign identity claims are unambiguous. A Source and its explicitly associated Draft represent one card; competing claims are conflicts. No title/path matching silently merges independent cards or confers canon authority.
+- A unique valid UUID reconnects an association across moves/renames. Untyped Sources retain their explicitly recorded campaign-relative path association; changes there are reported for manual review without overwriting the Draft. Moving an untyped Source leaves its original unavailable; title, hash and filename do not infer a new association. A conflicting identity at the associated path is reported rather than silently rebound.
+- Missing, moved or excluded originals do not prevent Draft editing, preparation or export. Retain association evidence and provenance. Deleting a working Draft exposes any remaining Source without changing frozen items, retained approval/export history or historical PlayNotes.
+- Duplicate/ambiguous claimed identities block affected new preparation until explicitly resolved. Existing snapshots and history retain their identities and content.
+
+```mermaid
+flowchart TD
+    Source[Captured Source] -->|Explicit association| Draft[Working Draft]
+    Draft --> Logical[Logical card identity]
+    Draft --> Revision[Exact saved revision]
+    Revision -->|Approval and freezing| Item[PreparedItem]
+    Session[Session] -->|Owns ordered membership| Item
+    Scene[Prepared Scene] -->|Session association| Item
+    Workspace[Play workspace] -->|Scene, focus, piles| Item
+    Note[Historical PlayNote] -->|Captured identity and title| Resource[Resource reference]
+```
+
+Scene links use session item identity; historical resource queries use frozen origin-qualified logical identity. Imported references retain their origin campaign/card identity rather than being rebound to a similarly identified destination card. Sections share parent logical history while retaining distinct prepared identities. Paths and image hashes are not logical resource identities.
+
+### Atomic Library Add
+
+Preparation orchestrates Add through Writing's public contract for associated Draft reuse/creation and exact saved-revision approval. The UI finishes pending saves successfully before Add and captures the destination campaign/session when the operation starts. Later navigation cannot redirect an in-flight mutation. Requests carry revision/capture expectations sufficient to reject stale operations instead of silently freezing different content.
+
+```mermaid
+flowchart TD
+    A[Library Add with captured destination] --> B[Lock campaign and validate session]
+    B --> C{Conflict or existing whole-card copy?}
+    C -->|Identity conflict| D[Reject without writes]
+    C -->|Existing copy| E[Return existing item]
+    C -->|Neither| F[Writing reuses or creates associated Draft]
+    F --> G[Validate and approve exact saved revision]
+    G --> H[Freeze content and artwork in Preparation]
+    H --> I[Commit all changes together]
+    G -->|Failure| J[Roll back entire addition]
+```
+
+The containing campaign lock covers membership checks, Draft association/reuse/creation, retained approval and independent Preparation artwork/content retention in one transaction. Failure at any stage rolls back all addition writes. Concurrent calls/retries must not create duplicate automatic Drafts or whole-card items. An already-prepared card returns its existing item rather than automatically updating it; historical multiple matches remain explicitly selectable, never arbitrarily merged.
+
+Normal whole-card Library Add allows at most one whole-card copy of a logical card per session. This is a use-case rule, not an unconditional database uniqueness constraint: historical/imported duplicates and section-specific captures remain valid. A section capture does not automatically satisfy whole-card membership. New additions follow the Draft approval path; historical Source snapshots remain independently readable.
+
+Incomplete Sources remain discoverable and direct the user to Write. Failed Add leaves no partial Draft. An explicit Edit-in-Write action may create the reusable incomplete Draft for correction. Add belongs in Library; creation/editing/export belong in Write, as specified by accepted UX.
+
+### Scene associations, replacement and removal
+
+Preparation owns directed Scene→PreparedItem associations as part of the Session aggregate and its existing revision. Both endpoints must belong to that session; the origin must be a valid prepared Scene. Linking never adds Library membership. A prepared item can belong to multiple Scenes. Related items appear in existing preparation order, with no separate Scene ordering.
+
+Play contextual cards come exclusively from these associations, using the exact prepared endpoint and its Used indicator. Preserve explicit focus/free-slot/replacement behavior; suggestions do not reorder piles, return Used cards or activate Scenes. P4R's Markdown-derived suggestion mechanism and its unprepared-target suggestion dependency are superseded as target architecture. Markdown hyperlinks continue to use existing frozen-reader semantics.
+
+**Use latest version** requires valid saved metadata and the same card type. Under the campaign lock and session/Draft revision expectations, replace frozen content, artwork, approval evidence and outgoing Markdown bindings atomically. Preserve PreparedItem ID, preparation order/notes, Scene associations, Active/Used position, focus and active Scene. Reject invalid metadata, type changes or stale expectations without partial mutation or loss of local edits. Never rewrite historical PlayNotes.
+
+```mermaid
+flowchart LR
+    S[Prepared Scene] -->|Session association| T[Stable PreparedItem ID]
+    D[Frozen document] -->|Markdown hyperlink| R[Exact captured target]
+    T -->|Explicit same-type update| N[New frozen revision]
+```
+
+Existing outgoing links from other documents retain their exact captured bindings. For example, after B revision 1 is replaced with revision 2, A's frozen Markdown link to B revision 1 becomes unavailable if that exact target is absent. A Scene association to B continues to open its current prepared content. Logical UUID equality never silently substitutes a newer revision for a frozen Markdown target.
+
+Removing a prepared card confirms the affected Scene names in the UI and removes all incoming/outgoing associations atomically with membership removal. Play reconciliation removes the item from piles/focus and clears it if active Scene, preserving remaining arrangement and notes. Preparation does not call Playthroughs in reverse.
+
+The current persistence adapter deletes/reinserts item rows during session saves. Association storage must preserve surviving edges across that operation; item foreign keys cannot be introduced without accounting for row replacement. Physical storage is a bounded later design detail within the approved Session aggregate, not a new persistence-owning module or independently revisioned association collection.
+
+### Frontend composition and save safety
+
+A small shared navigation-context service owns explicit campaign/session selection, reflected in routes. It does not infer selection from the last loaded session and invalidates cross-campaign selections. Library can select a destination before loading Preparation's editor. Writing, Preparation and Play retain independent content, revisions, save queues and conflict/retry behavior.
+
+Each workspace retains its transient presentation context. Write's Library research journey saves successfully before leaving and restores Draft, editing tab, support mode, independent preview mode, reference/search selection and panel state; cursor/scroll restoration is best effort. Failed saving stays in Write with edits intact. Prepare's temporary related-card reader restores Scene planning and predictable Session/Card notes scope on Back to scene. Routing alone is not assumed to retain unsaved text.
+
+Reuse shared cards, readers, artwork and navigation/browser-close guards. Library remains document-first with compact illustrated catalogue rows; Write has one switchable support panel; Prepare retains ordered contents, reader and notes. Existing 243:420/320px card geometry remains. CSS inspection identifies reusable responsive/overflow patterns but is not evidence of accepted 1280×800/1440×900 usability. Browser layout, independent scrolling and accessibility checks remain necessary during authorized implementation; no UX redesign or prototype is authorized here.
+
+### Compatibility, alternatives and remaining gates
+
+Session archives must include Scene associations in a new explicit current-format version, validate same-session endpoints and Scene eligibility, and remap both endpoints alongside fresh session/item IDs. Continue coordinated locked snapshots, complete validation before import writes, atomic restoration, artwork safeguards and bounded staging. Preserve origin resource references and historical note snapshots. Export reconciles workspace state without initializing unopened workspaces. Existing objects/archives are disposable; conversion, old-format compatibility and automatic Markdown-to-Scene-link generation are unnecessary. Database deletion/reset remains separately scoped and authorized.
+
+| Accepted choice | Alternative considered | Rationale / consequence |
+| --- | --- | --- |
+| Writing association ownership; composed Library | Persistent card-identity registry | Reuses Draft/provenance ownership; untyped Source moves are conservatively unresolved |
+| Preparation orchestrates Add | Application-level Add coordinator | Extends existing Preparation→Writing contract; one transaction owns membership validation and freezing |
+| Scene associations share Session revision | Separately revisioned association collection | Atomic membership cleanup with one save lifecycle; unrelated session edits may conflict |
+| Shared frontend navigation context | Expand Preparation SessionState | Separates selected destination from loaded editing state without a general state framework |
+| Explicit association distinct from provenance | Infer association from source-copy origin | Preserves independent derivatives and historical evidence |
+| Exact frozen Markdown targets | Follow latest prepared logical identity | Preserves captured-document meaning; old links may become unavailable after replacement |
+
+P1–P4 runtime ownership and accepted behavior remain. P4R implementation/verification records remain accurate historical evidence. Future P5/P6 notes/history must use the reconciled identity boundaries; P7 Library access and P8 integration need separately authorized planning review, particularly because Scene suggestions no longer originate from unprepared Markdown targets. This section supplies architectural constraints, not revised increments, tasks or execution authorization.
+
 ## Playthrough tabletop domain architecture — accepted 2026-10-22
+
+**Subsequent reconciliation:** The [accepted unified-workspace architecture](#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23) above supersedes Markdown-derived contextual suggestions and direct Source addition as target behavior. The dated summary below preserves the earlier decision record.
 
 The owner approved the domain architecture following the Q10f–Q10x tabletop interview and the review of implemented Increment 6 images. The authoritative architecture record, including Mermaid domain and workflow diagrams, invariants, public use cases, trade-offs, and implementation-planning risks, is [Playthrough domain architecture](playthrough-domain-architecture.md).
 

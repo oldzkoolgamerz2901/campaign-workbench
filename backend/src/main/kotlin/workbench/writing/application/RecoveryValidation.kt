@@ -10,16 +10,21 @@ import java.util.UUID
 internal class RecoveryValidation(private val authoring: Authoring) {
     fun encoded(d: DraftData) = d.fields.let { authoring.encode(AuthoredDocument(d.card, it.title, it.type, it.status, it.tags, it.summary, it.body), d.origin?.retainedEnvelope.orEmpty()) }
     fun validate(a: WritingArchive) {
-        require(a.format == "workbench-writing-recovery" && a.version in setOf(1, 2))
+        require(a.format == "workbench-writing-recovery" && a.version in setOf(3, 4))
         require(a.name.isNotBlank() && a.name.length <= 200)
         time(a.savedAt)
-        require(a.drafts.size <= 1000 && a.approved.size + a.exports.size <= 10000)
+        require(a.drafts.size <= 1000 && a.approved.size + a.exports.size + a.associations.size <= 10000)
+        require(a.associations.map { it.card }.distinct().size == a.associations.size)
+        a.associations.forEach {
+            require(exportPathErrors(it.path).isEmpty() && it.hash.matches(Regex("[a-f0-9]{64}")))
+            require(it.declaredId == null || it.declaredId == it.card)
+        }
         require(a.drafts.map { it.id }.distinct().size == a.drafts.size)
         require(a.approved.map { it.snapshot.id to it.snapshot.revision }.distinct().size == a.approved.size)
         require(a.exports.map { it.id }.distinct().size == a.exports.size)
         require(a.exports.groupingBy { it.snapshot.id }.eachCount().values.all { it <= 1000 })
         val snapshots = a.drafts + a.approved.map { it.snapshot } + a.exports.map { it.snapshot }
-        require(a.version == 2 || snapshots.all { it.image == null })
+        require(a.version == 4 || snapshots.all { it.image == null })
         snapshots.distinct().forEach { d ->
             require(d.campaign == a.campaign && d.revision >= 0 && withinWorkingLimits(d.fields))
             d.recovery?.let { require(it.revision >= 0) }
@@ -34,7 +39,8 @@ internal class RecoveryValidation(private val authoring: Authoring) {
             require(history.map { it.card }.distinct().size == 1)
             history.groupBy { it.revision }.values.forEach { require(it.distinct().size == 1) }
         }
-        require(snapshots.groupBy { it.card }.values.all { list -> list.map { it.id }.distinct().size == 1 })
+        // A deleted/recreated working Draft may share logical identity with retained history.
+        require(a.drafts.map { it.card }.distinct().size == a.drafts.size)
         val current = a.drafts.associateBy { it.id }
         require(snapshots.all { current[it.id]?.revision?.let { revision -> it.revision <= revision } != false })
         val byRevision = snapshots.associateBy { it.id to it.revision }
