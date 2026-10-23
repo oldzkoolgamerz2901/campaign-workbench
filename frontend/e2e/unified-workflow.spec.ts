@@ -96,8 +96,6 @@ test('research, author, prepare, plan, play and update preserve the same session
       '# Keeper\nAuthored keeper revision one.',
     );
     await mode(page, 'Library');
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
-    await page.getByRole('button', { name: 'Harbour keeper npc', exact: false }).click();
     await page.getByRole('button', { name: 'Harbour keeper npc', exact: false }).click();
     await reader.getByRole('button', { name: 'Add to session', exact: true }).click();
     await expect(reader.getByText('Already in session', { exact: true })).toBeVisible();
@@ -121,10 +119,14 @@ test('research, author, prepare, plan, play and update preserve the same session
     await related.getByRole('button', { name: 'Focus: Harbour keeper', exact: true }).click();
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
     await tableAction(page, 'Harbour keeper', 'Mark used');
-    let runtime = await (await request.get(`${f.endpoint}/workspace`)).json();
     let frozen = await (await request.get(f.endpoint)).json();
     const scene = frozen.items.find((i: { title: string }) => i.title === 'Harbour arrival');
     const keeper = frozen.items.find((i: { title: string }) => i.title === 'Harbour keeper');
+    // Observe the dispatched asynchronous mutation before comparing persisted runtime state.
+    await expect
+      .poll(async () => (await (await request.get(`${f.endpoint}/workspace`)).json()).used)
+      .toEqual([keeper.id]);
+    let runtime = await (await request.get(`${f.endpoint}/workspace`)).json();
     expect(runtime.activeSceneItemId).toBe(scene.id);
     expect(runtime.focusedItemIds).toEqual([scene.id, keeper.id]);
     expect(runtime.used).toEqual([keeper.id]);
@@ -237,7 +239,6 @@ test('Write editor, preview and Prepare reader/notes scroll independently with k
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await mode(page, 'Library');
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     const reader = page.getByRole('article', { name: 'Selected Library document' });
     await page.getByRole('button', { name: 'Harbour keeper npc', exact: false }).click();
     await reader.getByRole('button', { name: 'Add to session', exact: true }).click();

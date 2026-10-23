@@ -50,6 +50,13 @@
             @if (entry.classification?.metadata?.summary) {
               <span class="summary">{{ entry.classification?.metadata?.summary }}</span>
             }
+            <span
+              >{{ entry.classification?.metadata?.status ?? 'No valid metadata' }} ·
+              {{ entry.ready ? 'Ready to prepare' : 'Not preparable' }}</span
+            >
+            @if (!entry.classification?.metadata || entry.classification?.issues?.length) {
+              <span>Incomplete / classification issues</span>
+            }
             @if (entry.conflicts?.length) {
               <span>Identity conflict</span>
             }
@@ -58,7 +65,6 @@
       } @empty {
         @if (!state.loading()) {
           <p>No documents match these criteria.</p>
-          <button matButton (click)="state.setFilters({ statuses: [] })">Include drafts</button>
         }
       }
     </section>

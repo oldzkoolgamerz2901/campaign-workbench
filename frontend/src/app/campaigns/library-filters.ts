@@ -1,26 +1,11 @@
-import {
-  Component,
-  ElementRef,
-  inject,
-  input,
-  OnDestroy,
-  viewChild,
-  InjectionToken,
-} from '@angular/core';
+import { Component, inject, input, OnDestroy, InjectionToken } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { LibraryState, LibraryFilters } from './library-state';
+import { LibraryState } from './library-state';
 
 export type FilterState = Pick<
   LibraryState,
-  | 'filters'
-  | 'query'
-  | 'selected'
-  | 'changeQuery'
-  | 'search'
-  | 'searchAll'
-  | 'playLibrary'
-  | 'setFilters'
+  'filters' | 'query' | 'selected' | 'changeQuery' | 'search' | 'setFilters'
 >;
 export const LIBRARY_FILTER_STATE = new InjectionToken<FilterState>('Library filters', {
   providedIn: 'root',
@@ -32,106 +17,36 @@ export const LIBRARY_FILTER_STATE = new InjectionToken<FilterState>('Library fil
   imports: [FormsModule, MatButtonModule],
   template: `
     <fieldset class="controls" [disabled]="!ready()">
-      <details class="type-chooser">
-        <summary>
-          Type: {{ state.filters().types.length ? state.filters().types.join(', ') : 'All' }}
-        </summary>
-        <nav aria-label="Library categories">
-          <button matButton (click)="state.playLibrary()">Play library</button>
-          @for (type of types; track type) {
-            <button
-              matButton
-              [attr.aria-pressed]="state.filters().types.includes(type)"
-              (click)="toggle('types', type)"
-            >
-              {{ type === 'npc' ? 'NPC' : type }}
-            </button>
-          }
-        </nav>
-      </details>
       <form (ngSubmit)="search()">
-        <label
-          >{{ searchLabel()
-          }}<input
+        <label class="query"
+          >{{ searchLabel() }}
+          <input
             type="search"
             name="query"
             [ngModel]="query"
             (ngModelChange)="changeQuery($event)"
             placeholder="Search full content…"
-        /></label>
+          />
+        </label>
+        <label class="type"
+          >Type
+          <select
+            aria-label="Library type"
+            name="type"
+            [ngModel]="state.filters().types[0] ?? ''"
+            (ngModelChange)="selectType($event)"
+          >
+            <option value="">All types</option>
+            @for (type of types; track type) {
+              <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
+            }
+          </select>
+        </label>
         <button matButton type="submit">Search</button>
-        <button matButton type="button" (click)="searchAll()">Search all</button>
         @if (query) {
           <button matButton type="button" (click)="clear()">Clear search</button>
         }
-        <details #options>
-          <summary>Filters</summary>
-          <div class="options">
-            <label
-              >Tags (all required, comma separated)<input
-                name="tags"
-                [ngModel]="tagText"
-                (ngModelChange)="tags($event)"
-            /></label>
-            <fieldset>
-              <legend>Purpose</legend>
-              @for (purpose of purposes; track purpose) {
-                <label
-                  ><input
-                    type="checkbox"
-                    [checked]="state.filters().purposes.includes(purpose)"
-                    (change)="toggle('purposes', purpose)"
-                  />{{ purpose }}</label
-                >
-              }
-            </fieldset>
-            <fieldset>
-              <legend>Status</legend>
-              @for (status of statuses; track status) {
-                <label
-                  ><input
-                    type="checkbox"
-                    [checked]="state.filters().statuses.includes(status)"
-                    (change)="toggle('statuses', status)"
-                  />{{ status }}</label
-                >
-              }
-            </fieldset>
-            <label
-              ><input
-                type="checkbox"
-                [checked]="state.filters().unclassified"
-                (change)="diagnostic('unclassified', $any($event.target).checked)"
-              />Unclassified / invalid</label
-            >
-            <label
-              ><input
-                type="checkbox"
-                [checked]="state.filters().issues"
-                (change)="diagnostic('issues', $any($event.target).checked)"
-              />Classification issues</label
-            >
-          </div>
-        </details>
       </form>
-      <div class="criteria" aria-label="Active library criteria">
-        @for (field of fields; track field) {
-          @for (value of state.filters()[field]; track value) {
-            <button
-              (click)="toggle(field, value)"
-              [attr.aria-label]="'Remove ' + field + ': ' + value"
-            >
-              {{ field }}: {{ value }} ×
-            </button>
-          }
-        }
-        @if (state.filters().unclassified) {
-          <button (click)="state.setFilters({ unclassified: false })">Remove unclassified ×</button>
-        }
-        @if (state.filters().issues) {
-          <button (click)="state.setFilters({ issues: false })">Remove issues ×</button>
-        }
-      </div>
     </fieldset>
   `,
   styles: `
@@ -141,92 +56,40 @@ export const LIBRARY_FILTER_STATE = new InjectionToken<FilterState>('Library fil
       min-width: 0;
     }
     .controls {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      flex-wrap: wrap;
       border: 0;
       margin: 0;
       padding: 0;
       min-width: 0;
     }
-    nav,
-    form,
-    .criteria {
-      display: flex;
-      gap: 0.3rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .type-chooser nav {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      z-index: 5;
-      width: 270px;
-      padding: 0.7rem;
-      background: #20372a;
-      border: 1px solid #7d896f;
-      box-shadow: 0 4px 12px #0008;
-    }
     form {
-      flex: 1;
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 0.5rem;
       min-width: 0;
     }
-    .criteria {
-      flex-basis: 100%;
-    }
-    nav button {
-      text-transform: capitalize;
-    }
     label {
-      font-size: 0.75rem;
-    }
-    form > label {
-      min-width: 160px;
-      flex: 1;
-    }
-    input[type='search'] {
-      width: 100%;
-      padding: 0.4rem;
-    }
-    details {
-      position: relative;
-    }
-    summary {
-      cursor: pointer;
-    }
-    .options {
-      position: absolute;
-      right: 0;
-      top: 100%;
-      z-index: 5;
-      background: #243b2e;
-      border: 1px solid #8c967f;
-      padding: 1rem;
-      width: 300px;
-      box-shadow: 0 4px 12px #0008;
-    }
-    .options > label {
-      display: block;
-      margin: 0.5rem 0;
-    }
-    fieldset {
       display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 0.2rem;
+      font-size: 0.75rem;
+      min-width: 0;
     }
-    .criteria button {
-      font: inherit;
-      font-size: 0.65rem;
-      padding: 0.2rem 0.4rem;
-      background: #324d3b;
-      border: 1px solid #8c967f;
-      color: inherit;
-      border-radius: 1rem;
+    .query {
+      flex: 1 1 180px;
     }
-    .criteria {
-      margin-top: 0.3rem;
+    .type {
+      flex: 0 1 130px;
+    }
+    input,
+    select {
+      box-sizing: border-box;
+      width: 100%;
+      height: 36px;
+      padding: 0.4rem 0.5rem;
+    }
+    button {
+      height: 36px;
     }
   `,
 })
@@ -234,20 +97,6 @@ export class LibraryFiltersControl implements OnDestroy {
   readonly state = inject(LIBRARY_FILTER_STATE);
   readonly ready = input(true);
   readonly searchLabel = input('Search sources');
-  private tagEdit = '';
-  get tagText() {
-    const parsed = [
-      ...new Set(
-        this.tagEdit
-          .split(',')
-          .map((t) => t.trim().toLowerCase())
-          .filter(Boolean),
-      ),
-    ];
-    return JSON.stringify(parsed) === JSON.stringify(this.state.filters().tags)
-      ? this.tagEdit
-      : this.state.filters().tags.join(', ');
-  }
   readonly types = [
     'npc',
     'location',
@@ -258,10 +107,6 @@ export class LibraryFiltersControl implements OnDestroy {
     'handout',
     'reference',
   ];
-  readonly purposes = ['session', 'guidance', 'tooling'];
-  readonly statuses = ['current', 'draft', 'superseded'];
-  readonly fields = ['types', 'tags', 'purposes', 'statuses'] as const;
-  private readonly options = viewChild<ElementRef<HTMLDetailsElement>>('options');
   private timer?: ReturnType<typeof setTimeout>;
   get query() {
     return this.state.query();
@@ -283,39 +128,9 @@ export class LibraryFiltersControl implements OnDestroy {
     clearTimeout(this.timer);
     void this.state.search('');
   }
-  searchAll() {
+  selectType(type: string) {
     clearTimeout(this.timer);
-    const options = this.options();
-    if (options) options.nativeElement.open = false;
-    void this.state.searchAll();
-  }
-  toggle(field: 'types' | 'tags' | 'purposes' | 'statuses', value: string) {
-    const values = this.state.filters()[field];
-    void this.state.setFilters({
-      [field]: values.includes(value) ? values.filter((v) => v !== value) : [...values, value],
-    });
-  }
-  tags(text: string) {
-    this.tagEdit = text;
-    void this.state.setFilters({
-      tags: [
-        ...new Set(
-          text
-            .split(',')
-            .map((t) => t.trim().toLowerCase())
-            .filter(Boolean),
-        ),
-      ],
-    });
-  }
-  diagnostic(field: 'unclassified' | 'issues', checked: boolean) {
-    const change: Partial<LibraryFilters> = { [field]: checked };
-    // Explicit diagnostic access must include legacy/invalid declarations without trusted purpose/status.
-    if (checked) {
-      change.purposes = [];
-      change.statuses = [];
-    }
-    void this.state.setFilters(change);
+    void this.state.setFilters({ types: type ? [type] : [] });
   }
   ngOnDestroy() {
     clearTimeout(this.timer);

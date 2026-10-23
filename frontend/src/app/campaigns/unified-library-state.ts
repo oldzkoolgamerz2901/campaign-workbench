@@ -27,8 +27,8 @@ const allCriteria = [
 const defaults = (): LibraryFilters => ({
   types: [],
   tags: [],
-  purposes: ['session'],
-  statuses: ['current'],
+  purposes: [],
+  statuses: [],
   unclassified: false,
   issues: false,
 });

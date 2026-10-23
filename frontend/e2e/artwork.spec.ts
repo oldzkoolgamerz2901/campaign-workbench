@@ -110,7 +110,6 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
     await page.getByRole('button', { name: 'Add material', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Session Library', exact: true });
-    await chooser.getByRole('button', { name: 'Search all', exact: true }).click();
     await illustrated('preparation-library .reference-row img');
     await chooser.getByRole('button', { name: 'Illustrated captain · npc', exact: true }).click();
     await illustrated('preparation-library playing-card img');

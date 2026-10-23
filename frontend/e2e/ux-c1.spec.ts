@@ -56,7 +56,6 @@ test('Prepare has one complete-card journey, explicit session selection and reta
     await page.getByLabel('Session Markdown notes').fill('Retain session note scope.');
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
     await page.getByRole('button', { name: 'Add material', exact: true }).click();
-    await picker.getByRole('button', { name: 'Search all', exact: true }).click();
     await picker.getByRole('button', { name: 'Harbour Scene · scene', exact: true }).click();
     await picker.getByRole('button', { name: 'View prepared card', exact: true }).click();
     await expect(page.getByLabel('Session Markdown notes')).toHaveValue(

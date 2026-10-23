@@ -108,7 +108,8 @@ test('Library layout, independent scrolling, card geometry, diagnostics and stal
     await expect(reader.getByText('Long reading passage 0.', { exact: true })).toBeVisible();
     await page.getByLabel('Search Library', { exact: true }).fill('needle');
     await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.locator('.catalogue-row')).toHaveCount(35);
+    // Inclusive search also returns the conflicting identity whose saved body matches.
+    await expect(page.locator('.catalogue-row')).toHaveCount(36);
     await reader.getByRole('link', { name: 'Next passage', exact: true }).click();
     await expect(reader.getByRole('heading', { name: 'Passage 20', exact: true })).toBeFocused();
     await page.getByRole('button', { name: 'Clear search', exact: true }).click();
@@ -160,13 +161,10 @@ test('Library layout, independent scrolling, card geometry, diagnostics and stal
     await expect(
       reader.getByRole('heading', { name: 'Changed source', exact: true, level: 2 }),
     ).toBeVisible();
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await page.getByRole('button', { name: 'legacy.md Unclassified', exact: false }).click();
     await expect(reader.getByText('Preparation blocked.', { exact: false })).toBeVisible();
     await expect(reader.getByRole('button', { name: 'Edit in Write', exact: true })).toBeEnabled();
-    await page
-      .getByRole('button', { name: 'collision-a.md Unclassified Identity conflict', exact: true })
-      .click();
+    await page.getByRole('button', { name: /collision-a.md Unclassified/ }).click();
     await reader.getByText('Details', { exact: true }).click();
     await reader.getByRole('button', { name: 'Inspect collision-a.md', exact: true }).click();
     await expect(reader.getByRole('button', { name: 'Edit in Write', exact: true })).toBeDisabled();

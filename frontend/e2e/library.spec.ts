@@ -50,7 +50,6 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     );
     await expect(page.getByLabel('Campaign', { exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Refresh sources', exact: true }).click();
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await expect(
       page.getByRole('button', { name: new RegExp('^' + 'source.md'.replaceAll('.', '[.]')) }),
     ).toBeVisible();
@@ -114,7 +113,6 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     );
     await expect(page.getByLabel('Campaign', { exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Refresh sources', exact: true }).click();
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await expect(
       page.getByRole('button', {
         name: new RegExp('^' + 'different/else.md'.replaceAll('.', '[.]')),
@@ -128,7 +126,6 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await page.getByRole('button', { name: 'Close campaign management', exact: true }).click();
     const selector = page.getByLabel('Campaign', { exact: true });
     await page.reload();
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await expect(
       page.getByRole('button', {
         name: new RegExp('^' + 'different/else.md'.replaceAll('.', '[.]')),
@@ -136,7 +133,6 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     ).toBeVisible();
     await selector.selectOption({ label: name });
     await expect(selector).toBeEnabled();
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await expect(
       page.getByRole('button', {
         name: new RegExp('^' + 'nested/next page.md'.replaceAll('.', '[.]')),

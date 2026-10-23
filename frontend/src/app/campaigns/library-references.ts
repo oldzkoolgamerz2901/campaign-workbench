@@ -24,21 +24,36 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
       @if (state.error()) {
         <p role="alert">{{ state.error() }}</p>
       }
+      @if (state.loading()) {
+        <p role="status">Loading references…</p>
+      }
       <div class="reference-list" tabindex="0" aria-label="Reference results">
         @for (entry of state.entries(); track entry.key) {
           <div class="reference-row">
             <artwork-image [source]="artwork(entry, 'THUMBNAIL')" />
-            <button
-              matButton
-              [attr.aria-current]="state.selectedEntry()?.key === entry.key ? 'true' : null"
-              (click)="state.open(entry)"
-              [disabled]="state.assemblyRunning()"
-            >
-              {{ entry.title }} · {{ entry.classification?.metadata?.type ?? 'Unclassified' }}
-            </button>
+            <div class="reference-info">
+              <button
+                matButton
+                [attr.aria-current]="state.selectedEntry()?.key === entry.key ? 'true' : null"
+                (click)="state.open(entry)"
+                [disabled]="state.assemblyRunning()"
+              >
+                {{ entry.title }} · {{ entry.classification?.metadata?.type ?? 'Unclassified' }}
+              </button>
+              <small
+                >{{ entry.classification?.metadata?.status ?? 'No valid metadata' }} ·
+                {{ entry.ready ? 'Ready to prepare' : 'Not preparable' }}</small
+              >
+              @if (!entry.classification?.metadata || entry.classification?.issues?.length) {
+                <small>Incomplete / classification issues</small>
+              }
+              @if (entry.conflicts?.length) {
+                <small>Identity conflict</small>
+              }
+            </div>
           </div>
         } @empty {
-          <p>No references match. Search all to include incomplete documents and saved drafts.</p>
+          <p>No references match the search and type.</p>
         }
       </div>
       @if (state.selectedEntry(); as entry) {
@@ -120,6 +135,15 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
       width: 30px;
       height: 40px;
       flex-shrink: 0;
+    }
+    .reference-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .reference-info small {
+      padding: 0 0.5rem;
+      color: var(--muted);
     }
     .reference-row button {
       white-space: normal;

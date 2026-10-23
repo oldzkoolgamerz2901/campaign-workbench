@@ -11,10 +11,14 @@
 }
 .library-tools {
   display: flex;
+  align-items: end;
   flex-wrap: wrap;
   gap: 0.5rem;
   padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--line);
+}
+.library-tools > button {
+  height: 36px;
 }
 .feedback {
   margin: 0.25rem 1rem;

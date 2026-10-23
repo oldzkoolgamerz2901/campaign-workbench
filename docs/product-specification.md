@@ -685,6 +685,21 @@ The owner completed UX Decisions 1–27 (with Decisions 8/9 superseded and Decis
 - One proportionate search input, consistently sized controls and aligned actions; keep independent results/reader scrolling and keyboard search. Ensure useful empty states and no surprise hiding of incomplete material.
 - Verify full-text queries, Draft-only/incomplete/conflicting documents, clearing/searching, keyboard access, 1280×800, 1440×900 and narrow viewport layout.
 
+#### UX-C3 — requirements clarification — 2026-10-23
+
+**Status: ACCEPTED requirements clarification of UX-01.** Dedicated Library, Write contextual references and Prepare's unified picker share this simplified search behavior.
+
+- Start with inclusive catalogue/search scope: all saved Drafts and captured Sources, including incomplete/unclassified, conflicting, guidance/tooling and superseded material. Preserve effective Draft precedence and campaign isolation. An associated Source becoming a Draft after Add must remain discoverable without changing search mode.
+- Remove Search all, advanced Filters, active advanced-filter chips and the Play library shortcut from these simplified controls. Do not retain a hidden current/session restriction or obsolete Include drafts action/empty-state guidance. Preserve backend filter contracts and unrelated shared source-index behavior.
+- Retain one compact type selector with **All types** as its default and an obvious way to return to that value. Selecting a type deliberately narrows results to documents with that recognized type; unclassified material remains available through All types. Keep this restriction visible.
+- Provide one aligned search input and Search action, keyboard submission, and a clear-query action when text is present. Clearing text preserves the explicit type choice; selecting All types preserves the query. Search covers effective saved full content and never implies source refresh.
+- Show saved metadata status when available and clear incomplete/conflict/preparation-readiness feedback in dedicated and contextual result rows. Broader visibility never makes an invalid, conflicting or non-session document preparable. Preserve reader diagnostics and authoritative backend checks.
+- Preserve selected reading where supported, independent catalogue/reader scrolling, current-session destination and membership feedback, save/navigation guards and research return. Supporting-panel height/mode changes remain UX-C4.
+
+**Acceptance:** Exercise default discovery and full-text search for Source-only, Draft-only, associated, incomplete/unclassified, conflicting, guidance/tooling and superseded entries; Source-to-Draft transition after Add; type selection/reset and query clearing; stale/failed operations and campaign switching; keyboard submission and search feedback. Review aligned controls, scrolling and overflow at 1280×800, 1440×900 and narrow widths in dedicated and contextual surfaces. Retain preparation safety, provenance, research return and saved/frozen revision behavior. Developer checks and separately authorized formal verification provide bounded evidence; owner visual acceptance remains separate.
+
+**Exclusions:** Backend search/filter removal, persistence/API changes, UX-C4 panel refinements, broader visual redesign, general authored-link reconciliation, Play changes and campaign-content edits.
+
 ### UX-02 — Write supporting-panel clarity and full-height references
 
 **Story:** As a DM I can switch my optional supporting area directly between **Preview** and **Library** without configuring it through a dropdown or losing the writing context.

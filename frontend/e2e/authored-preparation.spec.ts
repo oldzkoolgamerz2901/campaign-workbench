@@ -68,7 +68,6 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
     await page.getByRole('button', { name: 'Add material', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Session Library', exact: true });
-    await chooser.getByRole('button', { name: 'Search all', exact: true }).click();
     await chooser.getByRole('button', { name: 'Captain Mira · npc', exact: true }).click();
     await expect(chooser.getByLabel('Playing card preview')).toContainText('A watchful captain.');
     await chooser

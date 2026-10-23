@@ -79,7 +79,6 @@ test('independent Write tabs, failed-save protection and full Library research r
     await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
     const references = page.getByRole('region', { name: 'Library references' });
     await references.getByLabel('Search Library references', { exact: true }).fill('Reference NPC');
-    await references.getByRole('button', { name: 'Search all', exact: true }).click();
     await references.getByRole('button', { name: 'Reference NPC · npc', exact: true }).click();
     const pattern = `**${f.base}/drafts/${draft.id}`;
     await page.route(pattern, (route) =>
@@ -353,7 +352,6 @@ test('a delayed Writing save cannot open an older reference after the user selec
     await page.goto(`/writing?campaign=${f.campaign.id}&draft=${draft.id}`);
     await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
     const references = page.getByRole('region', { name: 'Library references' });
-    await references.getByRole('button', { name: 'Search all', exact: true }).click();
     await references.getByRole('button', { name: 'Reference NPC · npc', exact: true }).click();
     let release!: () => void;
     let dispatched = false;
@@ -398,7 +396,6 @@ test('native Back restores a locally selected Draft and changed references requi
     await page.getByLabel('Title', { exact: true }).fill('Research origin');
     await page.getByLabel('Supporting panel', { exact: true }).selectOption('library');
     const refs = page.getByRole('region', { name: 'Library references' });
-    await refs.getByRole('button', { name: 'Search all', exact: true }).click();
     await refs.getByRole('button', { name: 'Reference NPC · npc', exact: true }).click();
     await refs.getByRole('button', { name: 'Open full document', exact: false }).click();
     await expect(page).toHaveURL(/\/library\?/);

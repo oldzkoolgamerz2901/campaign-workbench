@@ -68,6 +68,39 @@ describe('Unified Library destinations and representation safety', () => {
     });
     state = TestBed.inject(UnifiedLibraryState);
   });
+  it('uses inclusive defaults on initial bind and campaign switch without changing explicit type on session switch', async () => {
+    const inclusive = {
+      types: [],
+      tags: [],
+      purposes: [],
+      statuses: [],
+      unclassified: false,
+      issues: false,
+    };
+    await state.bind('campaign', '');
+    expect(state.filters()).toEqual(inclusive);
+    expect(api.listLibraryCards.mock.calls.at(-1)?.slice(2, 8)).toEqual([
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set(),
+      false,
+      false,
+    ]);
+    await state.setFilters({ types: ['npc'] });
+    await state.bind('campaign', 'one');
+    expect(state.filters().types).toEqual(['npc']);
+    expect(sessions.listSessionLibraryCards.mock.calls.at(-1)?.slice(3, 9)).toEqual([
+      new Set(['npc']),
+      new Set(),
+      new Set(),
+      new Set(),
+      false,
+      false,
+    ]);
+    await state.bind('other', '');
+    expect(state.filters()).toEqual(inclusive);
+  });
   it('never chooses a recently used session; switching destination preserves reader and filters', async () => {
     await state.bind('campaign', '');
     await state.open(entry);

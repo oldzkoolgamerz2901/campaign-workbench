@@ -83,38 +83,26 @@ test('filters typed sources and explicitly assembles adventure selections with p
     await request.post(`/api/campaigns/${campaign.id}/sources/refresh`);
     await page.goto(`/library?campaign=${campaign.id}&session=${session.id}`);
     const shelf = page.getByRole('region', { name: 'Library catalogue', exact: true });
-    await expect(shelf.locator('.catalogue-row')).toHaveCount(8);
-    await expect(shelf.locator('.catalogue-row img[src="/card-placeholder.svg"]')).toHaveCount(8);
+    await expect(shelf.locator('.catalogue-row')).toHaveCount(14);
+    await expect(shelf.locator('.catalogue-row img[src="/card-placeholder.svg"]')).toHaveCount(14);
     const refreshes: string[] = [];
     page.on('request', (r) => {
       if (r.url().endsWith('/sources/refresh')) refreshes.push(r.url());
     });
-    await page.locator('.type-chooser > summary').click();
     for (const type of types) {
-      const category = page.getByRole('button', {
-        name: type === 'npc' ? 'NPC' : type,
-        exact: true,
-      });
-      await category.click();
-      await expect(shelf.locator('.catalogue-row')).toHaveCount(1);
+      await page.getByLabel('Library type', { exact: true }).selectOption(type);
+      await expect(shelf.locator('.catalogue-row')).toHaveCount(
+        type === 'reference' ? 3 : type === 'adventure' ? 2 : 1,
+      );
       await expect(shelf).toContainText(`Reef ${type}`);
-      await category.click();
-      await expect(shelf.locator('.catalogue-row')).toHaveCount(8);
+      await page.getByLabel('Library type', { exact: true }).selectOption('');
+      await expect(shelf.locator('.catalogue-row')).toHaveCount(14);
     }
-    await page
-      .locator('.type-chooser')
-      .evaluate((node) => ((node as HTMLDetailsElement).open = false));
-    await page.getByText('Filters', { exact: true }).click();
-    await page.getByLabel('Tags (all required, comma separated)').pressSequentially('reef, combat');
-    await page.getByLabel('draft', { exact: true }).check();
     await expect(shelf).toContainText('Draft adventure');
     await page.getByLabel('Search Library', { exact: true }).fill('Second needle');
     await expect(shelf.locator('.catalogue-row')).toHaveCount(1);
     await shelf.getByRole('button', { name: /Reef scene/ }).click();
     await expect(page.locator('.document-reader')).toContainText('Second needle');
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
-    await expect(page.getByLabel('Search Library')).toHaveValue('Second needle');
-    await expect(page.getByLabel('Active library criteria')).toBeEmpty();
     await page.getByRole('button', { name: 'Clear search', exact: true }).click();
     await expect(shelf.locator('.catalogue-row')).toHaveCount(14);
     const reader = page.getByRole('article', { name: 'Selected Library document', exact: true });
@@ -142,13 +130,8 @@ test('filters typed sources and explicitly assembles adventure selections with p
       );
       expect(rejected.ok()).toBe(false);
     }
-    await page.getByText('Filters', { exact: true }).click();
-    await page.getByLabel('Unclassified / invalid', { exact: true }).check();
-    await page.getByLabel('Classification issues', { exact: true }).check();
-    await expect(shelf.locator('.catalogue-row')).toHaveCount(3);
     await expect(shelf).toContainText('legacy.md');
     await expect(shelf).toContainText('Identity conflict');
-    await page.getByRole('button', { name: 'Search all', exact: true }).click();
     await shelf.getByRole('button', { name: /Reef adventure/ }).click();
     await reader.getByRole('button', { name: 'Choose adventure material', exact: true }).click();
     const chooser = reader.getByRole('region', { name: 'Adventure material chooser' });
