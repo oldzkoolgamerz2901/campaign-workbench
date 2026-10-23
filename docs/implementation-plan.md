@@ -2180,3 +2180,72 @@ The owner accepted P4R after its passing [formal verification](verification.md#p
 ## Subsequent unified-workspace UX design — scope notice (2026-10-23)
 
 The accepted [unified Library / Write / Prepare / Play UX](unified-workspace-ux-design.md) adds requirements not covered by this implementation plan, particularly unified Library actions and session-scoped Scene associations instead of P4R authored-link suggestions. **Do not treat these UX decisions as authorized increments.** Reconcile and approve the affected architecture, then explicitly revise implementation planning under the harness gates. Existing P4R implementation/verification records remain historical evidence; this note neither invalidates recorded work nor authorizes new code.
+
+## Library / Write / Prepare UX cleanup — proposed incremental handoff — 2026-10-23
+
+**Status: PROPOSED sequence; NOT an approved architecture or implementation plan.** Requirements accepted in [product specification](product-specification.md#library--write--prepare-visual-simplification--accepted-requirements--2026-10-23). Owner requested durable, individually pick-up-able tasks in the repository. This records candidate increments and investigation/verification gates only. Follow `AGENTS.md` and the six-phase workflow; investigate unresolved architectural dependencies, obtain owner approval for design/planning and authorize **one bounded increment at a time** before modifying application code. No authorization carries over into another conversation.
+
+**Workstream:** Development / feature-change with UX and legacy cleanup. **Skills:** none required for documentation synthesis. **Scope:** Library, Write, Prepare. No Play changes, P5+, PlayNotes, new backend features, migrations, card redesign or changes to independent campaign repositories. Reuse existing Angular components and public contracts.
+
+### Candidate UX-C1 — Prepare Add material consolidation (UX-04)
+
+**Goal:** One Add material action opens the existing unified session Library picker; remove competing legacy Sources/Drafts navigation.
+
+**Investigate first:** `frontend/src/app/preparation/workspace.html`, `workspace.ts`, `preparation-library.ts`, `session-draft-chooser`, `campaign-library`, session selection/navigation state, existing UW2/UW4/UW5 journeys. Trace legacy call sites for section captures, adventure assembly and source-only add before deleting anything. Identify whether a feature would be lost and return to owner if it requires a changed requirement.
+
+**Candidate work:** Rewire Add material; retire redundant menu/tabs/chooser surface and now-unused UI state without disturbing reader, session contents, notes or Scene planning. Preserve underlying public operations unless proven unused.
+
+**Done when:** Unified Add works for new/existing sessions; inspect/close does not mutate; already-prepared/duplicate and update-available behavior is preserved; error/stale/session-switch behavior is safe; no old Sources/Drafts chooser reachable from the intended Prepare journey. Add targeted component/browser regressions and run frontend/build/integrated checks as appropriate.
+
+### Candidate UX-C2 — Remove Write Copy source expansion (UX-03)
+
+**Goal:** Remove the legacy expanding Source chooser and its toolbar entry from Write.
+
+**Investigate first:** `frontend/src/app/writing/writing-workspace.html`, TypeScript state/callers, `campaign-library` authoring mode, Copy Source/fork API, current Write associated-edit and export flows. Establish whether copy is uniquely required elsewhere; do not automatically delete its service or backend operation.
+
+**Candidate work:** Remove the UI entry, expansion and dead state; retain Create/Edit/Library research/Export. If a replacement copy action is warranted, record it as a separate decision, not an unapproved part of this increment.
+
+**Done when:** No chaotic extra source column, no dead entry point, Draft and associated editing, save guards, return-to-Write and export regressions pass.
+
+### Candidate UX-C3 — Simplify Library search (UX-01)
+
+**Goal:** Compact, aligned search with comprehensive default scope and no Search all/advanced Filters interface.
+
+**Investigate first:** `frontend/src/app/campaigns/library-filters.ts`, `library-state.ts`, `library-references-state.ts`, `unified-library.html`, `unified-library.css`, Library and contextual reference consumers, current query/status defaults. Check exactly what Search all changes and how Draft/incomplete/conflicting entries are safely exposed.
+
+**Candidate work:** Set appropriate inclusive defaults for both dedicated Library and contextual references; remove redundant Search all/Filters presentation, keep compact type control if useful, align input/actions, preserve search/empty/status/readiness feedback and backend filter APIs.
+
+**Done when:** Drafts and incomplete entries are findable by default; existing Source/Draft precedence and conflict diagnostics remain safe; input/button alignment is visually reviewed at laptop and narrow widths; keyboard, search reset, scrolling and targeted tests pass.
+
+### Candidate UX-C4 — Write support panel refinement (UX-02)
+
+**Goal:** Replace dropdown-based supporting-panel selection with Preview/Library tabs and use the available panel height.
+
+**Investigate first:** `writing-workspace.html`/`.css`, `library-references.ts` (current `max-height: 220px`), panel mode and return-context state, Preview Card/Document controls, keyboard and save guards. Check responsive grid and independently scrolling regions.
+
+**Candidate work:** Put compact tabs in the panel; retain one collapse action, remove duplicated View/hide commands, allow references to flex/scroll through available height, preserve editor width and support state. No new reading/editor subsystem.
+
+**Done when:** One-click mode switch, predictable full-height references, stable editor/save/return context, no overflow at 1280×800, 1440×900 and narrow viewport; keyboard and relevant browser journeys pass.
+
+### Candidate UX-C5 — Cross-workspace visual polish and acceptance (UX-05)
+
+**Goal:** Validate a consistent, usable Library/Write/Prepare interface after C1–C4.
+
+**Investigate first:** Shared styles, toolbar components, current browser screenshots and layout tests; owner-supplied screenshots and accepted `unified-workspace-ux-design.md`.
+
+**Candidate work:** Align control sizes/spacing, simplify redundant actions, preserve clear primary actions, improve focus/error/saved/disabled feedback within existing styling. Avoid unrelated redesign and any shared Play behavior change.
+
+**Done when:** Compare actual rendered views at 1280×800, 1440×900 and narrow widths; verify scrolling, focus, accessibility and no horizontal overflow; shared PlayingCard geometry and frozen revision/recovery flows remain intact. Present screenshots for **owner visual acceptance** rather than treating green tests as aesthetic approval.
+
+### Dependency and phase handoff
+
+Recommended order: **C1 → C2 → C3 → C4 → C5**. C1/C2 retire old entry points; C3/C4 clarify the remaining surfaces; C5 validates integration. C3/C4 may be independently designed, but do not run concurrent edits to shared filter/reference components without explicit coordination. Each increment needs its own bounded plan, developer checks, separately authorized formal verification and owner acceptance; do not bundle automatic permission to implement C2 after C1.
+
+**Design risks to resolve before approving code changes:**
+1. C1: Which legacy Prepare chooser operations are uniquely required for section captures or adventure assembly? Preserve those operations or seek explicit product choice before removal.
+2. C2: Is independent Source copying an active user journey? Removing a visible entry does not imply deleting backend fork semantics.
+3. C3: What are the current Search all default scope and search filter interactions? Ensure incomplete/conflicting Draft visibility without regression in safety, identity or campaign isolation.
+4. C4: Does panel height follow the parent workspace grid correctly on laptop/narrow screens? Avoid fixed heights that create nested scroll traps.
+5. C5: Test evidence establishes functionality, not owner-approved visual quality.
+
+**Next authorized action in a fresh session:** Investigate C1 and present a precise design/impact assessment. Do not implement until the relevant phase gates and named increment authorization are satisfied.
