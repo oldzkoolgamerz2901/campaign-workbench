@@ -14,11 +14,32 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
     private fun invalid(message: String) = Failure.Invalid("preparation.invalid", message)
     private fun text(value: String) = value.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024
     private fun valid(s: SessionData): Boolean = s.title.isNotBlank() && s.title.length <= 200 && text(s.objective) && text(s.notes) && s.revision >= 0 &&
-        s.items.map { it.id }.distinct().size == s.items.size && s.items.all { i ->
+        validLinks(s) && s.items.map { it.id }.distinct().size == s.items.size && s.items.all { i ->
             (i.image == null || i.provenance.kind == "authored") && i.title.length <= 4096 && text(i.markdown) && text(i.notes) && i.provenance.path.isNotBlank() && i.provenance.path.length <= 4096 &&
                 i.provenance.documentHash.matches(Regex("[a-f0-9]{64}")) && i.provenance.contentHash == hash(i.markdown) && (i.provenance.section != null || i.provenance.documentHash == i.provenance.contentHash) &&
                 i.anchors.all { (original, local) -> text(original) && text(local) } && validCapture(i) && validOrigin(i)
         }
+    private fun validLinks(s: SessionData): Boolean {
+        val ids = s.items.map { it.id }.toSet()
+        val scenes = s.items.filter { it.capturedSource?.classification?.let { c ->
+            c.metadata?.type == "scene" && c.issues.none { it.severity == "error" }
+        } == true }.map { it.id }.toSet()
+        return s.sceneLinks.size <= 10000 && s.sceneLinks.distinct().size == s.sceneLinks.size &&
+            s.sceneLinks.all { it.scene in scenes && it.item in ids }
+    }
+    fun association(campaign: UUID, id: UUID, scene: UUID, item: UUID, request: ChangeSceneAssociation): Either<Failure, SessionData> =
+        mutate(campaign, id, request.revision) { s -> either {
+            val edge = SceneLink(scene, item)
+            ensure(validLinks(data(s.copy(sceneLinks = listOf(edge))))) { invalid("Both endpoints must be prepared in this session and the origin must be a valid Scene.") }
+            s.copy(sceneLinks = if (request.linked) (s.sceneLinks + edge).distinct() else s.sceneLinks - edge)
+        } }
+    fun removalImpact(campaign: UUID, id: UUID, item: UUID): Either<Failure, RemovalImpact> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val s = load(campaign, id).bind()
+        ensure(s.items.any { it.id == item }) { invalid("Card no longer belongs to this session.") }
+        val affected = s.sceneLinks.filter { it.item == item || it.scene == item }.map { it.scene }.toSet()
+        RemovalImpact(s.revision, s.items.filter { it.id in affected }.map { AffectedScene(it.id, it.title) })
+    } }
     private fun hash(text: String) = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     fun list(campaign: UUID): Either<Failure, SessionList> = tx.run { either {
         campaigns.configuration(campaign).bind()
@@ -38,9 +59,11 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
     } }
     fun save(campaign: UUID, id: UUID, request: SaveSession): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
         val byId = s.items.associateBy { it.id }
+        val retained = request.items.map { it.id }.toSet()
         ensure(request.items.size == request.items.map { it.id }.distinct().size && request.items.all { it.id in byId }) { invalid("Item identities must be unique and belong to this session.") }
         s.copy(title = request.title.trim(), objective = request.objective, notes = request.notes,
-            items = request.items.map { byId.getValue(it.id).copy(notes = it.notes) })
+            items = request.items.map { byId.getValue(it.id).copy(notes = it.notes) },
+            sceneLinks = s.sceneLinks.filter { edge -> edge.scene in retained && edge.item in retained })
     } }
     fun add(campaign: UUID, id: UUID, request: AddSource): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
         val selected = sources.select(campaign, request.capture, request.path, request.section).bind()
@@ -91,13 +114,13 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
         campaigns.configuration(campaign).bind()
         ensure(request.sessions.isNotEmpty() && request.sessions.size <= 100 && request.sessions.distinct().size == request.sessions.size) { invalid("Select between 1 and 100 distinct sessions.") }
         ensure(store.archiveBytes(campaign, request.sessions) <= 20L * 1024 * 1024) { invalid("Session text exceeds the 20 MiB manifest limit; select fewer sessions.") }
-        val archive = Archive(7, request.sessions.map { data(load(campaign, it).bind()) })
+        val archive = Archive(8, request.sessions.map { data(load(campaign, it).bind()) })
         ensure(illustrated || archive.sessions.all { s -> s.items.all { it.image == null } }) { invalid("Artwork requires portable ZIP export.") }
         ensure(archive.sessions.sumOf { it.items.size } <= 1000) { invalid("An archive may contain at most 1,000 items.") }
         archive
     } }
     fun validateArchive(archive: Archive, illustrated: Boolean = false): Either<Failure, Unit> = either {
-        ensure(archive.version == 7 && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
+        ensure(archive.version == 8 && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
             archive.sessions.map { it.id }.distinct().size == archive.sessions.size &&
             archive.sessions.flatMap { it.items }.let { items -> items.map { it.id }.distinct().size == items.size } && archive.sessions.all(::valid)) { invalid("Invalid or unsupported session contents. No sessions imported.") }
         ensure(illustrated || archive.sessions.all { s -> s.items.all { it.image == null } }) { invalid("Artwork requires a portable archive.") }
@@ -110,7 +133,8 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
             val original = model(source)
             val ids = original.items.associate { it.id to UUID.randomUUID() }
             original.copy(id = UUID.randomUUID(), campaign = campaign, revision = 0,
-                items = original.items.map { it.copy(id = ids.getValue(it.id)) })
+                items = original.items.map { it.copy(id = ids.getValue(it.id)) },
+                sceneLinks = original.sceneLinks.map { SceneLink(ids.getValue(it.scene), ids.getValue(it.item)) })
         }
         sessions.forEach(store::put)
         SessionList(sessions.map { SessionSummary(it.id, it.title, it.objective, it.revision) })
@@ -151,6 +175,10 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
             else -> PreparedTargetState.UNPREPARED
         }, matches)
     }
-    private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.data()), i.anchors, i.notes, i.capturedSource?.data(), i.image) })
-    private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.model()), i.anchors, i.notes, i.capturedSource?.model(), i.image) })
+    private fun orderedLinks(s: Session): List<SceneAssociation> {
+        val positions = s.items.mapIndexed { index, item -> item.id to index }.toMap()
+        return s.sceneLinks.sortedWith(compareBy({ positions[it.scene] }, { positions[it.item] })).map { SceneAssociation(it.scene, it.item) }
+    }
+    private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.data()), i.anchors, i.notes, i.capturedSource?.data(), i.image) }, orderedLinks(s))
+    private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.model()), i.anchors, i.notes, i.capturedSource?.model(), i.image) }, s.sceneLinks.map { SceneLink(it.scene, it.item) })
 }

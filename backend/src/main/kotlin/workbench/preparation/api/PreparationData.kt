@@ -34,7 +34,8 @@ data class SessionData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val objective: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<PreparedItemData>
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<PreparedItemData>,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val sceneLinks: List<SceneAssociation> = emptyList()
 )
 
 data class SessionSummary(
@@ -108,4 +109,22 @@ data class RenderedItem(
 data class SessionView(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: RenderedMarkdown,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<RenderedItem>
+)
+
+/** Exact prepared endpoints, owned and revisioned by the containing Session. */
+data class SceneAssociation(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val scene: UUID,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val item: UUID
+)
+data class ChangeSceneAssociation(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val revision: Long,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val linked: Boolean
+)
+data class AffectedScene(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val id: UUID,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String
+)
+data class RemovalImpact(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val revision: Long,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val scenes: List<AffectedScene>
 )

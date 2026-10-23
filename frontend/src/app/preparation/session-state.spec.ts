@@ -16,6 +16,7 @@ const session = (): SessionData => ({
   objective: '',
   notes: '',
   items: [],
+  sceneLinks: [],
 });
 describe('Session working state', () => {
   let state: SessionState;

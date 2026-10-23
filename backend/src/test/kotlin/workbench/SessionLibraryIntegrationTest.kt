@@ -199,6 +199,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         val d = writing().open(campaign, first.provenance.authored!!.draft).getOrNull()!!
         frozen = prep().addDraft(campaign, session.id, AddDraft(frozen.revision, d.id, d.revision)).getOrNull()!!
         frozen = prep().save(campaign, session.id, SaveSession(frozen.revision, frozen.title, frozen.objective, "Session notes", frozen.items.map { ItemNotes(it.id, "Keep ${it.id}") })).getOrNull()!!
+        frozen = prep().association(campaign, session.id, first.id, frozen.items.last().id, ChangeSceneAssociation(frozen.revision, true)).getOrNull()!!
         val old = frozen
         val initial = play().open(campaign, session.id).getOrNull()!!
         val workspace = play().save(campaign, session.id, SaveWorkspace(initial.revision, listOf(frozen.items.last().id), listOf(first.id), first.id, listOf(first.id))).getOrNull()!!
@@ -214,6 +215,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         val replaced = service().replace(campaign, session.id, first.id, command).getOrNull()!!
         replaced.items.map { it.id } shouldBe old.items.map { it.id }
         replaced.items.map { it.notes } shouldBe old.items.map { it.notes }
+        replaced.sceneLinks shouldBe old.sceneLinks
         replaced.notes shouldBe old.notes
         replaced.objective shouldBe old.objective
         replaced.items.last() shouldBe old.items.last()
@@ -229,6 +231,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         restored.items.first().provenance shouldBe replaced.items.first().provenance
         restored.items.first().image shouldBe replaced.items.first().image
         restored.items.map { it.notes } shouldBe replaced.items.map { it.notes }
+        restored.sceneLinks shouldBe listOf(SceneAssociation(restored.items.first().id, restored.items.last().id))
         val restoredPlay = play().open(campaign, imported).getOrNull()!!
         restoredPlay.used shouldBe listOf(restored.items.first().id)
         restoredPlay.activeSceneItemId shouldBe restored.items.first().id
@@ -264,7 +267,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         view.items.first().source.links.single().target shouldBe "@$aItem#a"
         s.items.first().provenance.authored!!.revision shouldBe b2.revision
         val manifest = context!!.getBean(PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-        manifest.version shouldBe 7
+        manifest.version shouldBe 8
         manifest.workspaces.single().workspace shouldBe null
         val archiveService = context!!.getBean(PortableSessionService::class.java)
         val imported = archiveService.restore(campaign, manifest).getOrNull()!!.sessions.single().id

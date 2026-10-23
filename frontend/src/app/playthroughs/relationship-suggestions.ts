@@ -20,7 +20,7 @@ import {
         <button type="button" (click)="retry.update(increment)">Retry related cards</button>
       }
       @if (!loading() && !error() && !suggestions().length) {
-        <p>No frozen relationships in this scene.</p>
+        <p>No related cards linked to this scene.</p>
       }
       @for (suggestion of suggestions(); track suggestion.key) {
         <div class="relationship">

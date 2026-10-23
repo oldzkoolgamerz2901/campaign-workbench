@@ -18,13 +18,13 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
     fun manifest(campaign: UUID, request: ExportSessions, illustrated: Boolean = false): Either<Failure, SessionTransfer> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val contents = preparation.exportContents(campaign, request, illustrated).bind()
-        val result = SessionTransfer(7, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) })
+        val result = SessionTransfer(8, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) })
         val encoded = try { codec.writeTransfer(result) } catch (_: Exception) { raise(Failure.Invalid("sessions.archive-size", "Session manifest exceeds 20 MiB; select fewer sessions.")) }
         ensure(encoded.size <= 20 * 1024 * 1024) { invalid() }
         result
     } }
     fun validate(archive: SessionTransfer, illustrated: Boolean): Either<Failure, Unit> = either {
-        ensure(archive.version == 7) { invalid() }
+        ensure(archive.version == 8) { invalid() }
         preparation.validateContents(Archive(archive.version, archive.sessions), illustrated).bind()
         val ids = archive.sessions.map { it.id }.toSet()
         ensure(archive.workspaces.size == ids.size && archive.workspaces.map { it.session }.toSet() == ids) { invalid() }

@@ -447,7 +447,7 @@ for (const target of [null, 'Fourth', 'NPC', 'Scene'] as const) {
   });
 }
 
-test('related cards use frozen exact copies and explicit focus or full-slot inspection', async ({
+test('related cards use exact session associations and explicit focus or full-slot inspection', async ({
   page,
   request,
 }, info) => {
@@ -462,8 +462,15 @@ test('related cards use frozen exact copies and explicit focus or full-slot insp
       },
     });
     expect(added.ok()).toBeTruthy();
-    const session = await added.json();
+    let session = await added.json();
     const [scene, npc, relic, fourth] = f.ids;
+    for (const item of [npc, fourth, session.items.at(-1).id]) {
+      const linked = await request.put(`${f.endpoint}/scene-links/${scene}/${item}`, {
+        data: { revision: session.revision, linked: true },
+      });
+      expect(linked.ok()).toBeTruthy();
+      session = await linked.json();
+    }
     const opened = await (await request.get(`${f.endpoint}/workspace`)).json();
     const initial = {
       ...opened,
@@ -475,16 +482,13 @@ test('related cards use frozen exact copies and explicit focus or full-slot insp
     expect((await request.put(`${f.endpoint}/workspace`, { data: initial })).ok()).toBeTruthy();
     await page.goto(f.url);
     const related = page.getByRole('region', { name: 'Related cards', exact: true });
-    await expect(related).toContainText('Choose a prepared copy');
     await expect(related).toContainText('Used');
-    await expect(related).toContainText('Not prepared');
-    await expect(related).toContainText('Unavailable frozen target');
-    // Aliased full-document links collapse; the section remains a separate suggestion.
-    await expect(related.locator('.relationship')).toHaveCount(7);
+    await expect(related).not.toContainText('Not prepared');
+    await expect(related.locator('.relationship')).toHaveCount(3);
     const before = await (await request.get(`${f.endpoint}/workspace`)).json();
     const npcRelation = related
       .locator('.relationship')
-      .filter({ has: page.locator('strong', { hasText: /^NPC.md$/ }) });
+      .filter({ has: page.locator('strong', { hasText: /^NPC$/ }) });
     await npcRelation
       .getByRole('button', { name: 'Focus: NPC', exact: true })
       .first()

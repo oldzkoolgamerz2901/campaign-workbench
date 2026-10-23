@@ -14,19 +14,12 @@ const workspace: WorkspaceData = {
 };
 const response = {
   scene: 'scene',
-  suggestions: [
-    {
-      key: 'prepared-link-0',
-      destination: 'NPC.md#history',
-      state: 'AMBIGUOUS',
-      candidates: [
-        { item: 'copy1', anchor: 's-8' },
-        { item: 'copy2', anchor: 's-8' },
-      ],
-    },
-    { key: 'prepared-link-1', destination: 'Extra.md', state: 'UNPREPARED', candidates: [] },
-    { key: 'prepared-link-2', destination: '../unsafe', state: 'UNAVAILABLE', candidates: [] },
-  ],
+  suggestions: ['copy1', 'copy2'].map((item) => ({
+    key: `scene-item-${item}`,
+    destination: item,
+    state: 'MATCHED',
+    candidates: [{ item, anchor: null }],
+  })),
 };
 
 describe('Relationship suggestions', () => {
@@ -46,14 +39,11 @@ describe('Relationship suggestions', () => {
     const http = TestBed.inject(HttpTestingController);
     return { fixture, http };
   }
-  it('requires explicit copy choice, retains Used and section targets, and emits only explicit commands', async () => {
+  it('retains exact endpoints and Used indicators and emits only explicit commands', async () => {
     const { fixture, http } = await setup();
     http.expectOne((r) => r.url.endsWith('/suggestions')).flush(response);
     await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).toContain('Choose a prepared copy');
     expect(fixture.nativeElement.textContent).toContain('Used');
-    expect(fixture.nativeElement.textContent).toContain('Not prepared');
-    expect(fixture.nativeElement.textContent).toContain('Unavailable frozen target');
     const focus = vi.fn(),
       inspect = vi.fn();
     fixture.componentInstance.focusItem.subscribe(focus);
@@ -63,8 +53,8 @@ describe('Relationship suggestions', () => {
     ) as HTMLButtonElement[];
     buttons.find((b) => b.textContent?.includes('Focus: copy1'))!.click();
     expect(focus).toHaveBeenCalledWith('copy1');
-    buttons.find((b) => b.textContent?.includes('Inspect section: copy2'))!.click();
-    expect(inspect).toHaveBeenCalledWith('@copy2#s-8');
+    buttons.find((b) => b.textContent?.includes('Inspect: copy2'))!.click();
+    expect(inspect).toHaveBeenCalledWith('@copy2#');
     http.expectNone((r) => r.method !== 'GET');
     http.verify();
   });
@@ -87,7 +77,7 @@ describe('Relationship suggestions', () => {
     http.expectOne((r) => r.params.get('scene') === 'other').flush({ ...response, scene: 'other' });
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).not.toContain('Focus:');
-    expect(fixture.nativeElement.textContent).toContain('Inspect section: copy2');
+    expect(fixture.nativeElement.textContent).toContain('Inspect: copy2');
     fixture.componentRef.setInput('workspace', { ...workspace, activeSceneItemId: null });
     await fixture.whenStable();
     expect(fixture.componentInstance.suggestions()).toEqual([]);

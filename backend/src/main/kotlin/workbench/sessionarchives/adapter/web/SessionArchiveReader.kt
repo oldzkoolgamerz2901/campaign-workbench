@@ -62,17 +62,22 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version == 7)
+        require(version == 8)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
         for (session in sessions) {
-            val sessionFields = arrayOf("id", "campaign", "revision", "title", "objective", "notes", "items")
+            val sessionFields = arrayOf("id", "campaign", "revision", "title", "objective", "notes", "items", "sceneLinks")
             fields(session, *sessionFields)
             uuid(session.path("id")); uuid(session.path("campaign"))
             val revision = session.path("revision")
             require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
             strings(session, "title", "objective", "notes")
+            val edges = session.path("sceneLinks")
+            require(edges.isArray && edges.size() <= 10000)
+            for (edge in edges) {
+                fields(edge, "scene", "item"); uuid(edge.path("scene")); uuid(edge.path("item"))
+            }
             val items = session.path("items")
             require(items.isArray)
             count += items.size(); require(count <= 1000)

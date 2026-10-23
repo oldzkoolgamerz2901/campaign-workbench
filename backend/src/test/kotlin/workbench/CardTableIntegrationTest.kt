@@ -86,10 +86,11 @@ class CardTableIntegrationTest : StringSpec({
             w = play.save(campaign, s.id, SaveWorkspace(w.revision, w.active, w.used, first, listOf(second, third, first))).getOrNull()!!
             // Returning a card prepends it, explicitly.
             w = play.save(campaign, s.id, SaveWorkspace(w.revision, listOf(first) + w.active, emptyList(), w.activeSceneItemId, w.focusedItemIds)).getOrNull()!!
+            s = p.association(campaign, s.id, first, third, ChangeSceneAssociation(s.revision, true)).getOrNull()!!
             // Removal is lazy reconciliation, also performed by export.
             s = p.save(campaign, s.id, SaveSession(s.revision, s.title, "", s.notes, s.items.filter { it.id != second }.map { ItemNotes(it.id, "") })).getOrNull()!!
             val archive = archives.manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-            archive.version shouldBe 7
+            archive.version shouldBe 8
             archive.workspaces.single().workspace!!.active shouldBe listOf(first, third)
             archive.workspaces.single().workspace!!.activeSceneItemId shouldBe first
             archive.workspaces.single().workspace!!.focusedItemIds shouldBe listOf(third, first)
@@ -153,6 +154,7 @@ class CardTableIntegrationTest : StringSpec({
                 playWrite.get(15, TimeUnit.SECONDS).isLeft() shouldBe true
                 val exported = export.get(15, TimeUnit.SECONDS)
                 exported.sessions.single().notes shouldBe "locked"
+                exported.sessions.single().sceneLinks shouldBe emptyList()
                 exported.workspaces.single().workspace!!.active shouldBe listOf(third)
                 exported.workspaces.single().workspace!!.activeSceneItemId shouldBe null
                 exported.workspaces.single().workspace!!.focusedItemIds shouldBe listOf(third)
@@ -177,9 +179,9 @@ class CardTableIntegrationTest : StringSpec({
             val tree = mapper.valueToTree<ObjectNode>(archive)
             tree.put("version", 6)
             reader.readTransfer(mapper.writeValueAsBytes(tree)).isLeft() shouldBe true
-            tree.put("version", 7); tree.put("unknown", true)
+            tree.put("version", 8); tree.put("unknown", true)
             reader.readTransfer(mapper.writeValueAsBytes(tree)).isLeft() shouldBe true
-            reader.readTransfer("{\"version\":7,\"version\":7}".toByteArray()).isLeft() shouldBe true
+            reader.readTransfer("{\"version\":8,\"version\":8}".toByteArray()).isLeft() shouldBe true
         } finally { context.close(); database.stop(); root.toFile().deleteRecursively() }
     }
 })
