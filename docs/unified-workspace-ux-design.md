@@ -47,6 +47,8 @@ flowchart LR
 
 ### Play
 
+**Reviewed tabletop UX extension (2026-10-23):** [Play tabletop — reviewed UX design](play-tabletop-ux-design.md) records the owner-confirmed reserved Scene slot, two unique-location runtime piles, Scene activation/transition overview, drag-and-drop, pile overlay, and switchable Notes/Document panel using the existing Notes space. This supersedes the former three-individual-focus-card *future presentation* and requires separate architecture reconciliation and browser verification. It does not claim the redesign is implemented.
+
 - Retain approved Play UI/ownership: explicit active Scene, Active/Used, up to three focus slots, existing full reader, notes and historical identities.
 - Contextual **Related cards** for the active Scene come **only from session-specific Preparation Scene→PreparedItem associations**, in Preparation order. Do not derive from authored Markdown links. P4R existing implemented resolver is superseded *as future behavior* and requires architecture/plan review; do not assume it was already replaced.
 - Prepared card identity and resource history remain distinct. Inspection alone never adds a card, assigns focus, or changes the active Scene; temporary previews are reversible.
