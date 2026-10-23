@@ -12,6 +12,7 @@ interface SessionStore {
     fun put(session: Session)
 }
 interface PreparationMarkdown {
+    fun targets(origin: PreparedItem, items: List<PreparedItem>, index: Int, destination: String): List<workbench.preparation.api.PreparedTarget>
     fun render(text: String): RenderedMarkdown
     fun captured(items: List<PreparedItem>): Map<UUID, RenderedMarkdown>
 }

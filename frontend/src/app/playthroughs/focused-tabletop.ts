@@ -10,12 +10,13 @@ import {
 } from '@angular/core';
 import { PreparedItemData, WorkspaceData } from '../../api/generated';
 import { PreparedArtwork } from '../preparation/artwork-sources';
+import { RelationshipSuggestions } from './relationship-suggestions';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 
 /** Focus/inspection composition only. Frozen text stays in the existing workspace reader. */
 @Component({
   selector: 'play-tabletop',
-  imports: [PlayingCard],
+  imports: [PlayingCard, RelationshipSuggestions],
   templateUrl: './focused-tabletop.html',
   styleUrl: './focused-tabletop.css',
 })
@@ -29,6 +30,7 @@ export class FocusedTabletop {
   readonly inspection = input<string | null>(null);
   readonly disabled = input(false);
   readonly focusItem = output<string>();
+  readonly openTarget = output<string>();
   readonly removeFocus = output<string>();
   readonly replaceFocus = output<{ slot: number; id: string }>();
   readonly activateScene = output<string | null>();

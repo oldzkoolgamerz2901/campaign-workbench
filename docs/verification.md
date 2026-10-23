@@ -1,5 +1,38 @@
 # Verification evidence
 
+## P4R — Contextual relationship suggestions — 2026-10-23
+
+**Assessment: PASS within the assessed P4R scope; no blocking defect identified.** Exact frozen targets, prepared-copy choice, section constraints, Used preservation and explicit focus/inspection/replacement satisfy the bounded increment. Unprepared-target inspection/capture remains the explicitly accepted P7 dependency; this assessment does not claim full suggestion acceptance across P4R/P7. Recommend owner acceptance of P4R within these limits.
+
+### Authorization, scope and method
+
+The owner explicitly requested verification following the P4R implementation handover. Assessed the current uncommitted working tree based on `1cdacba` against the [accepted P4R plan](playthrough-implementation-plan.md#p4r--contextual-relationship-suggestions), [relationship and public-contract decisions](playthrough-domain-architecture.md#invariants-and-decisions) and [developer evidence](implementation-plan.md#p4r--contextual-relationship-suggestions--developer-evidence--2026-10-23). This is a separate verification pass by the implementing agent, not an independent reviewer. Reviewed Preparation's shared frozen-target matcher/public resolver, Playthrough read composition and HTTP contract, frontend request cancellation/retry and explicit command wiring, plus associated tests. No application, test or configuration source was changed during verification. Only this assessment was added to repository documentation; generated build/client artifacts and temporary probes are derived evidence.
+
+### Fresh execution evidence
+
+- Ran `/tmp/p4r-verification.sh`, a temporary copy of the existing integration check using the same isolated smoke database and service lifecycle, with backend `cleanTest test bootJar` to force fresh test execution and a separate HTTP probe before cleanup. **68 backend tests**, zero failures/errors/skips; module/architecture checks and backend packaging passed. XML report totals were inspected.
+- Live OpenAPI generation, runtime/version checks, **98 frontend tests across 15 files**, production build and **all 31 Chromium journeys** passed. The P4R browser journey checks actual ambiguous prepared-copy choice, Used focus without return/reorder/scene activation, full-slot inspection with unchanged complete persisted workspace, explicit slot replacement, unchanged Preparation revision and narrow-screen overflow. Existing delayed-reader, focus/mode continuity, failure recovery, illustrated archive, source, reader and Writing journeys also passed. PostgreSQL installation-state preservation across restart passed; smoke services and database were cleaned up. Log: `/tmp/p4r-verification.log`.
+- Separate Python HTTP probe: **17 assertions passed**, using new synthetic campaign/session/source/draft records rather than the repository test fixtures. It checks exact-copy ambiguity/order, alias collapse, section targets, missing/unsafe/unprepared outcomes, unchanged complete workspace and Preparation after suggestion reads, and HTTP 400 for an untyped scene target. A real Sources section-only capture is excluded from the full-document target and included in the compatible section target. After removing all old prepared copies, a newer source capture satisfies neither frozen whole nor section target. Authored approvals similarly preserve exact old draft revision, duplicate-copy order and section anchors; a newer approved revision cannot join or replace those candidates, including after the old copies are removed. Results: `/tmp/p4r-verification-probe-results.json`; temporary probe: `/tmp/p4r-verification-probe.py`. Temporary campaign directories were removed.
+- Inspected fresh `related-390.png` in `frontend/test-results/focused-tabletop-related-c-8e56f-cus-or-full-slot-inspection/` and `focus-1280.png` in `frontend/test-results/focused-tabletop-focus-fou-f99e7-sion-and-Prepare-continuity/`. Related controls/copy context remain readable, notes remain separately accessible, and narrow focused cards retain horizontal access. Existing browser assertions cover 1280/390/320px layouts. Owner visual acceptance remains separate.
+
+### Acceptance assessment
+
+| P4R criterion | Assessment |
+| --- | --- |
+| Active-scene frozen relationships; no live-source substitution | Pass. UI requests its current active Scene; endpoint validates prepared Scene eligibility and composes through Preparation's public contract without mutation. Independent probes reject newer source/draft content as a replacement. |
+| Exact source capture, authored revision and section constraints | Pass in code review, fresh resolver/integration tests and separate real-HTTP whole/partial-source and authored-revision probes. |
+| Preparation-order candidates, repeated-target collapse and explicit copy choice | Pass. Candidate order follows Preparation, including reorder; full-document aliases collapse while section targets remain distinct. Ambiguous copies expose separate explicit controls. |
+| Used cards, one-click focus with room and full-slot inspection/replacement | Pass in fresh component/browser evidence. Complete persisted state comparisons confirm inspection does not mutate the workspace; focus/replacement preserve table order, Used state and active scene. |
+| Missing/unsafe/incompatible and unprepared outcomes | Pass for assessed missing/unsafe/external/guidance and unprepared cases. Unprepared inspection/capture is clearly unavailable pending P7. |
+| Asynchronous context, retry and existing boundaries | Pass in assessed component tests and review: superseded requests are cancelled; scene clearing removes results; retry is independent. Preparation has no reverse Playthrough dependency; matching is shared with its existing reader. |
+| Persistence and archive completeness | No new persisted state or archive version. Existing illustrated archive and scene/focus regression journeys pass; v7 remains unchanged. |
+
+### Limits and exit
+
+Existing warnings remain: initial bundle **764.68 kB** against a 500 kB warning target, workspace CSS **7.94 kB** against 4 kB and prototype stylesheet budgets. The build succeeds; no budget was changed. This assessment does not establish Safari/WebKit, real touch, exhaustive accessibility/zoom, all asynchronous/concurrency schedules or large relationship-count performance. Narrow suggestion lists scroll in their bounded area. P7's unprepared-target actions and later PlayNotes/history increments remain unassessed.
+
+`git diff --check` passed. No development database reset, independent campaign-repository edit or commit occurred. Stop at verification handover: owner acceptance, corrective work if requested, and later increments remain separate gates.
+
 ## P4 corrective re-verification — V-P4-01 — 2026-10-22
 
 **Assessment: PASS within the assessed scope. V-P4-01 is resolved.** A newer frozen-reader selection survives the delayed same-session workspace response and is reconciled as temporary inspection or expanded focus. Normal expansion restoration still works when there is no intervening selection. Combined with the other P4 findings below, no acceptance-blocking P4 defect remains identified. Recommend owner acceptance within the recorded limits; owner visual acceptance and later increments remain separate. The original failed assessment is preserved.

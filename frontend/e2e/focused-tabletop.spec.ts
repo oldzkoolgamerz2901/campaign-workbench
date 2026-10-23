@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-async function fixture(request: APIRequestContext) {
+async function fixture(request: APIRequestContext, related = false) {
   const root = await mkdtemp(join(tmpdir(), 'workbench-p4-'));
   const names = ['Scene', 'NPC', 'Relic', 'Fourth', 'Extra'];
   for (const [index, name] of names.entries()) {
     await writeFile(
       join(root, `${name}.md`),
-      `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${name}\n  type: ${index === 0 || index === 3 ? 'scene' : index === 1 ? 'npc' : 'item'}\n  purpose: session\n  status: current\n  summary: Frozen reference for ${name}.\n  tags: [focus-fixture]\n---\n# Full ${name}\nComplete frozen ${name} document. [Visit Fourth](Fourth.md) [Visit NPC](NPC.md) [Visit Scene](Scene.md)\n\n## Background\nReference background for ${name}.`,
+      `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${name}\n  type: ${index === 0 || index === 3 ? 'scene' : index === 1 ? 'npc' : 'item'}\n  purpose: session\n  status: current\n  summary: Frozen reference for ${name}.\n  tags: [focus-fixture]\n---\n# Full ${name}\nComplete frozen ${name} document. [Visit Fourth](Fourth.md) [Visit NPC](NPC.md) [Visit Scene](Scene.md) ${related ? '[Again](./NPC.md) [Section](NPC.md#background) [Extra](Extra.md) [Missing](Missing.md) [Unsafe](javascript:alert)' : ''}\n\n## Background\nReference background for ${name}.`,
     );
   }
   const campaign = await (
@@ -446,3 +446,81 @@ for (const target of [null, 'Fourth', 'NPC', 'Scene'] as const) {
     }
   });
 }
+
+test('related cards use frozen exact copies and explicit focus or full-slot inspection', async ({
+  page,
+  request,
+}, info) => {
+  const f = await fixture(request, true);
+  try {
+    const added = await request.post(`${f.endpoint}/sources`, {
+      data: {
+        revision: f.session.revision,
+        capture: f.session.items[1].provenance.capture,
+        path: 'NPC.md',
+        section: null,
+      },
+    });
+    expect(added.ok()).toBeTruthy();
+    const session = await added.json();
+    const [scene, npc, relic, fourth] = f.ids;
+    const opened = await (await request.get(`${f.endpoint}/workspace`)).json();
+    const initial = {
+      ...opened,
+      active: opened.active.filter((id: string) => id !== npc),
+      used: [npc],
+      activeSceneItemId: scene,
+      focusedItemIds: [scene],
+    };
+    expect((await request.put(`${f.endpoint}/workspace`, { data: initial })).ok()).toBeTruthy();
+    await page.goto(f.url);
+    const related = page.getByRole('region', { name: 'Related cards', exact: true });
+    await expect(related).toContainText('Choose a prepared copy');
+    await expect(related).toContainText('Used');
+    await expect(related).toContainText('Not prepared');
+    await expect(related).toContainText('Unavailable frozen target');
+    // Aliased full-document links collapse; the section remains a separate suggestion.
+    await expect(related.locator('.relationship')).toHaveCount(7);
+    const before = await (await request.get(`${f.endpoint}/workspace`)).json();
+    const npcRelation = related
+      .locator('.relationship')
+      .filter({ has: page.locator('strong', { hasText: /^NPC.md$/ }) });
+    await npcRelation
+      .getByRole('button', { name: 'Focus: NPC', exact: true })
+      .first()
+      .press('Enter');
+    await saved(page);
+    const focused = await (await request.get(`${f.endpoint}/workspace`)).json();
+    expect(focused.focusedItemIds).toEqual([scene, npc]);
+    expect(focused.active).toEqual(before.active);
+    expect(focused.used).toEqual([npc]);
+    expect(focused.activeSceneItemId).toBe(scene);
+    await menu(page, 'Relic', 'Focus card');
+    await saved(page);
+    const full = await (await request.get(`${f.endpoint}/workspace`)).json();
+    await expect(related.getByRole('button', { name: 'Focus: Fourth', exact: true })).toHaveCount(
+      0,
+    );
+    await related.getByRole('button', { name: 'Inspect: Fourth', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'Temporary inspection: Fourth', exact: true }),
+    ).toBeVisible();
+    expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(full);
+    await page.getByRole('button', { name: 'Replace focus 3: Relic', exact: true }).click();
+    await saved(page);
+    const replaced = await (await request.get(`${f.endpoint}/workspace`)).json();
+    expect(replaced.focusedItemIds).toEqual([scene, npc, fourth]);
+    expect(replaced.active).toEqual(full.active);
+    expect(replaced.used).toEqual(full.used);
+    expect(replaced.activeSceneItemId).toBe(scene);
+    expect((await (await request.get(f.endpoint)).json()).revision).toBe(session.revision);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(related).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.screenshot({ path: info.outputPath('related-390.png'), fullPage: true });
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});

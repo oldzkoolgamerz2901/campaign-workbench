@@ -322,6 +322,7 @@
             [inspection]="state.play.inspectionItemId()"
             [disabled]="!campaignReady() || busy() || state.play.loading()"
             (focusItem)="focusPrepared($event)"
+            (openTarget)="followCaptured($event)"
             (removeFocus)="state.play.unfocus($event)"
             (replaceFocus)="state.play.replaceFocus($event.slot, $event.id)"
             (activateScene)="state.play.activateScene($event)"

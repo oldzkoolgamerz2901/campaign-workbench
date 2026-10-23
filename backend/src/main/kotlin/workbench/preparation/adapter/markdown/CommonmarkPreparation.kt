@@ -57,39 +57,46 @@ class CommonmarkPreparation : PreparationMarkdown {
             } }.build()
         return RenderedMarkdown(anchors.toList(), renderer.render(root), links)
     }
-    private fun authoredTarget(uri: URI?, destination: String, origin: PreparedItem, items: List<PreparedItem>, index: Int): String? {
+    override fun targets(origin: PreparedItem, items: List<PreparedItem>, index: Int, destination: String): List<PreparedTarget> {
+        val uri = try { URI(destination.replace(" ", "%20")) } catch (_: Exception) { null }
+        return exactTargets(uri, destination, origin, items, index)
+    }
+    private fun authoredTarget(uri: URI?, destination: String, origin: PreparedItem, items: List<PreparedItem>, index: Int): String? =
+        exactTargets(uri, destination, origin, items, index).firstOrNull()?.readerTarget(origin)
+    private fun capturedTarget(uri: URI?, origin: PreparedItem, items: List<PreparedItem>): String? =
+        exactTargets(uri, "", origin, listOf(origin) + items.filter { it.id != origin.id }, 0).firstOrNull()?.readerTarget(origin)
+    private fun PreparedTarget.readerTarget(origin: PreparedItem): String =
+        if (item == origin.id && !anchor.isNullOrEmpty()) anchor else "@$item#${anchor.orEmpty()}"
+
+    private fun exactTargets(uri: URI?, destination: String, origin: PreparedItem, items: List<PreparedItem>, index: Int): List<PreparedTarget> {
         if (uri == null || uri.isAbsolute || uri.authority != null || uri.query != null ||
-            uri.path.orEmpty().startsWith('/') || '\\' in uri.path.orEmpty()) return null
-        val authored = origin.provenance.authored ?: return null
-        val link = authored.links.getOrNull(index)?.takeIf { it.destination == destination } ?: return null
-        val candidates = when (link.kind) {
+            uri.path.orEmpty().startsWith('/') || '\\' in uri.path.orEmpty()) return emptyList()
+        val authored = origin.provenance.authored
+        val link = if (origin.provenance.kind == "authored") authored?.links?.getOrNull(index)?.takeIf { it.destination == destination } ?: return emptyList() else null
+        val anchor = link?.anchor ?: uri.fragment?.takeIf { it.isNotEmpty() }
+        val candidates = if (link != null) when (link.kind) {
             "local", "self" -> listOf(origin)
             "source" -> items.filter { it.provenance.kind == "source" && it.provenance.campaign == origin.provenance.campaign &&
                 it.provenance.capture == link.capture && it.provenance.path == link.path &&
-                (if (link.anchor == null) it.provenance.section == null else link.anchor in it.anchors) }
+                (if (anchor == null) it.provenance.section == null else anchor in it.anchors) }
             "draft" -> items.filter { it.provenance.kind == "authored" && it.provenance.campaign == origin.provenance.campaign &&
                 it.provenance.authored?.draft == link.draft && it.provenance.authored?.revision == link.revision }
             else -> emptyList()
+        } else {
+            val local = uri.path.orEmpty()
+            val segments = origin.provenance.path.substringBeforeLast('/', "").split('/').filter { it.isNotEmpty() }.toMutableList()
+            if (local.isNotEmpty()) for (segment in local.split('/')) when (segment) {
+                "", "." -> Unit
+                ".." -> { if (segments.isEmpty()) return emptyList(); segments.removeAt(segments.lastIndex) }
+                else -> segments.add(segment)
+            }
+            val path = if (local.isEmpty()) origin.provenance.path else segments.joinToString("/")
+            items.filter { it.provenance.kind == "source" && it.provenance.campaign == origin.provenance.campaign &&
+                it.provenance.capture == origin.provenance.capture && it.provenance.path == path &&
+                (if (anchor == null) it.provenance.section == null else anchor in it.anchors) }
         }
-        val target = candidates.firstOrNull() ?: return null
-        val anchor = link.anchor?.let { target.anchors[it] ?: return null }.orEmpty()
-        return if (target.id == origin.id && anchor.isNotEmpty()) anchor else "@${target.id}#$anchor"
-    }
-    private fun capturedTarget(uri: URI?, origin: PreparedItem, items: List<PreparedItem>): String? {
-        if (uri == null || uri.isAbsolute || uri.authority != null || uri.query != null) return null
-        val local = uri.path.orEmpty()
-        if (local.startsWith('/') || '\\' in local) return null
-        val segments = origin.provenance.path.substringBeforeLast('/', "").split('/').filter { it.isNotEmpty() }.toMutableList()
-        if (local.isNotEmpty()) for (s in local.split('/')) when (s) {
-            "", "." -> Unit
-            ".." -> { if (segments.isEmpty()) return null; segments.removeAt(segments.lastIndex) }
-            else -> segments.add(s)
+        return candidates.mapNotNull { item ->
+            if (anchor != null && anchor !in item.anchors) null else PreparedTarget(item.id, anchor?.let { item.anchors[it] })
         }
-        val path = if (local.isEmpty()) origin.provenance.path else segments.joinToString("/")
-        val candidates = listOf(origin) + items.filter { it.id != origin.id }
-        val target = candidates.firstOrNull { i -> i.provenance.kind == "source" && i.provenance.campaign == origin.provenance.campaign && i.provenance.capture == origin.provenance.capture && i.provenance.path == path &&
-            (if (uri.fragment.isNullOrEmpty()) i.provenance.section == null else uri.fragment in i.anchors) } ?: return null
-        val anchor = uri.fragment?.let { target.anchors[it] }.orEmpty()
-        return if (target.id == origin.id && anchor.isNotEmpty()) anchor else "@${target.id}#$anchor"
     }
 }

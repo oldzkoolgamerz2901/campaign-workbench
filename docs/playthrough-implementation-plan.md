@@ -64,13 +64,15 @@ The shared PlayingCard used 5:7 before P2G. P2G changes its outer ratio to **243
 
 ## P4 — Focused tabletop presentation
 
-**Status:** Implementation and developer checks completed on 2026-10-22; see [P4 developer evidence](implementation-plan.md#p4--focused-tabletop-presentation--developer-evidence--2026-10-22). Formal verification and owner visual review remain separate.
+**Status:** Accepted by the owner on 2026-10-23 after the passing V-P4-01 corrective re-verification in [verification evidence](verification.md). The owner authorized P4R implementation in the same conversation.
 
 **Scope:** existing Play workspace/CardTable plus reusable focus/temporary-inspection presentation using the shared card and full-document reader. No duplicate card/document system.
 
 **Acceptance:** two or three focused cards, explicit slot replacement, temporary fourth-card inspection, one-action expansion/return; keyboard and laptop/narrow layouts. Same-session Play → Prepare → Play retains expanded focus; reopen restores persisted identities but closes temporary inspection. Notes remain independently accessible. Test removals, asynchronous navigation and retained selection. No new persisted state requiring another archive extension.
 
 ## P4R — Contextual relationship suggestions
+
+**Status:** Accepted by the owner on 2026-10-23 following passing [P4R formal verification](verification.md#p4r--contextual-relationship-suggestions--2026-10-23). Unprepared-target actions remain gated on P7.
 
 **Scope:** Preparation public exact-target resolver sharing existing frozen-reader semantics, Playthrough read composition and focused-tabletop suggestions. No new relationship authoring/storage or AI ranking.
 
@@ -136,4 +138,4 @@ Each increment needs explicit implementation authorization and its own developer
 | Q10w–Q10x mode continuity and simple removal | P3/P4/P7 |
 | Complete illustrated archives of all supported state | P1/P2, P3, P5; P8 regression |
 
-**Next gate:** P2 passed bounded corrective re-verification in [verification evidence](verification.md) and was accepted by the owner on 2026-10-22. P2G passed bounded formal verification; owner visual acceptance remains separate. P2A full-image artwork has developer evidence in the main implementation record; formal verification and owner visual acceptance remain separate gates. P3 passed bounded V-P3-01 re-verification and was accepted by the owner on 2026-10-22. P4 implementation/developer checks are recorded in the main implementation record; its formal verification and owner visual review remain separate. P4R and later increments require separate owner authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.
+**Next gate:** P2 passed bounded corrective re-verification in [verification evidence](verification.md) and was accepted by the owner on 2026-10-22. P2G passed bounded formal verification; owner visual acceptance remains separate. P2A full-image artwork has developer evidence in the main implementation record; formal verification and owner visual acceptance remain separate gates. P3 passed bounded V-P3-01 re-verification and was accepted by the owner on 2026-10-22. P4 passed bounded V-P4-01 corrective re-verification and was accepted by the owner on 2026-10-23. P4R passed bounded formal verification and was accepted by the owner on 2026-10-23. P5 and later increments require separate implementation authorization. Approval of this document alone is not code/reset authorization. Exact REST names and migration filename are routine implementation choices within the approved contracts; changed behavior or broader architecture must return to the relevant phase.

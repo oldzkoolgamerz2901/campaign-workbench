@@ -110,6 +110,34 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
         val captured = markdown.captured(model(s).items)
         SessionView(markdown.render(s.notes), s.items.map { RenderedItem(it.id, captured.getValue(it.id), markdown.render(it.notes)) })
     }
+    fun candidates(campaign: UUID, session: UUID, originItem: UUID, linkKey: String): Either<Failure, PreparedTargetCandidates> = either {
+        val items = model(open(campaign, session).bind()).items
+        val origin = ensureNotNull(items.find { it.id == originItem }) { invalid("Origin card is no longer prepared.") }
+        val index = linkKey.removePrefix("prepared-link-").toIntOrNull()
+        ensure(index != null && index >= 0 && linkKey == "prepared-link-$index" && index < (origin.provenance.authored?.links?.size ?: origin.capturedSource?.relationships?.size ?: 0)) { invalid("Unknown frozen link.") }
+        val relation = origin.capturedSource?.relationships?.getOrNull(index)
+        val authored = origin.provenance.authored?.links?.getOrNull(index)
+        val destination = authored?.destination ?: relation?.destination
+        val uri = try { java.net.URI(destination?.replace(" ", "%20") ?: "") } catch (_: Exception) { null }
+        val unsafe = uri == null || uri.isAbsolute || uri.authority != null || uri.query != null || uri.path.orEmpty().startsWith('/') || '\\' in uri.path.orEmpty()
+        var depth = origin.provenance.path.substringBeforeLast('/', "").split('/').count { it.isNotEmpty() }
+        var escapesRoot = false
+        for (segment in uri?.path.orEmpty().split('/')) when (segment) {
+            "", "." -> Unit
+            ".." -> if (depth == 0) escapesRoot = true else depth--
+            else -> depth++
+        }
+        val incompatible = relation?.classification?.metadata?.purpose?.let { it != "session" } == true
+        val unavailable = incompatible || unsafe || escapesRoot || destination == null || (authored == null && (relation?.target?.missing != false || relation.target.external != null)) ||
+            (authored != null && authored.kind !in setOf("local", "self", "source", "draft"))
+        val matches = if (unavailable) emptyList() else markdown.targets(origin, items, index, destination)
+        PreparedTargetCandidates(when {
+            matches.size > 1 -> PreparedTargetState.AMBIGUOUS
+            matches.size == 1 -> PreparedTargetState.MATCHED
+            unavailable -> PreparedTargetState.UNAVAILABLE
+            else -> PreparedTargetState.UNPREPARED
+        }, matches)
+    }
     private fun data(s: Session) = SessionData(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItemData(i.id, i.title, i.markdown, ProvenanceData(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.data()), i.anchors, i.notes, i.capturedSource?.data(), i.image) })
     private fun model(s: SessionData) = Session(s.id, s.campaign, s.revision, s.title, s.objective, s.notes, s.items.map { i -> PreparedItem(i.id, i.title, i.markdown, Provenance(i.provenance.campaign, i.provenance.capture, i.provenance.path, i.provenance.section, i.provenance.documentHash, i.provenance.contentHash, i.provenance.kind, i.provenance.authored?.model()), i.anchors, i.notes, i.capturedSource?.model(), i.image) })
 }

@@ -19,9 +19,11 @@ interface PreparationTransfers : PreparedSessions {
     fun putImage(campaign: UUID, image: ProcessedImage)
 }
 
-/** Exact captured target resolution, implemented with the reader in the contextual-suggestions increment. */
+/** Exact frozen-target resolution shared with the reader; never substitutes live source content. */
 enum class PreparedTargetState { MATCHED, AMBIGUOUS, UNPREPARED, UNAVAILABLE }
-data class PreparedTarget(val item: UUID, val anchor: String?)
+data class PreparedTarget(
+    @field:io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED) val item: UUID,
+    @field:io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED, nullable = true) val anchor: String?)
 data class PreparedTargetCandidates(val state: PreparedTargetState, val candidates: List<PreparedTarget>)
 interface PreparedTargets {
     fun candidates(campaign: UUID, session: UUID, originItem: UUID, linkKey: String): Either<Failure, PreparedTargetCandidates>

@@ -8,6 +8,17 @@
     }
     <span>{{ focused().length }} / 3 focused</span>
   </header>
+  @if (scene()) {
+    <play-relationship-suggestions
+      [campaign]="campaign()"
+      [session]="session()"
+      [workspace]="workspace()"
+      [items]="items()"
+      [disabled]="disabled()"
+      (focusItem)="focusItem.emit($event)"
+      (openTarget)="openTarget.emit($event)"
+    />
+  }
   @if (expanded()) {
     <nav class="focused-tabs" aria-label="Expanded focus">
       <button type="button" (click)="returnToCards.emit()">Return to focused cards</button>

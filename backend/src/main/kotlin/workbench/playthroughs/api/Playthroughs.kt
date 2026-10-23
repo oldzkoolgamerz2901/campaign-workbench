@@ -22,7 +22,19 @@ data class SaveWorkspace(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val activeSceneItemId: UUID?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val focusedItemIds: List<UUID>
 )
+data class RelationshipSuggestion(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val key: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val destination: String,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val state: workbench.preparation.api.PreparedTargetState,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val candidates: List<workbench.preparation.api.PreparedTarget>
+)
+data class RelationshipSuggestions(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val scene: UUID,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val suggestions: List<RelationshipSuggestion>
+)
 interface Playthroughs {
+    fun suggestions(campaign: UUID, session: UUID, scene: UUID): Either<Failure, RelationshipSuggestions>
+
     fun open(campaign: UUID, session: UUID): Either<Failure, WorkspaceData>
     fun save(campaign: UUID, session: UUID, request: SaveWorkspace): Either<Failure, WorkspaceData>
 }

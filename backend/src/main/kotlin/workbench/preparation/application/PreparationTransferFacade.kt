@@ -4,7 +4,8 @@ import workbench.preparation.api.*
 import workbench.platform.api.*
 import java.util.UUID
 
-class PreparationTransferFacade(private val service: PreparationService, private val images: PreparationImageStore) : PreparationTransfers {
+class PreparationTransferFacade(private val service: PreparationService, private val images: PreparationImageStore) : PreparationTransfers, PreparedTargets {
+    override fun candidates(campaign: UUID, session: UUID, originItem: UUID, linkKey: String) = service.candidates(campaign, session, originItem, linkKey)
     override fun snapshot(campaign: UUID, session: UUID) = service.open(campaign, session)
     override fun exportContents(campaign: UUID, request: ExportSessions, illustrated: Boolean) = service.export(campaign, request, illustrated)
     override fun validateContents(archive: Archive, illustrated: Boolean) = service.validateArchive(archive, illustrated)
