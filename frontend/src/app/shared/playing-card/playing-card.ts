@@ -19,33 +19,34 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       (keydown)="activate($event)"
     >
       <div class="card-actions" data-card-actions><ng-content select="[cardActions]" /></div>
-      <div class="card-top">
-        <span>{{ type() || 'Untyped' }}</span
-        ><span>CAMPAIGN WORKBENCH</span>
-      </div>
       <artwork-image [source]="artwork()" [local]="localArtwork()" />
-      <h3 tabindex="0">{{ title() || 'Untitled card' }}</h3>
-      <div class="card-text" tabindex="0" aria-label="Card summary and tags">
-        @if (summary().trim()) {
-          <p>{{ summary() }}</p>
-        } @else {
-          <p class="missing">No summary yet. Add one to describe this card.</p>
-        }
-        <ul aria-label="Card tags">
-          @for (tag of tags(); track $index) {
-            <li>{{ tag }}</li>
+      <div class="card-content">
+        <h3 tabindex="0">{{ title() || 'Untitled card' }}</h3>
+        <div class="card-top">
+          <span>{{ type() || 'Untyped' }}</span>
+        </div>
+        <div class="card-text" tabindex="0" aria-label="Card summary and tags">
+          @if (summary().trim()) {
+            <p>{{ summary() }}</p>
+          } @else {
+            <p class="missing">No summary yet. Add one to describe this card.</p>
           }
-        </ul>
+          <ul aria-label="Card tags">
+            @for (tag of tags(); track $index) {
+              <li>{{ tag }}</li>
+            }
+          </ul>
+        </div>
+        <button
+          type="button"
+          [disabled]="disabled()"
+          (mousedown)="$event.stopPropagation()"
+          (touchstart)="$event.stopPropagation()"
+          (click)="openDocument.emit()"
+        >
+          Open full document <span aria-hidden="true">↗</span>
+        </button>
       </div>
-      <button
-        type="button"
-        [disabled]="disabled()"
-        (mousedown)="$event.stopPropagation()"
-        (touchstart)="$event.stopPropagation()"
-        (click)="openDocument.emit()"
-      >
-        Open full document <span aria-hidden="true">↗</span>
-      </button>
     </article>
   `,
   styles: `
@@ -59,10 +60,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       position: relative;
       aspect-ratio: 243 / 420;
       box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: clamp(0.4rem, 3.25cqi, 0.65rem);
-      padding: clamp(0.5rem, 5cqi, 1rem);
+      padding: 0;
       border: 2px solid #aa9567;
       border-radius: clamp(0.5rem, 5cqi, 1rem);
       background: #e9dfc5;
@@ -93,10 +91,24 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       position: absolute;
       top: 0.35rem;
       right: 0.35rem;
-      z-index: 1;
+      z-index: 2;
     }
-    .selectable .card-top {
-      padding-right: 1.8rem;
+    .card-content {
+      position: absolute;
+      z-index: 1;
+      left: clamp(0.35rem, 2cqi, 0.5rem);
+      right: clamp(0.35rem, 2cqi, 0.5rem);
+      bottom: clamp(0.35rem, 2cqi, 0.5rem);
+      height: 40%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(0.2rem, 1.5cqi, 0.35rem);
+      padding: clamp(0.4rem, 3cqi, 0.65rem);
+      border: 1px solid #30352a;
+      border-radius: 0.6rem;
+      background: #f2efdc;
+      box-shadow: 0 2px 8px #0004;
     }
     .card-top {
       display: flex;
@@ -108,13 +120,10 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       flex-shrink: 0;
     }
     artwork-image {
-      display: block;
-      width: 100%;
-      height: var(--card-artwork-height, 55%);
-      --artwork-fit: contain;
-      border: 1px solid #aa9567;
-      border-radius: 0.3rem;
-      flex-shrink: 0;
+      position: absolute;
+      inset: 0;
+      --artwork-fit: cover;
+      --artwork-message-bottom: calc(40% + 0.75rem);
     }
     h3 {
       font:
@@ -122,7 +131,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
         serif;
       margin: 0;
       overflow-wrap: anywhere;
-      max-height: 3.3em;
+      max-height: 2.6em;
       overflow: auto;
       flex-shrink: 0;
     }
@@ -164,7 +173,7 @@ import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
       border-top: 1px solid #b4ac91;
       background: transparent;
       color: inherit;
-      padding: 0.65rem 0 0;
+      padding: clamp(0.25rem, 2cqi, 0.4rem) 0 0;
       display: flex;
       justify-content: space-between;
       font: inherit;

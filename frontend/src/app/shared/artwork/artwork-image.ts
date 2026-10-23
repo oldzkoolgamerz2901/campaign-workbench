@@ -47,7 +47,7 @@ export interface ArtworkSource {
     .state,
     button {
       position: absolute;
-      bottom: 0;
+      bottom: var(--artwork-message-bottom, 0);
       left: 0;
       right: 0;
       background: #18251eee;

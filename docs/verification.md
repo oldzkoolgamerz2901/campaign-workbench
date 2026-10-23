@@ -1,3 +1,17 @@
+## Card background presentation — 2026-10-23
+
+**Assessment: PASS within the approved small increment.** The owner approved the full-card artwork/lower-panel scope, the separate phase skips, implementation, verification and necessary fixes. This separate formal review followed the completed developer checks; it was performed by the implementing agent, not an independent reviewer. No corrective application change was needed during formal review.
+
+Assessed the [accepted increment and developer evidence](implementation-plan.md#card-background-presentation--accepted-increment--2026-10-23) against the accepted product requirement and supplied Brother Colm reference. The shared renderer fills the existing 243:420 card with centered cover artwork and an opaque parchment lower panel at 40% height. Cropping replaces P2A's letterboxing without stretching or changing the 320px default size. Existing title/type/summary/tags/document action remain; no new stat fields were introduced.
+
+Evidence and assessment:
+
+- **Geometry/readability: pass.** Existing browser tests now assert portrait/landscape/square cover fitting, full-card image height, lower-panel proportions/bounds and opaque background at 1280/390/320px. Reviewed rendered portrait and landscape card screenshots and the dense 320px Play screenshot. Existing dense-title/summary keyboard-scroll and full-document tests pass at 1440/1280/390/320px.
+- **Behavior/recovery: pass.** Reviewed unchanged selection/keyboard handlers, the action-menu stacking order and the artwork message offset above the panel. The artwork integration journey passes failed-save recovery, frozen prepared artwork, Active/Used/return, failed artwork GET and clickable Retry, responsive presentation and session/Writing-recovery archive round trips. Shared Library, Write, Prepare, Play and recovery rendering retain the full regression coverage. Thumbnail defaults and image persistence remain unchanged.
+- **Integrated evidence: pass.** `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh`: **111 frontend tests in 16 files**, production build, **36 Chromium journeys**, live OpenAPI/client generation/version checks and isolated PostgreSQL restart preservation. Backend test/module/package tasks were up-to-date, not freshly executed. Final log `/tmp/card-background-check.log`; screenshots are derived under `frontend/test-results/`. `git diff --check` passes. No application changes followed this run.
+
+Limits: center cropping can hide image edges and artwork beneath the opaque panel, as approved; no per-card focal-point control was added. Owner visual acceptance remains separate. Chromium checks do not establish Safari/WebKit or exhaustive assistive-technology coverage. Existing nonblocking budget/generator warnings remain (initial bundle **782.74 kB**); no budgets were raised. Temporary logs/screenshots are not guaranteed durable artifacts. No backend/schema/archive change, campaign-content edit, development database reset or commit occurred. UW5 was not started.
+
 ## UW4 — dedicated Library and shared session navigation — 2026-10-23
 
 **Assessment: PASS within the approved UW4 scope.** Implementation, developer checks and the separately authorized formal pass are complete. Recommend owner acceptance; UW5/UW6 remain separately gated.

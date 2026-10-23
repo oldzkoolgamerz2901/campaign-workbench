@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-test('cards show complete portrait, landscape and square artwork within the existing shape', async ({
+test('cards fill the background with portrait, landscape and square artwork behind a readable bottom panel', async ({
   page,
   request,
 }, info) => {
@@ -27,7 +27,7 @@ test('cards show complete portrait, landscape and square artwork within the exis
           fields: {
             ...draft.fields,
             title: 'Complete artwork',
-            summary: 'All four coloured edges must be visible.',
+            summary: 'Artwork fills the card behind this parchment panel.',
             body: '# Full artwork\nComplete source document.',
             path: 'full-artwork.md',
           },
@@ -88,9 +88,17 @@ test('cards show complete portrait, landscape and square artwork within the exis
         const outer = (await card.boundingBox())!;
         expect(outer.width / outer.height).toBeCloseTo(243 / 420, 2);
         if (width === 1280) expect(outer.width).toBe(320);
-        await expect(image).toHaveCSS('object-fit', 'contain');
+        await expect(image).toHaveCSS('object-fit', 'cover');
         const area = (await image.boundingBox())!;
-        expect(area.height / outer.height).toBeGreaterThan(0.49);
+        expect(area.height / outer.height).toBeGreaterThan(0.98);
+        const panel = (await card.locator('.card-content').boundingBox())!;
+        expect(panel.height / outer.height).toBeGreaterThan(0.35);
+        expect(panel.height / outer.height).toBeLessThanOrEqual(0.41);
+        expect(panel.y + panel.height).toBeLessThanOrEqual(outer.y + outer.height);
+        await expect(card.locator('.card-content')).toHaveCSS(
+          'background-color',
+          'rgb(242, 239, 220)',
+        );
         // Resizing can move the lazy artwork out of view and reload its Blob.
         // Scroll it into view, then measure loaded pixels and layout in one frame.
         await image.scrollIntoViewIfNeeded();
@@ -109,12 +117,12 @@ test('cards show complete portrait, landscape and square artwork within the exis
             imageWidth / imageHeight,
             2,
           );
-          const scale = Math.min(
+          const scale = Math.max(
             measured.width / measured.naturalWidth,
             measured.height / measured.naturalHeight,
           );
-          expect(measured.naturalWidth * scale).toBeLessThanOrEqual(measured.width + 0.01);
-          expect(measured.naturalHeight * scale).toBeLessThanOrEqual(measured.height + 0.01);
+          expect(measured.naturalWidth * scale).toBeGreaterThanOrEqual(measured.width - 0.01);
+          expect(measured.naturalHeight * scale).toBeGreaterThanOrEqual(measured.height - 0.01);
         }).toPass();
         await card.screenshot({ path: info.outputPath(`${name}-${width}.png`) });
       }
