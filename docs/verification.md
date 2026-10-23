@@ -1,5 +1,41 @@
 # Verification evidence
 
+## UW2 — atomic Library Add and explicit prepared replacement — 2026-10-23
+
+**Assessment: PASS within the approved UW2 backend scope.** No acceptance-blocking defect was identified and no application correction was needed during this verification pass. Recommend owner acceptance within the limits below; UW3–UW6 remain separately gated.
+
+### Authorization, scope and method
+
+After reviewing the documented increment, the owner explicitly authorized UW2 implementation, verification and necessary fixes. Assessed the delivered backend against the [accepted UW2 plan and developer evidence](implementation-plan.md#uw2--accepted-backend-atomic-add-and-prepared-replacement), [unified requirements](product-specification.md#unified-library-writing-and-preparation--accepted-requirements--2026-10-22), accepted workspace UX and architecture reconciliation. This was a separate verification pass by the implementing agent, not an independent reviewer. Application changes stopped before the formal pass; documentation records its outcome. No frontend feature, Scene association persistence or PlayNotes/history was assessed as delivered.
+
+Reviewed Preparation orchestration and its shared approval/freezing path, public module boundaries, campaign lock/transaction behavior, identity and section checks, stale expectations, status composition, frozen link resolution and current archives. Used independent HTTP requests against a packaged server with fresh synthetic campaigns/sessions/Drafts, alongside the database-backed regression evidence. Existing UI browser regressions check compatibility; they do not exercise future unified Library controls.
+
+### Assessment and evidence
+
+| UW2 criterion | Assessment |
+| --- | --- |
+| Preparation-owned composition, public contracts and campaign transaction | Pass. Preparation calls Campaigns/Writing public contracts and existing Preparation approval/freezing operations. No Writing→Preparation or Preparation→Playthrough dependency is introduced. Modulith/ArchUnit pass. |
+| Atomic whole-card Add and associated reuse | Pass. Four concurrent identical calls create one automatic Draft/item and advance membership once; retries return the existing item. Another session reuses the Draft. Late-failure database tests roll back automatic Draft, association, approval and item writes together. |
+| Exact expectations and conflicts | Pass. New membership and replacement check capture, session revision, Draft ID and numeric revision; a recreated Draft with the same numeric revision cannot satisfy an old identity. Incomplete/conflicting additions reject without partial creation. Existing-item Add is a documented no-write retry exception for old session/Draft expectations, while stale captures/conflicts still reject. |
+| Membership and session status | Pass. Shared query/type/tag filters compose with ready/already-prepared/update-available/blocked state and explicit ordered matches. Section captures do not satisfy whole-card membership; historical multiple copies are returned without arbitrary selection. Foreign-origin imports cannot satisfy local membership or be rebound by replacement. |
+| Explicit same-type replacement | Pass. The exact saved version replaces content/artwork/approval/outgoing bindings while retaining item ID, order, preparation/session notes and objective. Entire Active/Used/active Scene/focus workspace remains identical. Stale/type-changing updates reject; exact-current replacement is a no-op. |
+| Frozen targets and independent retention | Pass. Updating a target makes an older incoming exact-revision link unavailable when that target is absent; replacement's own outgoing bindings refer to its approved snapshot. Artwork/text survive independently of working Draft edits. Illustrated late-failure replacement rolls back approval, Preparation artwork and content. |
+| Archives, origin identity and restart | Pass. Illustrated v7 ZIP round trip preserves replaced frozen provenance/artwork/notes and remaps runtime item references. Null-workspace manifests stay uninitialized. JSON manifest restoration and restart checks pass. Existing fields fully express UW2; no persisted-state or format change is required. |
+| Existing frontend and scope | Pass. Generated API includes all three new operations and required nullable representation fields. Existing screens compile and their browser regressions pass. No source-file mutation, database reset, frontend redesign or later UW implementation is included. |
+
+### Execution evidence
+
+- Developer run `./gradlew --no-daemon cleanTest test bootJar` freshly executed **83 backend tests in 24 suites**, with zero failures/errors/skips. This includes seven new UW2 database/HTTP journeys and all existing module, migration, concurrency, image, Writing recovery, session archive and Playthrough regressions. XML totals were inspected. The formal integration runner's subsequent backend build reused these passing outputs; it did not claim a second fresh 83-test execution.
+- Ran `/tmp/uw2-verification.sh`, derived from the existing isolated setup check, with `WORKBENCH_CHECK_FRONTEND_PORT=4201`. It built/started the packaged server against the smoke Compose database, generated the Angular client from live OpenAPI, then ran `/tmp/uw2-verification-probe.py`. **All 40 independent HTTP checks passed**, including concurrent Add, cross-session reuse, stale capture/session/Draft expectations, recreated-Draft identity collision, update status, explicit replacement, complete runtime-state preservation, type rejection, incomplete no-write failure, campaign isolation, bounded/malformed commands and source immutability. Temporary campaign directories were removed.
+- Live OpenAPI/client generation and version checks passed. Inspected all three new operation IDs, the five required mutation fields and their nullable capture/Draft representations in the generated schema/client. **98 frontend tests in 15 files**, the production build and **all 31 Chromium browser regressions** passed. PostgreSQL installation state survived the isolated database restart; the runner stopped its server and smoke services. No JAR rebuild overlapped a running verification server.
+- Evidence: `/tmp/uw2-verification.log`, `/tmp/uw2-verification.sh`, `/tmp/uw2-verification-probe.py`, `/tmp/uw2-verification-results.json`, and backend XML reports under `backend/build/test-results/test`. Temporary/build artifacts are not guaranteed durable; this document retains the assessment and counts. `git diff --check` and whitespace/newline checks for all newly added files passed.
+
+### Limits and exit
+
+Existing Angular bundle/style budget, OpenAPI-generator 3.1 and Kotlin warnings remain nonblocking. This pass does not establish maximum-size catalogue performance, exhaustive concurrency schedules or Safari/WebKit behavior. Laptop layouts for future unified workspaces, unsaved-editor handling in their new Add flow, Scene planning/association persistence and PlayNotes/history belong to later increments. Existing Source/Draft frontend pathways remain unchanged until their authorized UX replacement; no new UI controls are claimed by UW2. Session archives remain v7 and Writing recovery remains JSON v3 / ZIP v4.
+
+No production database reset/migration, independent campaign-repository edit or commit occurred. Stop at UW2 verification handover; owner acceptance and later increment approval remain separate.
+
 ## UW1 corrective re-verification — V-UW1-01 and V-UW1-02 — 2026-10-23
 
 **Assessment: PASS within the assessed UW1 scope. V-UW1-01 and V-UW1-02 are resolved.** Independent HTTP reproductions now pass, including positive current-representation reads and negative stale-identity reads. No remaining acceptance-blocking UW1 defect was identified in this pass. Recommend owner acceptance within the recorded limits; later increments remain separately gated. The original failed assessment is preserved below.

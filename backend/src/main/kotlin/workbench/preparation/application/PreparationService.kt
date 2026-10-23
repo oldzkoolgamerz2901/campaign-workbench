@@ -48,7 +48,20 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
             Provenance(selected.campaign, selected.capture, selected.path, selected.section, selected.documentHash, selected.contentHash), selected.anchors, "", selected.freeze()))
     } }
     fun addDraft(campaign: UUID, id: UUID, request: AddDraft): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
-        val approved = writing.retain(campaign, request.draft, request.draftRevision).bind()
+        s.copy(items = s.items + freezeDraft(campaign, request.draft, request.draftRevision).bind())
+    } }
+    internal fun replaceDraft(campaign: UUID, id: UUID, item: UUID, request: AddDraft): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
+        val before = ensureNotNull(s.items.find { it.id == item }) { invalid("Prepared card no longer belongs to this session.") }
+        val replacement = freezeDraft(campaign, request.draft, request.draftRevision).bind()
+        ensure(before.provenance.campaign == campaign && before.provenance.section == null &&
+            (before.provenance.authored?.card ?: before.capturedSource?.classification?.metadata?.id) == replacement.provenance.authored?.card &&
+            before.capturedSource?.classification?.metadata?.type == replacement.capturedSource?.classification?.metadata?.type) {
+            invalid("Only a whole card with the same origin identity and card type can replace this prepared version.")
+        }
+        s.copy(items = s.items.map { if (it.id == item) replacement.copy(id = before.id, notes = before.notes) else it })
+    } }
+    private fun freezeDraft(campaign: UUID, draft: UUID, revision: Long): Either<Failure, PreparedItem> = either {
+        val approved = writing.retain(campaign, draft, revision).bind()
         val d = approved.snapshot
         writing.image(campaign, d.id, d.revision).bind()?.let { images.put(campaign, it) }
         val metadata = ensureNotNull(approved.preview.classification.metadata) { invalid("Draft is not ready for approval.") }
@@ -60,10 +73,10 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
                 if (it.kind == "source") approved.capture else null, it.draft, it.revision) })
         val classification = CapturedClassification(CapturedCard(metadata.schema, metadata.id, metadata.title, metadata.type,
             metadata.purpose, metadata.status, metadata.tags, metadata.summary), emptyList())
-        s.copy(items = s.items + PreparedItem(UUID.randomUUID(), metadata.title, approved.markdown,
+        PreparedItem(UUID.randomUUID(), metadata.title, approved.markdown,
             Provenance(campaign, null, d.fields.path, null, approved.hash, approved.hash, "authored", authored),
-            approved.preview.anchors.keys.associateWith { it }, "", CapturedSource(1, bodyStart, classification, emptyList()), d.image))
-    } }
+            approved.preview.anchors.keys.associateWith { it }, "", CapturedSource(1, bodyStart, classification, emptyList()), d.image)
+    }
     private fun mutate(campaign: UUID, id: UUID, revision: Long, change: (Session) -> Either<Failure, Session>): Either<Failure, SessionData> = tx.run { either {
         // Campaign's public configuration operation locks the campaign row across this transaction.
         campaigns.configuration(campaign).bind()
