@@ -1830,3 +1830,8 @@ Existing build warnings remain: initial bundle **764.68 kB** against 500 kB, wor
 ## P4R acceptance — 2026-10-23
 
 The owner accepted P4R after its passing [formal verification](verification.md#p4r--contextual-relationship-suggestions--2026-10-23). Acceptance covers the bounded P4R increment; unprepared-target inspection/capture and full end-to-end suggestion acceptance remain gated on P7. P5 and later increments remain unstarted and require separate implementation authorization.
+
+
+## Subsequent unified-workspace UX design — scope notice (2026-10-23)
+
+The accepted [unified Library / Write / Prepare / Play UX](unified-workspace-ux-design.md) adds requirements not covered by this implementation plan, particularly unified Library actions and session-scoped Scene associations instead of P4R authored-link suggestions. **Do not treat these UX decisions as authorized increments.** Reconcile and approve the affected architecture, then explicitly revise implementation planning under the harness gates. Existing P4R implementation/verification records remain historical evidence; this note neither invalidates recorded work nor authorizes new code.
