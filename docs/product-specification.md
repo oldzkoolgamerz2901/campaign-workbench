@@ -668,3 +668,62 @@ The DM has four coherent workspaces: **Library** discovers and manages available
 The owner completed UX Decisions 1–27 (with Decisions 8/9 superseded and Decision 27 resolved as **no Create document action in Library**). The consolidated intended behavior, user journeys, failure states and revision/identity caveats are recorded in [Unified Library / Write / Prepare / Play UX design](unified-workspace-ux-design.md). This is a documentation-only requirements refinement, not an authorization to implement or enter planning. In particular, contextual Scene related cards will use **Preparation-owned session-specific associations** rather than authored frozen Markdown relationships; normal Library whole-card additions avoid duplicates without invalidating historical section captures or existing PreparedItem identities. Architecture review must reconcile existing contracts and accepted Playthrough behavior before any plan is changed.
 
 **Subsequent architecture approval — 2026-10-23:** The owner approved the [unified-workspace architecture reconciliation](implementation-plan.md#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23) and authorized its documentation. It records the resolved identity/association, atomic Add, Scene relationship, revision replacement, navigation and archive boundaries. Existing implementation and historical increment plans remain distinct from that target architecture; planning and implementation require separate authorization.
+
+
+## Library / Write / Prepare visual simplification — accepted requirements — 2026-10-23
+
+**Status:** Owner accepted the five UX stories and the recommendation that Library search include saved Drafts and incomplete documents by default. This is a scoped refinement of the [unified UX](unified-workspace-ux-design.md), informed by owner screenshots and inspection of the current Angular UI. Where this section differs from the earlier UX 10 decision to reuse the complete filters interface, **this later decision supersedes the visible-filter treatment**, not the underlying search/filter contracts. It does not authorize implementation or formal verification.
+
+**Boundary:** Library, Write and Prepare only. Play is excluded from this initiative, as are P5 and later PlayNotes/history work, new AI behavior, new data models, backend search removal, database migrations, card-geometry redesign and campaign-content changes. Keep current P1–P4 behavior stable where shared components are involved.
+
+### UX-01 — Compact, comprehensive Library search
+
+**Story:** As a DM I can search all campaign documents in a compact, aligned toolbar without discovering hidden search modes or managing an oversized filter panel.
+
+- Default search includes saved Drafts and incomplete documents, with clearly visible status/readiness in results; no separate **Search all** button or hidden second search scope. Preserve explicit conflict/incomplete diagnostics and safe Source/Draft precedence.
+- Remove the visible **Filters** disclosure and advanced-filter controls from the simplified Library journey; do not delete backend filter support or unrelated consumers. Retain a compact type selector if it proves useful and can be aligned cleanly.
+- One proportionate search input, consistently sized controls and aligned actions; keep independent results/reader scrolling and keyboard search. Ensure useful empty states and no surprise hiding of incomplete material.
+- Verify full-text queries, Draft-only/incomplete/conflicting documents, clearing/searching, keyboard access, 1280×800, 1440×900 and narrow viewport layout.
+
+### UX-02 — Write supporting-panel clarity and full-height references
+
+**Story:** As a DM I can switch my optional supporting area directly between **Preview** and **Library** without configuring it through a dropdown or losing the writing context.
+
+- Replace the supporting-mode dropdown with obvious, compact Preview / Library tabs in the panel itself. Retain a single collapse/expand action; remove redundant View/hide controls for that same panel.
+- Protect the editor's primary width and independently scrolling content; supporting Library references should use available vertical height, not the current `max-height: 220px` result-list cap. Preserve Preview's independent Card/Document mode.
+- Preserve Write save/navigation guards and return context when opening a full reference in dedicated Library. Do not embed another full document editor/reader or invent a new panel system.
+- Verify editor/panel scroll, mode switch, collapse/restore, reference selection and return, keyboard focus and laptop/narrow layouts.
+
+### UX-03 — Retire the old Copy source expansion in Write
+
+**Story:** As a DM I do not open an extra legacy source-browser column when I need existing material.
+
+- Remove the visible **Copy source** toolbar action and its expanding legacy Source chooser from Write, along with orphaned UI state and duplication when safe.
+- Preserve existing Draft creation/editing, contextual Library research and manual export; do not delete the underlying fork/copy capability without establishing whether it remains necessary elsewhere.
+- If independent copying remains a real use case, investigate a separately approved Library-initiated action rather than silently changing the semantics of Edit or Add.
+- Verify that existing Draft editing, associated-source editing, research return and export still work; remove dead UI only after checking callers.
+
+### UX-04 — One Prepare Add material journey
+
+**Story:** As a DM I click **Add material** and reach the unified Library for my explicitly selected session, rather than an old Sources-versus-Drafts menu.
+
+- Route the existing Add material action directly into the accepted unified session Library picker; remove old Sources/Drafts menu entries, duplicate material tabs and chooser surfaces where no longer required.
+- Preserve session/campaign selection, existing prepared content, selected card/notes, Scene planning, update-available state, explicit same-type replacement, whole-card deduplication and valid historical/section captures.
+- Inspection does not add or replace content. Closing or failing the picker restores preparation context; late responses must not change another destination.
+- Before retiring legacy components, inspect their callers for unique section/adventure/source-copy functions and retain or migrate required capabilities explicitly; do not silently remove them.
+- Verify new/existing session, success/failure, duplicates, revisions, session switching, selection preservation and responsive layout.
+
+### UX-05 — Shared visual consistency and regression pass
+
+**Story:** As a DM I encounter coherent control hierarchy, alignment, spacing, accessible feedback and predictable navigation across Library, Write and Prepare.
+
+- Standardize search/control dimensions and spacing using existing shared styles/components; prioritize primary actions and reduce redundant controls without introducing a new design system.
+- Verify disabled/saved/error states, keyboard navigation and focus, independent scrolling, panel density and no horizontal overflow at 1280×800, 1440×900 and narrow viewports.
+- Review actual rendered screenshots with the owner; automated geometry tests alone do not establish visual acceptance.
+- Preserve the shared PlayingCard 243:420 geometry, 320px default, full-card artwork and bottom parchment panel, and all existing frozen-content/recovery behavior.
+
+**Source-grounded visual observations:** Owner screenshots show oversized/misaligned search controls, shortened reference results, dropdown-based support selection and old Add material routing. Targeted source inspection found `library-filters.ts` still renders Search all/Filters, `library-references.ts` caps results at 220px, `writing-workspace.html` renders Copy source and the supporting dropdown, and `preparation/workspace.html` retains Sources/Drafts selection alongside unified Library. These are implementation investigation leads, not evidence that all old code is safe to delete.
+
+**Not yet decided / preserve existing behavior:** Whether to relocate the independent Source fork action is not a requirement to implement it now. Retain existing APIs and archive semantics. Do not conflate simplified default Library search with indiscriminate disclosure of private or invalid data; continue existing campaign isolation and safe diagnostic presentation.
+
+**Approval boundary:** These product requirements are accepted. Increment sequence and completion checks may be documented as a proposed handoff, but architecture decisions, plan acceptance, execution of each increment and formal verification retain their separate harness gates.
