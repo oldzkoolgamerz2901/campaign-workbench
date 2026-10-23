@@ -27,7 +27,17 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await page.getByRole('button', { name: 'Manage campaign', exact: true }).click();
   };
   try {
+    const campaignsLoaded = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        new URL(response.url()).pathname === '/api/campaigns' &&
+        response.ok(),
+    );
     await page.goto('/library');
+    const initial = await (await campaignsLoaded).json();
+    if (initial.selected)
+      await expect(page.getByLabel('Campaign', { exact: true })).toHaveValue(initial.selected);
+    else await expect(page.getByLabel('Display name')).toBeVisible();
     if (!(await page.getByText('Register a campaign', { exact: true }).isVisible()))
       await manageCampaign();
     if (!(await page.getByLabel('Display name').isVisible()))
@@ -67,6 +77,10 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
     await page
       .getByRole('button', { name: new RegExp('^' + 'source.md'.replaceAll('.', '[.]')) })
       .click();
+    await expect(page.locator('.document-reader')).toContainText(
+      'Missing or unsupported document/section link',
+    );
+    await expect(page.getByRole('complementary', { name: 'Related cards' })).toHaveCount(0);
     await page.getByRole('link', { name: 'missing', exact: true }).click();
     await expect(page.getByRole('alert')).toContainText('unavailable');
     expect(await readFile(join(first, 'source.md'), 'utf8')).toBe(original);

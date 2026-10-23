@@ -1,5 +1,4 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { revealReaderTarget } from '../shared/reader/reader-presentation';
 import { firstValueFrom } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
@@ -294,7 +293,7 @@ export class LibraryState {
       if (token === this.epoch && request === this.searchEpoch) this.browsing.set(false);
     }
   }
-  async open(path: string, section?: string | null, block?: string | null) {
+  async open(path: string) {
     const library = this.library();
     if (!library?.capture) return;
     const token = this.epoch,
@@ -311,36 +310,9 @@ export class LibraryState {
       )
         return;
       this.document.set(document);
-      // Wait for Angular to render the requested passage; scrolling does not insert HTML.
-      setTimeout(() => {
-        if (token === this.epoch && request === this.documentEpoch) {
-          const target = window.document.getElementById(block ?? section ?? 'source-reader');
-          if (target) revealReaderTarget(target);
-          target?.scrollIntoView({ block: 'center' });
-          target?.focus({ preventScroll: true });
-        }
-      });
     } catch (error) {
       if (token === this.epoch && request === this.documentEpoch) await this.failRead(error);
     }
-  }
-  follow(event: MouseEvent) {
-    const element = event.target;
-    if (!(element instanceof Element)) return;
-    const anchor = element.closest('a');
-    if (!anchor) return;
-    event.preventDefault();
-    const key = anchor.getAttribute('href')?.split('#')[1];
-    const link = this.document()?.links.find((item) => item.key === key);
-    if (!link || link.missing) {
-      this.error.set('This link target is missing, excluded, or unsupported.');
-      return;
-    }
-    if (link.external) {
-      window.open(link.external, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    if (link.document) void this.open(link.document, link.section);
   }
   private async failRead(error: unknown) {
     this.fail(error);

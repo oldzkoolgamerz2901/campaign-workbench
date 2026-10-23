@@ -231,6 +231,11 @@
               (followTarget)="follow($event)"
             />
           } @else if (document.source; as source) {
+            @for (link of source.links; track link.key) {
+              @if (link.missing) {
+                <p role="status">Missing or unsupported document/section link ({{ link.key }}).</p>
+              }
+            }
             <reader-controls [reader]="presentation" />
             <div
               [readerPresentation]="source.capture + ':' + source.path"

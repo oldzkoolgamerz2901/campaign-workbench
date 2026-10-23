@@ -18,7 +18,6 @@ import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workb
 import { MatButtonModule } from '@angular/material/button';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { SourceControllerService, CheckedLink, LibraryEntry } from '../../api/generated';
-import { CampaignLibrary } from '../campaigns/library';
 import { WritingExportPanel } from './writing-export-panel';
 import { LibraryState } from '../campaigns/library-state';
 import { CampaignControls } from '../campaigns/campaign-controls';
@@ -40,7 +39,6 @@ import { WritingState } from './writing-state';
     CampaignControls,
     PlayingCard,
     DraftReader,
-    CampaignLibrary,
     WritingExportPanel,
     LibraryReferences,
   ],
@@ -76,10 +74,7 @@ export class WritingWorkspace implements OnDestroy {
   );
   readonly management = signal(false);
   readonly full = this.research.fullPreview;
-  readonly sourceChooser = signal(false);
-  readonly sourceBusy = signal(false);
   readonly sourceNotice = signal('');
-  forkType = '';
   private readonly sourcesApi = inject(SourceControllerService);
   readonly sourceTags = computed(
     () =>
@@ -103,16 +98,10 @@ export class WritingWorkspace implements OnDestroy {
     effect(() => this.state.contextChanged(this.library.library()?.capture));
     void this.initialize();
   }
-  async openSources() {
-    if (this.state.deleting()) return;
-    this.sourceChooser.set(true);
-    if (await this.recheckSources()) await this.library.searchAll();
-  }
   async recheckSources() {
     if (this.state.deleting()) return false;
     const campaign = this.state.campaign();
     if (!campaign) return false;
-    this.sourceBusy.set(true);
     this.sourceNotice.set('');
     try {
       const index = await firstValueFrom(this.sourcesApi.getLibrary(campaign));
@@ -127,14 +116,6 @@ export class WritingWorkspace implements OnDestroy {
         'Cannot load the captured source index. Retry when the backend is available.',
       );
       return false;
-    } finally {
-      this.sourceBusy.set(false);
-    }
-  }
-  async copySource(source: { capture: string; path: string }) {
-    if (await this.state.fork(source.capture, source.path, this.forkType || null)) {
-      this.sourceChooser.set(false);
-      this.full.set(false);
     }
   }
   async followTarget(link: CheckedLink) {

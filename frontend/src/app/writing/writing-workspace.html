@@ -39,13 +39,6 @@
       <small>{{ draft.fields.type }} · {{ draft.fields.status }}</small>
     }
     <span class="spacer"></span>
-    <button
-      matButton
-      (click)="openSources()"
-      [disabled]="!ready() || state.loading() || state.deleting()"
-    >
-      Copy source
-    </button>
     <label
       >Supporting panel<select
         aria-label="Supporting panel"
@@ -82,32 +75,6 @@
   }
   @if (sourceNotice()) {
     <p role="status">{{ sourceNotice() }}</p>
-  }
-  @if (sourceChooser()) {
-    <section aria-label="Copy source document">
-      <h3>Copy a whole source document</h3>
-      <p>
-        The captured original stays unchanged. A copy gets its own card identity and draft status.
-      </p>
-      <label
-        >Type for legacy documents<select
-          [(ngModel)]="forkType"
-          aria-label="Type for legacy documents"
-        >
-          <option value="">Choose if the document has no supported type</option>
-          @for (type of state.catalog()?.types ?? []; track type) {
-            <option [value]="type">{{ type }}</option>
-          }
-        </select></label
-      >
-      <button matButton (click)="sourceChooser.set(false)">Close sources</button>
-      <button matButton (click)="recheckSources()">Reload captured index</button>
-      <campaign-library
-        [authoring]="true"
-        [ready]="!sourceBusy() && !(state.loading() || state.deleting())"
-        (copySource)="copySource($event)"
-      />
-    </section>
   }
   @if (state.notice()) {
     <p role="status">{{ state.notice() }}</p>

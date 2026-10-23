@@ -703,6 +703,25 @@ The owner completed UX Decisions 1–27 (with Decisions 8/9 superseded and Decis
 - If independent copying remains a real use case, investigate a separately approved Library-initiated action rather than silently changing the semantics of Edit or Add.
 - Verify that existing Draft editing, associated-source editing, research return and export still work; remove dead UI only after checking callers.
 
+#### UX-C2 — requirements clarification — 2026-10-23
+
+**Status: ACCEPTED requirements clarification, grounded in the accepted [unified workspace UX decisions](unified-workspace-ux-design.md). Execution remains separately gated by the development workflow.**
+
+- Retire the legacy **Copy source** toolbar action and expanding chooser. Remove `CampaignLibrary` and its template/styles only after a responsibility and caller audit confirms that each responsibility is obsolete or covered by unified Library. Remove orphaned imports, bindings, handlers and navigation paths within this scope.
+- Retire the legacy Library **Related cards** list; do not migrate it or introduce a replacement panel or Source reader. Scene-to-card associations are session-specific, managed exclusively in Prepare, and consumed contextually in Play. Library has no relationship-management responsibility. Ordinary Markdown hyperlinks remain document-navigation links and do not create Scene associations.
+- Preserve Markdown document/section navigation and visible missing-link feedback for broken targets in Library. Retiring the legacy reader must not remove that feedback. This does not authorize general authored-link identity reconciliation (UX-C7).
+- Preserve shared source-index loading/state, source-derived tag suggestions, preview capture checks and rechecking, save/navigation guards, recovery, contextual research and Return to Write behavior. Remove chooser-only state only after tracing its consumers; names such as source-index or source notice do not establish that code is obsolete.
+- Preserve new Draft creation, existing and associated-source Draft editing, manual export, retained provenance and recovery behavior. Retain the underlying fork/copy API and supported domain operations; no replacement independent-copy action is included.
+
+**Acceptance criteria:**
+
+1. Write has no Copy source action, expanding legacy chooser or reachable obsolete Source-reader path. The retired component has no remaining consumers, imports or template references before deletion.
+2. Dedicated/contextual Library still supports browsing/research and full-document navigation, including document and section links and visible feedback for unavailable targets. No legacy Related cards list or replacement relationship panel is introduced.
+3. Create/edit, associated-source editing, source-derived suggestions, preview/capture checks, save failures/guards, research return, export and recovery retain their supported behavior. Update browser journeys that currently use Copy source while preserving meaningful provenance/export coverage.
+4. Relevant frontend checks/build and browser regressions pass; inspect imports, bindings and navigation callers for dead references. Developer evidence is distinct from separately authorized formal verification and owner acceptance.
+
+**Exclusions:** UX-C3 search defaults, UX-C4 support-panel redesign, UX-C6 direct-add API retirement, UX-C7 general authored-link reconciliation, backend fork removal, relationship-management changes, archive changes and campaign-content edits.
+
 ### UX-04 — One Prepare Add material journey
 
 **Story:** As a DM I click **Add material** and reach the unified Library for my explicitly selected session, rather than an old Sources-versus-Drafts menu.

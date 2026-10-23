@@ -238,7 +238,7 @@ test('protects session edits on entry and conflicting draft edits on return', as
   }
 });
 
-test('copies captured sources and downloads immutable Markdown for manual incorporation', async ({
+test('exports retained source evidence without the retired source chooser', async ({
   page,
   request,
 }, info) => {
@@ -258,11 +258,18 @@ test('copies captured sources and downloads immutable Markdown for manual incorp
     const campaign = await (
       await request.post('/api/campaigns', { data: { name: 'Export browser', directory: root } })
     ).json();
-    await request.post(`/api/campaigns/${campaign.id}/sources/refresh`);
-    await page.goto(`/writing?campaign=${campaign.id}`);
-    await page.getByRole('button', { name: 'Copy source', exact: true }).click();
-    await page.getByRole('button', { name: 'captain.md', exact: true }).click();
-    await page.getByRole('button', { name: 'Copy document to draft', exact: true }).click();
+    const capture = await (
+      await request.post(`/api/campaigns/${campaign.id}/sources/refresh`)
+    ).json();
+    // Retained fork API supplies provenance for this export regression; it has no Write UI entry.
+    const forkResponse = await request.post(`/api/campaigns/${campaign.id}/drafts/fork`, {
+      data: { capture: capture.capture, path: 'captain.md', type: null },
+    });
+    expect(forkResponse.ok()).toBe(true);
+    const fork = await forkResponse.json();
+    await page.goto(`/writing?campaign=${campaign.id}&draft=${fork.id}`);
+    await expect(page.getByRole('button', { name: 'Copy source', exact: true })).toHaveCount(0);
+    await expect(page.locator('campaign-library, #source-reader')).toHaveCount(0);
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Captain');
     await page
       .getByRole('navigation', { name: 'Editing tabs' })
@@ -324,18 +331,19 @@ test('copies captured sources and downloads immutable Markdown for manual incorp
       tags: ['harbour'],
       summary: 'A revised captain',
     });
-    await page.getByRole('button', { name: 'Copy source', exact: true }).click();
-    await page.getByRole('button', { name: 'legacy.md', exact: true }).click();
-    await page.getByRole('button', { name: 'Copy document to draft', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('Choose a content type');
-    await page.getByLabel('Type for legacy documents').selectOption('item');
-    await page.getByRole('button', { name: 'Copy document to draft', exact: true }).click();
-    await expect(page.getByLabel('Content type', { exact: true })).toHaveValue('item');
-    await page.getByRole('button', { name: 'Copy source', exact: true }).click();
-    await page.getByRole('button', { name: 'unsafe.md', exact: true }).click();
-    await expect(page.locator('#source-reader')).toContainText('Still readable');
-    await page.getByRole('button', { name: 'Copy document to draft', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('Unsupported Workbench schema');
+    const missingType = await request.post(`/api/campaigns/${campaign.id}/drafts/fork`, {
+      data: { capture: refreshed.capture, path: 'legacy.md', type: null },
+    });
+    expect(missingType.ok()).toBe(false);
+    const legacy = await request.post(`/api/campaigns/${campaign.id}/drafts/fork`, {
+      data: { capture: refreshed.capture, path: 'legacy.md', type: 'item' },
+    });
+    expect(legacy.ok()).toBe(true);
+    expect((await legacy.json()).fields.type).toBe('item');
+    const unsafe = await request.post(`/api/campaigns/${campaign.id}/drafts/fork`, {
+      data: { capture: refreshed.capture, path: 'unsafe.md', type: 'npc' },
+    });
+    expect(unsafe.ok()).toBe(false);
     await page.screenshot({ path: info.outputPath('writing-source-export.png'), fullPage: true });
   } finally {
     await rm(root, { recursive: true, force: true });
