@@ -489,7 +489,7 @@ export class Workspace implements OnDestroy {
       if (epoch !== this.routeEpoch || this.state.selectedItem() !== id || !this.reading()) return;
       const reader = document.querySelector<HTMLElement>('.source-page');
       if (reader) {
-        reader.tabIndex = -1;
+        reader.tabIndex = 0;
         reader.scrollIntoView({ block: 'nearest' });
         reader.focus({ preventScroll: true });
       }
@@ -551,7 +551,7 @@ export class Workspace implements OnDestroy {
         : page;
       if (node instanceof HTMLElement) {
         revealReaderTarget(node);
-        node.tabIndex = -1;
+        node.tabIndex = node === page ? 0 : -1;
         node.scrollIntoView({ block: 'center' });
         node.focus({ preventScroll: true });
       }

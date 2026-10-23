@@ -386,7 +386,12 @@
       (addSource)="browse()"
       (sessionNotes)="sessionNotes()"
     />
-    <article class="source-page" [hidden]="showingLibrary()" aria-label="Prepared source">
+    <article
+      class="source-page"
+      [hidden]="showingLibrary()"
+      aria-label="Prepared source"
+      tabindex="0"
+    >
       @if (item(); as prepared) {
         @if (!reading()) {
           @if (inspectedScene()) {
