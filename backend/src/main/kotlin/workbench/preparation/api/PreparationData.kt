@@ -67,13 +67,6 @@ data class SaveSession(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val items: List<ItemNotes>
 )
 
-data class AddSource(
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val revision: Long,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val capture: UUID,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val path: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val section: String?
-)
-
 data class Archive(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val version: Int,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val sessions: List<SessionData>

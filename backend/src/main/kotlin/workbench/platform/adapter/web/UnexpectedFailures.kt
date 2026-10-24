@@ -18,6 +18,8 @@ class UnexpectedFailures {
     fun malformed(ex: Exception) = ResponseEntity.badRequest().body(problem(400, "request.invalid", "Invalid request fields."))
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun conflict(ex: Exception) = ResponseEntity.status(409).body(problem(409, "record.conflict", "The record conflicts with an existing or newer record."))
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException::class)
+    fun missingRoute(ex: Exception) = ResponseEntity.status(404).body(problem(404, "request.not-found", "Requested resource not found."))
     @ExceptionHandler(Exception::class)
     fun unexpected(ex: Exception): ResponseEntity<ProblemDetail> {
         val id = UUID.randomUUID().toString()

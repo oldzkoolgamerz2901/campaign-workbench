@@ -1,3 +1,4 @@
+import { historicalSourceItem, importHistoricalSession } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -89,20 +90,32 @@ ${'code-token'.repeat(160)}
         data: { title: 'Reader handover', objective: 'Preserve frozen references.' },
       })
     ).json();
-    const add = async (path: string, section: string | null) => {
-      const response = await request.post(
-        `/api/campaigns/${campaign.id}/sessions/${session.id}/sources`,
-        { data: { revision: session.revision, capture: library.capture, path, section } },
-      );
-      expect(response.ok()).toBe(true);
-      session = await response.json();
-    };
+    const items = [];
     for (let index = 0; index < 38; index++)
-      await add('long.md', doc.sections.find((s: any) => s.heading === 'Mechanics').id);
-    await add('long.md', null);
-    const whole = session.items.at(-1);
-    await add('target.md', target.sections.find((s: any) => s.heading === 'Background').id);
-    const sectionOnly = session.items.at(-1);
+      items.push(
+        await historicalSourceItem(request, campaign.id, {
+          capture: library.capture,
+          path: 'long.md',
+          section: doc.sections.find((s: any) => s.heading === 'Mechanics').id,
+        }),
+      );
+    items.push(
+      await historicalSourceItem(request, campaign.id, {
+        capture: library.capture,
+        path: 'long.md',
+        section: null,
+      }),
+    );
+    items.push(
+      await historicalSourceItem(request, campaign.id, {
+        capture: library.capture,
+        path: 'target.md',
+        section: target.sections.find((s: any) => s.heading === 'Background').id,
+      }),
+    );
+    session = await importHistoricalSession(request, campaign.id, session, items);
+    const whole = session.items.at(-2),
+      sectionOnly = session.items.at(-1);
     // Live reading uses dedicated unified Library; historical sections remain prepared fixtures.
     await page.goto(`/library?campaign=${campaign.id}&session=${session.id}`);
     const live = page.getByRole('article', { name: 'Selected Library document', exact: true });

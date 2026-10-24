@@ -40,8 +40,8 @@ class CardTableIntegrationTest : StringSpec({
             var play = context.getBean(Playthroughs::class.java)
             val archives = context.getBean(PortableSessionService::class.java)
             var s = p.create(campaign, CreateSession("Table session", "")).getOrNull()!!
-            s = p.add(campaign, s.id, AddSource(s.revision, capture, "one.md", null)).getOrNull()!!
-            s = p.add(campaign, s.id, AddSource(s.revision, capture, "two.md", null)).getOrNull()!!
+            s = p.addHistoricalSource(context, campaign, s.id, HistoricalSource(s.revision, capture, "one.md", null)).getOrNull()!!
+            s = p.addHistoricalSource(context, campaign, s.id, HistoricalSource(s.revision, capture, "two.md", null)).getOrNull()!!
             val first = s.items[0].id; val second = s.items[1].id
             // Export must not initialize unopened workspaces.
             val unopened = archives.manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
@@ -75,7 +75,7 @@ class CardTableIntegrationTest : StringSpec({
             }
             s = p.save(campaign, s.id, SaveSession(s.revision, s.title, "", "Preparation notes", s.items.reversed().map { ItemNotes(it.id, "") })).getOrNull()!!
             play.open(campaign, s.id).getOrNull() shouldBe w // Prep reorder does not reorder the table.
-            s = p.add(campaign, s.id, AddSource(s.revision, capture, "three.md", null)).getOrNull()!!
+            s = p.addHistoricalSource(context, campaign, s.id, HistoricalSource(s.revision, capture, "three.md", null)).getOrNull()!!
             val third = s.items.last().id
             // A stale mutation after membership changed must fail, without persisting a partial table.
             play.save(campaign, s.id, SaveWorkspace(w.revision, w.active, w.used, w.activeSceneItemId, w.focusedItemIds)).isLeft() shouldBe true

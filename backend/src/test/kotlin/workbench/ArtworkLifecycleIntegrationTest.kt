@@ -217,7 +217,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         }
         val images = c.getBean(PreparationImageStore::class.java)
         val campaigns = c.getBean(workbench.campaigns.api.Campaigns::class.java)
-        val brokenPreparation = PreparationService(campaigns, c.getBean(workbench.sources.api.Sources::class.java), failing, tx,
+        val brokenPreparation = PreparationService(campaigns, failing, tx,
             c.getBean(PreparationMarkdown::class.java), c.getBean(SessionDrafts::class.java), images)
         val brokenSessions = PortableSessionService(PreparationTransferFacade(brokenPreparation, images), c.getBean(workbench.playthroughs.api.WorkspaceTransfers::class.java), transfer, c.getBean(SessionArchiveCodec::class.java), processor, tx, campaigns)
         brokenSessions.import(target, sessionZip.inputStream()).isLeft() shouldBe true

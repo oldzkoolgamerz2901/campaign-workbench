@@ -1,3 +1,4 @@
+import { historicalSourceItem, importHistoricalSession } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -37,42 +38,31 @@ test('assembles and navigates 50 saved items without losing library position or 
         data: { title: 'Fifty clues', objective: 'Follow the evidence.' },
       })
     ).json();
+    const items = [];
     for (const section of doc.sections
       .filter((s: { heading: string }) => /^Entry \d+$/.test(s.heading))
       .slice(0, 48)) {
-      const response = await request.post(
-        `/api/campaigns/${campaign.id}/sessions/${session.id}/sources`,
-        {
-          data: {
-            revision: session.revision,
-            capture: library.capture,
-            path: 'material.md',
-            section: section.id,
-          },
-        },
+      items.push(
+        await historicalSourceItem(request, campaign.id, {
+          capture: library.capture,
+          path: 'material.md',
+          section: section.id,
+        }),
       );
-      expect(response.ok()).toBe(true);
-      session = await response.json();
     }
+    for (const section of [null, doc.sections.find((s: any) => s.heading === 'Entry 50').id]) {
+      items.push(
+        await historicalSourceItem(request, campaign.id, {
+          capture: library.capture,
+          path: 'material.md',
+          section,
+        }),
+      );
+    }
+    session = await importHistoricalSession(request, campaign.id, session, items);
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=library`);
     const outline = page.getByLabel('Session outline'),
       rows = outline.locator('ol li');
-    await expect(rows).toHaveCount(48);
-    // Preserve coverage of a large historical session without recreating retired UI.
-    const refreshed = await (await request.get(`/api/campaigns/${campaign.id}/sources`)).json();
-    for (const section of [null, doc.sections.find((s: any) => s.heading === 'Entry 50').id]) {
-      session = await (
-        await request.post(`/api/campaigns/${campaign.id}/sessions/${session.id}/sources`, {
-          data: {
-            revision: session.revision,
-            capture: refreshed.capture,
-            path: 'material.md',
-            section,
-          },
-        })
-      ).json();
-    }
-    await page.reload();
     await expect(rows).toHaveCount(50);
     const find = outline.getByRole('searchbox', { name: 'Find in session', exact: true });
     await find.fill('Entry 50');

@@ -3,14 +3,13 @@ package workbench.preparation.application
 import arrow.core.Either
 import arrow.core.raise.*
 import workbench.campaigns.api.Campaigns
-import workbench.sources.api.Sources
 import workbench.platform.api.*
 import workbench.preparation.api.*
 import workbench.preparation.domain.*
 import java.util.UUID
 import java.security.MessageDigest
 
-class PreparationService(private val campaigns: Campaigns, private val sources: Sources, private val store: SessionStore, private val tx: Transactions, private val markdown: PreparationMarkdown, private val writing: workbench.writing.api.SessionDrafts, private val images: PreparationImageStore) {
+class PreparationService(private val campaigns: Campaigns, private val store: SessionStore, private val tx: Transactions, private val markdown: PreparationMarkdown, private val writing: workbench.writing.api.SessionDrafts, private val images: PreparationImageStore) {
     private fun invalid(message: String) = Failure.Invalid("preparation.invalid", message)
     private fun text(value: String) = value.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024
     private fun valid(s: SessionData): Boolean = s.title.isNotBlank() && s.title.length <= 200 && text(s.objective) && text(s.notes) && s.revision >= 0 &&
@@ -65,12 +64,7 @@ class PreparationService(private val campaigns: Campaigns, private val sources: 
             items = request.items.map { byId.getValue(it.id).copy(notes = it.notes) },
             sceneLinks = s.sceneLinks.filter { edge -> edge.scene in retained && edge.item in retained })
     } }
-    fun add(campaign: UUID, id: UUID, request: AddSource): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
-        val selected = sources.select(campaign, request.capture, request.path, request.section).bind()
-        s.copy(items = s.items + PreparedItem(UUID.randomUUID(), selected.title, selected.markdown,
-            Provenance(selected.campaign, selected.capture, selected.path, selected.section, selected.documentHash, selected.contentHash), selected.anchors, "", selected.freeze()))
-    } }
-    fun addDraft(campaign: UUID, id: UUID, request: AddDraft): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
+    internal fun addDraft(campaign: UUID, id: UUID, request: AddDraft): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {
         s.copy(items = s.items + freezeDraft(campaign, request.draft, request.draftRevision).bind())
     } }
     internal fun replaceDraft(campaign: UUID, id: UUID, item: UUID, request: AddDraft): Either<Failure, SessionData> = mutate(campaign, id, request.revision) { s -> either {

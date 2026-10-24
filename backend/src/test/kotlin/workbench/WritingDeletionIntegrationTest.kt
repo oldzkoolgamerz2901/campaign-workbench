@@ -120,7 +120,7 @@ class WritingDeletionIntegrationTest : StringSpec({
         val report = exports.inspect(campaign, draft.id, InspectExport(1, capture)).getOrNull()!!
         val artifact = exports.create(campaign, draft.id, CreateExport(1, capture, report.fingerprint, true)).getOrNull()!!
         var session = prep.create(campaign, CreateSession("Frozen", "")).getOrNull()!!
-        session = prep.add(campaign, session.id, AddSource(0, capture, "source.md", null)).getOrNull()!!
+        session = prep.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(0, capture, "source.md", null)).getOrNull()!!
         session = prep.addDraft(campaign, session.id, AddDraft(session.revision, draft.id, 1)).getOrNull()!!
         session = prep.save(campaign, session.id, SaveSession(session.revision, session.title, "", "Session note", session.items.map { ItemNotes(it.id, "Item note") })).getOrNull()!!
         val view = prep.view(campaign, session.id).getOrNull()!!

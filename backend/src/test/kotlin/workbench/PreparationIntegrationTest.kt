@@ -43,8 +43,8 @@ class PreparationIntegrationTest : StringSpec({
         sources.select(a, capture, "source.md", last).getOrNull()!!.markdown shouldBe "# Next\r\nTail"
         var s = p.create(a, CreateSession("Night one", "Find the observatory")).getOrNull()!!
         p.open(b, s.id).isLeft() shouldBe true
-        s = p.add(a, s.id, AddSource(s.revision, capture, "source.md", null)).getOrNull()!!
-        s = p.add(a, s.id, AddSource(s.revision, capture, "source.md", parent)).getOrNull()!!
+        s = p.addHistoricalSource(context!!, a, s.id, HistoricalSource(s.revision, capture, "source.md", null)).getOrNull()!!
+        s = p.addHistoricalSource(context!!, a, s.id, HistoricalSource(s.revision, capture, "source.md", parent)).getOrNull()!!
         val frozen = s.items.first().markdown
         val saved = p.save(a, s.id, SaveSession(s.revision, s.title, s.objective, "Session **notes**", s.items.reversed().map { ItemNotes(it.id, "Item notes") })).getOrNull()!!
         p.save(a, s.id, SaveSession(s.revision, "Stale", "", "", emptyList())).leftOrNull()!!.code shouldBe "preparation.stale-revision"
@@ -106,8 +106,8 @@ class PreparationIntegrationTest : StringSpec({
         val target = sources.document(campaign, capture, "target.md").getOrNull()!!.sections.last().id
         sources.select(campaign, capture, "target.md", target).getOrNull()!!.anchors shouldBe mapOf("same-1" to "same")
         var session = p.create(campaign, CreateSession("Frozen links", "")).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "origin.md", null)).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "target.md", target)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "origin.md", null)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "target.md", target)).getOrNull()!!
         val view = p.view(campaign, session.id).getOrNull()!!
         view.items.first().source.links.first().target shouldBe "@${session.items.last().id}#same"
         view.items.first().source.links.drop(1).all { it.unavailable } shouldBe true

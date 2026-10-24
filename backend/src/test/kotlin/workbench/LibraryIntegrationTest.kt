@@ -17,7 +17,6 @@ import workbench.sources.application.CaptureStore
 import workbench.sources.domain.Capture
 import workbench.preparation.application.PreparationService
 import workbench.preparation.api.CreateSession
-import workbench.preparation.api.AddSource
 import java.nio.file.Files
 import java.net.URI
 import java.net.http.*
@@ -92,7 +91,7 @@ class LibraryIntegrationTest : StringSpec({
         }
         val preparation = app.getBean(PreparationService::class.java)
         val session = preparation.create(second.id, CreateSession("Restriction check", "")).getOrNull()!!
-        preparation.add(second.id, session.id, AddSource(session.revision, secondCapture, "guidance.md", null)).leftOrNull()!!.code shouldBe "sources.not-session-material"
+        preparation.addHistoricalSource(app, second.id, session.id, HistoricalSource(session.revision, secondCapture, "guidance.md", null)).leftOrNull()!!.code shouldBe "sources.not-session-material"
         preparation.open(second.id, session.id).getOrNull() shouldBe session
         val refreshed = sources.refresh(first.id).getOrNull()!!.capture!!
         get("/api/campaigns/${first.id}/sources/document?capture=$initial&path=source.md").let { it.statusCode() shouldBe 409; it.body() shouldContain "sources.capture-replaced" }

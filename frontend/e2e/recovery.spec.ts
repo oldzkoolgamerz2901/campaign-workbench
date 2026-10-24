@@ -1,3 +1,8 @@
+import {
+  addLibraryFixture,
+  historicalSourceItem,
+  importHistoricalSession,
+} from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -67,23 +72,21 @@ test('restores detached Writing history and explicitly resumes a fresh draft wit
     });
     const currentCapture = (await (await request.get(`/api/campaigns/${origin.id}/sources`)).json())
       .capture;
-    session = await json('post', `/api/campaigns/${origin.id}/sessions/${session.id}/sources`, {
-      revision: session.revision,
+    const historical = await historicalSourceItem(request, origin.id, {
       capture: currentCapture,
       path: 'original.md',
       section: null,
     });
-    session = await json('post', `/api/campaigns/${origin.id}/sessions/${session.id}/drafts`, {
-      revision: session.revision,
-      draft: draft.id,
-      draftRevision: draft.revision,
-    });
-    session = await json('post', `/api/campaigns/${origin.id}/sessions/${session.id}/sources`, {
-      revision: session.revision,
-      capture: currentCapture,
-      path: 'original.md',
-      section: null,
-    });
+    session = await (
+      await addLibraryFixture(request, `/api/campaigns/${origin.id}/sessions/${session.id}`, {
+        data: { revision: session.revision, draft: draft.id, draftRevision: draft.revision },
+      })
+    ).json();
+    session = await importHistoricalSession(request, origin.id, session, [
+      historical,
+      ...session.items,
+      { ...historical, id: (await import('node:crypto')).randomUUID() },
+    ]);
     session = await json('put', `/api/campaigns/${origin.id}/sessions/${session.id}`, {
       revision: session.revision,
       title: session.title,
@@ -166,11 +169,13 @@ test('restores detached Writing history and explicitly resumes a fresh draft wit
       title: 'Resumed session',
       objective: '',
     });
-    const approved = await json(
-      'post',
-      `/api/campaigns/${destination.id}/sessions/${newSession.id}/drafts`,
-      { revision: newSession.revision, draft: copy.id, draftRevision: 0 },
-    );
+    const approved = await (
+      await addLibraryFixture(
+        request,
+        `/api/campaigns/${destination.id}/sessions/${newSession.id}`,
+        { data: { revision: newSession.revision, draft: copy.id, draftRevision: 0 } },
+      )
+    ).json();
     expect(approved.items[0].provenance.authored.draft).toBe(copy.id);
     const frozen = await (
       await request.get(`/api/campaigns/${origin.id}/sessions/${session.id}`)

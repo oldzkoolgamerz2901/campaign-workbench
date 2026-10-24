@@ -1,3 +1,4 @@
+import { addLibraryFixture } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -34,7 +35,7 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
     const endpoint = `/api/campaigns/${campaign.id}/sessions/${session.id}`;
     for (const type of ['scene', 'npc', 'item']) {
       session = await (
-        await request.post(`${endpoint}/sources`, {
+        await addLibraryFixture(request, `${endpoint}`, {
           data: {
             revision: session.revision,
             capture: capture.capture,

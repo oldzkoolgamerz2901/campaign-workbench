@@ -1,3 +1,4 @@
+import { historicalSourceItem, importHistoricalSession } from './preparation-fixtures';
 import { test, expect, Page, APIRequestContext } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -26,18 +27,25 @@ async function fixture(request: APIRequestContext, related = false) {
       data: { title: 'Focused session', objective: '' },
     })
   ).json();
-  const endpoint = `/api/campaigns/${campaign.id}/sessions/${session.id}`;
+  const historicalItems = [];
   for (const name of names.slice(0, 4))
-    session = await (
-      await request.post(`${endpoint}/sources`, {
-        data: {
-          revision: session.revision,
-          capture: capture.capture,
-          path: `${name}.md`,
-          section: null,
-        },
-      })
-    ).json();
+    historicalItems.push(
+      await historicalSourceItem(request, campaign.id, {
+        capture: capture.capture,
+        path: `${name}.md`,
+        section: null,
+      }),
+    );
+  if (related)
+    historicalItems.push(
+      await historicalSourceItem(request, campaign.id, {
+        capture: capture.capture,
+        path: 'NPC.md',
+        section: null,
+      }),
+    );
+  session = await importHistoricalSession(request, campaign.id, session, historicalItems);
+  const endpoint = `/api/campaigns/${campaign.id}/sessions/${session.id}`;
   session = await (
     await request.put(endpoint, {
       data: {
@@ -456,16 +464,7 @@ test('related cards use exact session associations and explicit focus or full-sl
 }, info) => {
   const f = await fixture(request, true);
   try {
-    const added = await request.post(`${f.endpoint}/sources`, {
-      data: {
-        revision: f.session.revision,
-        capture: f.session.items[1].provenance.capture,
-        path: 'NPC.md',
-        section: null,
-      },
-    });
-    expect(added.ok()).toBeTruthy();
-    let session = await added.json();
+    let session = f.session;
     const [scene, npc, relic, fourth] = f.ids;
     for (const item of [npc, fourth, session.items.at(-1).id]) {
       const linked = await request.put(`${f.endpoint}/scene-links/${scene}/${item}`, {

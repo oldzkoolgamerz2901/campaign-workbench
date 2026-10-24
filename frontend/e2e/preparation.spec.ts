@@ -1,3 +1,4 @@
+import { historicalSourceItem, importHistoricalSession } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -52,7 +53,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     );
     await page.getByLabel('Session Markdown notes').fill('Opening **reminder** for the table.');
     await expect(page.getByLabel('Session save status')).toHaveText('Saved');
-    const session = new URL(page.url()).searchParams.get('session')!;
+    let session = new URL(page.url()).searchParams.get('session')!;
     await page.getByRole('button', { name: 'Add material', exact: true }).click();
     const picker = page.getByRole('region', { name: 'Session Library', exact: true });
     await picker.getByRole('button', { name: 'observatory.md · location', exact: true }).click();
@@ -77,19 +78,17 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
       })
     ).json();
     const current = await (await request.get(`${base}/sessions/${session}`)).json();
-    expect(
-      (
-        await request.post(`${base}/sessions/${session}/sources`, {
-          data: {
-            revision: current.revision,
-            capture: captured.capture,
-            path: 'observatory.md',
-            section: source.sections.find((s: any) => s.heading === 'Lower chamber').id,
-          },
-        })
-      ).ok(),
-    ).toBe(true);
-    await page.reload();
+    const historical = await historicalSourceItem(request, first.id, {
+      capture: captured.capture,
+      path: 'observatory.md',
+      section: source.sections.find((s: any) => s.heading === 'Lower chamber').id,
+    });
+    const restored = await importHistoricalSession(request, first.id, current, [
+      ...current.items,
+      historical,
+    ]);
+    session = restored.id;
+    await page.goto(`/?campaign=${first.id}&session=${session}&view=prepare`);
     await page
       .getByLabel('Session outline')
       .getByRole('button', { name: 'Lower chamber', exact: true })

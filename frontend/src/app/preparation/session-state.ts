@@ -14,15 +14,6 @@ import {
   LibraryEntry,
 } from '../../api/generated';
 
-export interface SourceSelection {
-  path: string;
-  section: string | null;
-  title?: string;
-}
-export interface AdditionProgress extends SourceSelection {
-  status: 'pending' | 'completed' | 'failed';
-}
-
 @Injectable({ providedIn: 'root' })
 export class SessionState {
   readonly play = inject(PlayWorkspaceState);
@@ -40,9 +31,6 @@ export class SessionState {
   readonly previews = signal<Record<string, RenderedMarkdown>>({});
   readonly mutating = signal(false);
   readonly checkingRemoval = signal(false);
-  readonly queueRunning = signal(false);
-  readonly additions = signal<AdditionProgress[]>([]);
-  private queueIdentity?: { campaign: string; session: string; capture: string };
   readonly loading = signal(false);
   private activeCampaign: string | null = null;
   private generation = 0;
@@ -64,8 +52,7 @@ export class SessionState {
       this.dirty ||
       !!this.saving ||
       this.mutating() ||
-      this.checkingRemoval() ||
-      this.queueRunning()
+      this.checkingRemoval()
     );
   }
   bindCampaign(campaign: string) {
@@ -153,8 +140,6 @@ export class SessionState {
   clear() {
     this.play.clear();
     this.saving = undefined;
-    this.additions.set([]);
-    this.queueIdentity = undefined;
     this.epoch++;
     this.listEpoch++;
     this.previewEpoch++;
@@ -213,7 +198,6 @@ export class SessionState {
     this.edit({ items: this.current()!.items.map((i) => (i.id === id ? { ...i, notes } : i)) });
   }
   move(id: string, delta: number) {
-    if (this.queueRunning()) return;
     const items = [...(this.current()?.items ?? [])],
       from = items.findIndex((i) => i.id === id),
       to = from + delta;
@@ -222,7 +206,6 @@ export class SessionState {
     this.edit({ items });
   }
   remove(id: string) {
-    if (this.queueRunning()) return;
     const items = this.current()!.items.filter((i) => i.id !== id);
     this.edit({ items });
     this.current.update((s) =>
@@ -267,13 +250,7 @@ export class SessionState {
   }
   async removeWithConfirmation(id: string) {
     const epoch = this.epoch;
-    if (
-      this.queueRunning() ||
-      this.mutating() ||
-      this.checkingRemoval() ||
-      !(await this.flush()) ||
-      epoch !== this.epoch
-    )
+    if (this.mutating() || this.checkingRemoval() || !(await this.flush()) || epoch !== this.epoch)
       return false;
     const snapshot = this.current();
     if (!snapshot) return false;
@@ -321,13 +298,7 @@ export class SessionState {
     command: (snapshot: SessionData) => Observable<SessionData>,
   ): Promise<boolean> {
     const epoch = this.epoch;
-    if (
-      this.queueRunning() ||
-      this.mutating() ||
-      !(await this.flush()) ||
-      this.mutating() ||
-      epoch !== this.epoch
-    )
+    if (this.mutating() || !(await this.flush()) || this.mutating() || epoch !== this.epoch)
       return false;
     const snapshot = this.current();
     if (!snapshot) return false;
@@ -374,13 +345,13 @@ export class SessionState {
     await this.play.open(session.campaign, session.id);
   }
   moveTable(id: string, to: number) {
-    if (!this.queueRunning() && !this.mutating()) this.play.move(id, to);
+    if (!this.mutating()) this.play.move(id, to);
   }
   markUsed(id: string) {
-    if (!this.queueRunning() && !this.mutating()) this.play.use(id);
+    if (!this.mutating()) this.play.use(id);
   }
   returnToTable(id: string) {
-    if (!this.queueRunning() && !this.mutating()) this.play.restore(id);
+    if (!this.mutating()) this.play.restore(id);
   }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
@@ -452,126 +423,8 @@ export class SessionState {
     const ok = await this.saving;
     return ok && this.dirty ? this.flush() : ok;
   }
-  async startAdditions(capture: string, selections: SourceSelection[]) {
-    const current = this.current();
-    if (!current || this.queueRunning() || this.mutating() || !selections.length) return;
-    this.queueIdentity = { campaign: current.campaign, session: current.id, capture };
-    this.additions.set([
-      ...new Map(
-        selections.map((s) => [
-          JSON.stringify([s.path, s.section]),
-          { ...s, status: 'pending' as const },
-        ]),
-      ).values(),
-    ]);
-    await this.retryAdditions();
-  }
-  async retryAdditions() {
-    const pin = this.queueIdentity,
-      current = this.current();
-    if (
-      !pin ||
-      !current ||
-      this.queueRunning() ||
-      this.mutating() ||
-      current.campaign !== pin.campaign ||
-      current.id !== pin.session
-    )
-      return;
-    this.queueRunning.set(true);
-    try {
-      for (let index = 0; index < this.additions().length; index++) {
-        const selection = this.additions()[index];
-        if (selection.status === 'completed') continue;
-        const ok = await this.addOne(pin.capture, selection.path, selection.section);
-        this.additions.update((items) =>
-          items.map((item, i) =>
-            i === index ? { ...item, status: ok ? 'completed' : 'failed' } : item,
-          ),
-        );
-        if (!ok) break;
-      }
-    } finally {
-      this.queueRunning.set(false);
-    }
-  }
-  async add(capture: string, path: string, section: string | null) {
-    if (this.queueRunning()) return false;
-    return this.addOne(capture, path, section);
-  }
-  async addDraft(draft: string, draftRevision: number): Promise<boolean> {
-    if (this.queueRunning()) return false;
-    return this.addOne('', '', null, { draft, draftRevision });
-  }
-  private async addOne(
-    capture: string,
-    path: string,
-    section: string | null,
-    authored?: { draft: string; draftRevision: number },
-  ): Promise<boolean> {
-    if (this.mutating() || !(await this.flush())) return false;
-    if (this.mutating()) return false;
-    const snapshot = this.current();
-    if (!snapshot) {
-      this.error.set('Create or open a session before adding source material.');
-      return false;
-    }
-    const epoch = this.epoch;
-    this.mutating.set(true);
-    this.error.set('');
-    let completed = false;
-    this.mutation = (async () => {
-      try {
-        const json = { httpHeaderAccept: 'application/json' as const };
-        const saved = await firstValueFrom(
-          authored
-            ? this.api.addSessionDraft(
-                snapshot.campaign,
-                snapshot.id,
-                { revision: snapshot.revision, ...authored },
-                'body',
-                false,
-                json,
-              )
-            : this.api.addSessionSource(
-                snapshot.campaign,
-                snapshot.id,
-                { revision: snapshot.revision, capture, path, section },
-                'body',
-                false,
-                json,
-              ),
-        );
-        if (epoch !== this.epoch) return;
-        const added = saved.items.filter((i) => !snapshot.items.some((old) => old.id === i.id));
-        this.current.update((s) =>
-          s
-            ? {
-                ...s,
-                revision: saved.revision,
-                items: [...s.items, ...added],
-              }
-            : s,
-        );
-        this.selectItem(added[0]?.id ?? null);
-        this.status.set(this.dirty ? 'pending' : 'saved');
-        await this.renderSources();
-        if (epoch !== this.epoch) return;
-        completed = true;
-        this.notice.set(
-          `${authored ? 'Approved draft revision' : 'Captured source'} added to ${this.current()?.title}. Its text is preserved with this session.`,
-        );
-      } catch (e) {
-        if (epoch === this.epoch) this.fail(e);
-      } finally {
-        this.mutating.set(false);
-      }
-    })();
-    await this.mutation;
-    return completed;
-  }
   async allowLeave(): Promise<boolean> {
-    if (this.transferBusy() || this.mutating() || this.checkingRemoval() || this.queueRunning()) {
+    if (this.transferBusy() || this.mutating() || this.checkingRemoval()) {
       this.error.set('Wait for the current operation to finish before leaving.');
       return false;
     }
@@ -590,7 +443,7 @@ export class SessionState {
     return false;
   }
   async reload(): Promise<boolean> {
-    if (this.queueRunning() || this.mutating()) return false;
+    if (this.mutating()) return false;
     const s = this.current();
     if (!s) return false;
     if (this.hasUnsaved() && !window.confirm('Discard local edits and reload the saved session?'))

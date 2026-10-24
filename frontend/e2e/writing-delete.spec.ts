@@ -1,3 +1,4 @@
+import { addLibraryFixture } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -47,11 +48,15 @@ test('deletes working drafts without losing prepared copies or retained history'
       title: 'Retained captain session',
       objective: '',
     });
-    session = await json('post', `${base}/sessions/${session.id}/drafts`, {
-      revision: 0,
-      draft: draft.id,
-      draftRevision: draft.revision,
-    });
+    session = await (
+      await addLibraryFixture(request, `${base}/sessions/${session.id}`, {
+        data: {
+          revision: 0,
+          draft: draft.id,
+          draftRevision: draft.revision,
+        },
+      })
+    ).json();
     session = await json('put', `${base}/sessions/${session.id}`, {
       revision: session.revision,
       title: session.title,

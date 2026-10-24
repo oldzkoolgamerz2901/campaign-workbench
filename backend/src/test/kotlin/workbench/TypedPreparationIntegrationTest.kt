@@ -112,9 +112,9 @@ class TypedPreparationIntegrationTest : StringSpec({
         val run = sources.document(campaign, capture, "adventure.md").getOrNull()!!.sections.first { it.heading == "Run" }.id
         val second = sources.document(campaign, capture, "scene.md").getOrNull()!!.sections.last().id
         var session = p.create(campaign, CreateSession("Typed session", "Prepare the reef")).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "adventure.md", null)).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "adventure.md", run)).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "scene.md", second)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "adventure.md", null)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "adventure.md", run)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "scene.md", second)).getOrNull()!!
         val whole = session.items.first()
         whole.markdown shouldBe adventure
         whole.provenance.contentHash shouldBe digest(adventure)
@@ -140,14 +140,14 @@ class TypedPreparationIntegrationTest : StringSpec({
         val saved = session
         // A later capture must never satisfy an old prepared relationship.
         var partial = p.create(campaign, CreateSession("Mixed captures", "")).getOrNull()!!
-        partial = p.add(campaign, partial.id, AddSource(partial.revision, capture, "adventure.md", null)).getOrNull()!!
+        partial = p.addHistoricalSource(context!!, campaign, partial.id, HistoricalSource(partial.revision, capture, "adventure.md", null)).getOrNull()!!
         Files.move(root.resolve("scene.md"), root.resolve("renamed.md"))
         Files.writeString(root.resolve("renamed.md"), typedCard(sceneId, "Renamed label", "scene", "# Replacement\nNew prose", "superseded"))
         Files.writeString(root.resolve("split.md"), typedCard(UUID.randomUUID(), "Split scene", "scene", "# Split\nIndependent prose"))
         Files.writeString(root.resolve("scene.md"), typedCard(UUID.randomUUID(), "New card at the old path", "scene", "# Same\nNew first scene.\n# Same\nNew second scene."))
         Files.writeString(root.resolve("adventure.md"), typedCard(adventureId, "Changed adventure", "reference", "# Changed\nChanged labels and summary."))
         val newer = sources.refresh(campaign).getOrNull()!!.capture!!
-        partial = p.add(campaign, partial.id, AddSource(partial.revision, newer, "scene.md", null)).getOrNull()!!
+        partial = p.addHistoricalSource(context!!, campaign, partial.id, HistoricalSource(partial.revision, newer, "scene.md", null)).getOrNull()!!
         p.view(campaign, partial.id).getOrNull()!!.items.first().source.links.first().unavailable shouldBe true
         p.open(campaign, saved.id).getOrNull() shouldBe saved
         Files.list(root).use { it.forEach(Files::delete) }
@@ -232,8 +232,8 @@ class TypedPreparationIntegrationTest : StringSpec({
         Files.writeString(root.resolve("invalid.md"), "---\nworkbench: [broken\n---\n# Readable\nRetained prose")
         val capture = sources.refresh(campaign).getOrNull()!!.capture!!
         var session = p.create(campaign, CreateSession("Classification portability", "")).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "unicode.md", null)).getOrNull()!!
-        session = p.add(campaign, session.id, AddSource(session.revision, capture, "invalid.md", null)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "unicode.md", null)).getOrNull()!!
+        session = p.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "invalid.md", null)).getOrNull()!!
         session.items.first().capturedSource!!.classification.metadata!!.tags.single() shouldBe "i\u0307".repeat(64)
         val invalid = session.items.last().capturedSource!!.classification
         invalid.metadata shouldBe null

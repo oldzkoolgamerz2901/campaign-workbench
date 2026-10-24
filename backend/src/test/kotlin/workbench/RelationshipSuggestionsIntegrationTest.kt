@@ -36,10 +36,10 @@ class RelationshipSuggestionsIntegrationTest : StringSpec({
             var p = context.getBean(PreparationService::class.java)
             var play = context.getBean(Playthroughs::class.java)
             var s = p.create(campaign, CreateSession("Associations", "")).getOrNull()!!
-            for (path in listOf("scene.md", "npc.md", "npc.md", "other.md")) s = p.add(campaign, s.id, AddSource(s.revision, capture, path, null)).getOrNull()!!
+            for (path in listOf("scene.md", "npc.md", "npc.md", "other.md")) s = p.addHistoricalSource(context, campaign, s.id, HistoricalSource(s.revision, capture, path, null)).getOrNull()!!
             val (scene, first, second, another) = s.items.map { it.id }
             val foreign = p.create(campaign, CreateSession("Foreign", "")).getOrNull()!!
-            val foreignItem = p.add(campaign, foreign.id, AddSource(0, capture, "npc.md", null)).getOrNull()!!.items.single().id
+            val foreignItem = p.addHistoricalSource(context, campaign, foreign.id, HistoricalSource(0, capture, "npc.md", null)).getOrNull()!!.items.single().id
             // Frozen hyperlinks never seed contextual edges and retain exact section resolution.
             play.suggestions(campaign, s.id, scene).getOrNull()!!.suggestions shouldBe emptyList()
             p.view(campaign, s.id).getOrNull()!!.items.first().source.links.first().target shouldBe "@$first#history"

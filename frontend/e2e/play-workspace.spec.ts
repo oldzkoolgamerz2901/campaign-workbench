@@ -1,3 +1,4 @@
+import { addLibraryFixture } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -27,7 +28,7 @@ test('workspace conflicts retain the table, guard navigation and recover indepen
     ).json();
     const endpoint = `/api/campaigns/${campaign.id}/sessions/${created.id}`;
     const session = await (
-      await request.post(`${endpoint}/sources`, {
+      await addLibraryFixture(request, `${endpoint}`, {
         data: {
           revision: created.revision,
           capture: capture.capture,

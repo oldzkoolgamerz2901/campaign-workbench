@@ -781,3 +781,16 @@ Acceptance: inspect actual rendered control/focus contrast and error/success/dis
 **Not yet decided / preserve existing behavior:** Whether to relocate the independent Source fork action is not a requirement to implement it now. Retain existing APIs and archive semantics. Do not conflate simplified default Library search with indiscriminate disclosure of private or invalid data; continue existing campaign isolation and safe diagnostic presentation.
 
 **Approval boundary:** These product requirements are accepted. Increment sequence and completion checks may be documented as a proposed handoff, but architecture decisions, plan acceptance, execution of each increment and formal verification retain their separate harness gates.
+
+### UX-C6 — accepted legacy direct-add retirement requirements — 2026-10-24
+
+The owner approved these requirements after the direct-add consumer investigation. They supersede earlier API-retention guidance only for the two legacy session-add HTTP operations identified here; independent Source fork/export and historical prepared-content support remain unchanged.
+
+- Retire `POST /api/campaigns/{campaign}/sessions/{id}/sources` and `POST /api/campaigns/{campaign}/sessions/{id}/drafts`. Supported new additions continue through unified Library Add.
+- Remove unused frontend direct-add methods, queue state and queue-specific guards while preserving active save/navigation protections.
+- Preserve the internal Draft-freezing operation used by unified Library Add, including exact saved-revision retention and transactional membership ownership.
+- Migrate test fixtures without losing historical section, duplicate-card, frozen-content and archive coverage. Retirement must not remove or rewrite existing prepared items.
+- Preserve current Library Add/replacement behavior, campaign isolation, module ownership, historical reading and session import/export. Regenerate the API client and pass relevant backend, frontend and browser checks.
+- Exclude persistence migrations, archive-format changes, campaign-content edits and UX-C7 authored-link reconciliation.
+
+Architecture and the concrete bounded implementation plan require their own approval. Execution authorization remains in the conversation.

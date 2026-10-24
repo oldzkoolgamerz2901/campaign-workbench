@@ -1,3 +1,4 @@
+import { addLibraryFixture } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -33,7 +34,7 @@ test('Read keeps a durable table and used pile separate from preparation', async
     const endpoint = `/api/campaigns/${campaign.id}/sessions/${session.id}`;
     for (const title of ['One', 'Two', 'Three'])
       session = await (
-        await request.post(`${endpoint}/sources`, {
+        await addLibraryFixture(request, `${endpoint}`, {
           data: {
             revision: session.revision,
             capture: library.capture,
@@ -194,7 +195,7 @@ test('Read keeps a durable table and used pile separate from preparation', async
     const currentLibrary = await (
       await request.get(`/api/campaigns/${campaign.id}/sources`)
     ).json();
-    const addition = await request.post(`${endpoint}/sources`, {
+    const addition = await addLibraryFixture(request, `${endpoint}`, {
       data: {
         revision: state.revision,
         capture: currentLibrary.capture,

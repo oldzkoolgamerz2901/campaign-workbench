@@ -1,7 +1,12 @@
+import { addLibraryFixture } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+
+const scene = (body: string) =>
+  `---\nworkbench:\n  schema: 1\n  id: ${randomUUID()}\n  title: scene.md\n  type: scene\n  purpose: session\n  status: current\n  tags: []\n---\n${body}`;
 
 for (const action of ['retry', 'reload'] as const) {
   test(`Preparation ${action} in Play restores the table without changing modes`, async ({
@@ -10,7 +15,7 @@ for (const action of ['retry', 'reload'] as const) {
   }) => {
     const root = await mkdtemp(join(tmpdir(), 'workbench-preparation-recovery-'));
     try {
-      await writeFile(join(root, 'scene.md'), '# Scene\nFrozen recovery material.');
+      await writeFile(join(root, 'scene.md'), scene('# Scene\nFrozen recovery material.'));
       const campaign = await (
         await request.post('/api/campaigns', {
           data: { name: 'Preparation recovery', directory: root },
@@ -25,7 +30,7 @@ for (const action of ['retry', 'reload'] as const) {
         })
       ).json();
       const endpoint = `/api/campaigns/${campaign.id}/sessions/${created.id}`;
-      await request.post(`${endpoint}/sources`, {
+      const added = await addLibraryFixture(request, `${endpoint}`, {
         data: {
           revision: created.revision,
           capture: capture.capture,
@@ -33,6 +38,7 @@ for (const action of ['retry', 'reload'] as const) {
           section: null,
         },
       });
+      expect(added.ok(), await added.text()).toBe(true);
       const url = `/?campaign=${campaign.id}&session=${created.id}&view=prepare`;
       const card = page
         .locator('read-card-table')
@@ -96,7 +102,7 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
     const root = await mkdtemp(join(tmpdir(), 'workbench-reload-navigation-'));
     let releaseReload = () => {};
     try {
-      await writeFile(join(root, 'scene.md'), '# Scene\nFrozen navigation material.');
+      await writeFile(join(root, 'scene.md'), scene('# Scene\nFrozen navigation material.'));
       const campaign = await (
         await request.post('/api/campaigns', {
           data: { name: 'Reload navigation origin', directory: root },
@@ -111,7 +117,7 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
         })
       ).json();
       const endpoint = `/api/campaigns/${campaign.id}/sessions/${origin.id}`;
-      await request.post(`${endpoint}/sources`, {
+      const added = await addLibraryFixture(request, `${endpoint}`, {
         data: {
           revision: origin.revision,
           capture: capture.capture,
@@ -119,6 +125,7 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
           section: null,
         },
       });
+      expect(added.ok(), await added.text()).toBe(true);
       // A separate directory makes this an independent campaign registration.
       const otherRoot = await mkdtemp(join(root, 'destination-'));
       const otherCampaign =

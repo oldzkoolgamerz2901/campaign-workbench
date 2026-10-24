@@ -1,3 +1,4 @@
+import { addLibraryFixture } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -117,8 +118,9 @@ test('filters typed sources and explicitly assembles adventure selections with p
         reader.getByRole('button', { name: 'Add to session', exact: true }),
       ).toBeDisabled();
       const library = await (await request.get(`/api/campaigns/${campaign.id}/sources`)).json();
-      const rejected = await request.post(
-        `/api/campaigns/${campaign.id}/sessions/${session.id}/sources`,
+      const rejected = await addLibraryFixture(
+        request,
+        `/api/campaigns/${campaign.id}/sessions/${session.id}`,
         {
           data: {
             revision: session.revision,

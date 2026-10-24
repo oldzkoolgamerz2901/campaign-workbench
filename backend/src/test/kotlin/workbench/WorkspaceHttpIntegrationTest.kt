@@ -11,7 +11,6 @@ import workbench.campaigns.api.RegisterCampaign
 import workbench.campaigns.application.CampaignService
 import workbench.playthroughs.api.Playthroughs
 import workbench.playthroughs.api.SaveWorkspace
-import workbench.preparation.api.AddSource
 import workbench.preparation.api.CreateSession
 import workbench.preparation.application.PreparationService
 import workbench.sources.application.SourceService
@@ -39,8 +38,8 @@ class WorkspaceHttpIntegrationTest : StringSpec({
                 val capture = context.getBean(SourceService::class.java).refresh(campaign).getOrNull()!!.capture!!
                 val preparation = context.getBean(PreparationService::class.java)
                 var session = preparation.create(campaign, CreateSession("Scene contract", "")).getOrNull()!!
-                for (name in listOf("first", "second")) session = preparation.add(campaign, session.id,
-                    AddSource(session.revision, capture, "$name.md", null)).getOrNull()!!
+                for (name in listOf("first", "second")) session = preparation.addHistoricalSource(context, campaign, session.id,
+                    HistoricalSource(session.revision, capture, "$name.md", null)).getOrNull()!!
                 val first = session.items[0].id; val second = session.items[1].id
                 val play = context.getBean(Playthroughs::class.java)
                 val initial = play.open(campaign, session.id).getOrNull()!!
@@ -81,6 +80,15 @@ class WorkspaceHttpIntegrationTest : StringSpec({
                 val contract = client.send(HttpRequest.newBuilder(URI("$base/v3/api-docs")).GET().build(),
                     HttpResponse.BodyHandlers.ofString())
                 contract.statusCode() shouldBe 200
+                val paths = mapper.readTree(contract.body()).path("paths")
+                for (suffix in listOf("sources", "drafts")) {
+                    paths.has("/api/campaigns/{campaign}/sessions/{id}/$suffix") shouldBe false
+                    val retired = client.send(HttpRequest.newBuilder(URI("$base/api/campaigns/$campaign/sessions/${session.id}/$suffix"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString("{}")) .build(), HttpResponse.BodyHandlers.ofString())
+                    retired.statusCode() shouldBe 404
+                    preparation.open(campaign, session.id).getOrNull() shouldBe session
+                }
                 val schema = mapper.readTree(contract.body()).path("components").path("schemas").path("SaveWorkspace")
                 val required = mutableSetOf<String>()
                 for (field in schema.path("required")) required.add(field.asString())

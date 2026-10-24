@@ -1,3 +1,4 @@
+import { historicalSourceItem, importHistoricalSession } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -50,21 +51,16 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
         data: { title: 'Mixed voyage', objective: '' },
       })
     ).json();
-    for (let i = 0; i < 2; i++) {
-      const response = await request.post(
-        `/api/campaigns/${campaign.id}/sessions/${session.id}/sources`,
-        {
-          data: {
-            revision: session.revision,
-            capture: sourceCapture,
-            path: 'scene.md',
-            section: null,
-          },
-        },
+    const sourceItems = [];
+    for (let i = 0; i < 2; i++)
+      sourceItems.push(
+        await historicalSourceItem(request, campaign.id, {
+          capture: sourceCapture,
+          path: 'scene.md',
+          section: null,
+        }),
       );
-      expect(response.ok()).toBe(true);
-      session = await response.json();
-    }
+    session = await importHistoricalSession(request, campaign.id, session, sourceItems);
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
     await page.getByRole('button', { name: 'Add material', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Session Library', exact: true });

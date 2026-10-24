@@ -57,7 +57,7 @@ class AuthoredPreparationIntegrationTest : StringSpec({
         }.isLeft() shouldBe true
         revisions.get(campaign, origin.id, origin.revision) shouldBe null
         prep.open(campaign, session.id).getOrNull() shouldBe session
-        session = prep.add(campaign, session.id, AddSource(session.revision, capture, "scene.md", null)).getOrNull()!!
+        session = prep.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "scene.md", null)).getOrNull()!!
         session = prep.addDraft(campaign, session.id, AddDraft(session.revision, origin.id, origin.revision)).getOrNull()!!
         val frozen = session.items.last()
         frozen.provenance.kind shouldBe "authored"
@@ -77,7 +77,7 @@ class AuthoredPreparationIntegrationTest : StringSpec({
         rendered = prep.view(campaign, session.id).getOrNull()!!.items[1].source
         rendered.links[1].target shouldBe "@${session.items.last().id}#same-1"
         // Place the NPC between two source scenes; retain one mixed ordered collection and notes.
-        session = prep.add(campaign, session.id, AddSource(session.revision, capture, "scene.md", null)).getOrNull()!!
+        session = prep.addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "scene.md", null)).getOrNull()!!
         session = prep.save(campaign, session.id, SaveSession(session.revision, session.title, "", "Session notes", session.items.map { ItemNotes(it.id, "Notes for ${it.title}") })).getOrNull()!!
         val before = prep.view(campaign, session.id).getOrNull()!!
         var unmatched = prep.create(campaign, CreateSession("Exact target revisions", "")).getOrNull()!!

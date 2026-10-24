@@ -31,8 +31,6 @@ describe('Session working state', () => {
     openSession: vi.fn(),
     renderSession: vi.fn(),
     previewMarkdown: vi.fn(),
-    addSessionSource: vi.fn(),
-    addSessionDraft: vi.fn(),
     listSessions: vi.fn(),
     createSession: vi.fn(),
     changeSceneAssociation: vi.fn(),
@@ -153,20 +151,26 @@ describe('Session working state', () => {
     expect(state.play.hasUnsaved()).toBe(true);
     expect(api.savePlayWorkspace).toHaveBeenCalledTimes(1);
   });
-  it('flushes notes before approval and pins both revisions while preserving edits during capture', async () => {
+  it('flushes notes before replacement and pins both revisions while preserving edits during capture', async () => {
     await state.open('campaign-a', 'session-a');
     api.saveSession.mockReturnValue(of({ ...session(), revision: 2, notes: 'Saved notes' }));
     const result = new Subject<SessionData>();
-    api.addSessionDraft.mockReturnValue(result);
+    api.replacePreparedLibraryCard.mockReturnValue(result);
     state.edit({ notes: 'Saved notes' });
-    const approving = state.addDraft('draft-a', 7);
+    const approving = state.replaceFromLibrary(
+      'frozen',
+      { key: 'card:a', draft: 'draft-a', revision: 7 } as never,
+      'capture',
+    );
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    expect(api.addSessionDraft.mock.calls[0][2]).toEqual({
+    expect(api.replacePreparedLibraryCard.mock.calls[0][3]).toEqual({
       revision: 2,
       draft: 'draft-a',
       draftRevision: 7,
+      key: 'card:a',
+      capture: 'capture',
     });
     expect(await state.allowLeave()).toBe(false);
     state.edit({ notes: 'New local notes' });
@@ -183,19 +187,29 @@ describe('Session working state', () => {
     expect(state.selectedItem()).toBe('frozen');
     expect(state.hasUnsaved()).toBe(true);
   });
-  it('retains the session on stale draft approval and ignores late approval responses after a campaign change', async () => {
+  it('retains the session on stale replacement and ignores late replacement responses after a campaign change', async () => {
     await state.open('campaign-a', 'session-a');
-    api.addSessionDraft.mockReturnValueOnce(
+    api.replacePreparedLibraryCard.mockReturnValueOnce(
       throwError(
         () => new HttpErrorResponse({ status: 409, error: { detail: 'Review the newer draft' } }),
       ),
     );
-    expect(await state.addDraft('draft-a', 1)).toBe(false);
+    expect(
+      await state.replaceFromLibrary(
+        'frozen',
+        { key: 'card:a', draft: 'draft-a', revision: 1 } as never,
+        'capture',
+      ),
+    ).toBe(false);
     expect(state.current()).toEqual(session());
     expect(state.error()).toBe('Review the newer draft');
     const late = new Subject<SessionData>();
-    api.addSessionDraft.mockReturnValue(late);
-    const pending = state.addDraft('draft-a', 1);
+    api.replacePreparedLibraryCard.mockReturnValue(late);
+    const pending = state.replaceFromLibrary(
+      'frozen',
+      { key: 'card:a', draft: 'draft-a', revision: 1 } as never,
+      'capture',
+    );
     await Promise.resolve();
     await Promise.resolve();
     state.bindCampaign('campaign-b');
@@ -205,12 +219,16 @@ describe('Session working state', () => {
     expect(state.current()).toBeNull();
     expect(state.notice()).toBe('');
   });
-  it('ignores approval completion when the campaign changes during reader rendering', async () => {
+  it('ignores replacement completion when the campaign changes during reader rendering', async () => {
     await state.open('campaign-a', 'session-a');
     const rendering = new Subject<{ notes: { html: string; links: never[] }; items: never[] }>();
     api.renderSession.mockReturnValueOnce(rendering);
-    api.addSessionDraft.mockReturnValue(of({ ...session(), revision: 2 }));
-    const pending = state.addDraft('draft-a', 1);
+    api.replacePreparedLibraryCard.mockReturnValue(of({ ...session(), revision: 2 }));
+    const pending = state.replaceFromLibrary(
+      'frozen',
+      { key: 'card:a', draft: 'draft-a', revision: 1 } as never,
+      'capture',
+    );
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -319,10 +337,10 @@ describe('Session working state', () => {
     expect(await state.allowLeave()).toBe(true);
     expect(state.hasUnsaved()).toBe(false);
   });
-  it('waits for source mutations before autosaving newer local notes', async () => {
+  it('waits for replacement mutations before autosaving newer local notes', async () => {
     await state.open('campaign-a', 'session-a');
     const addition = new Subject<SessionData>();
-    api.addSessionSource.mockReturnValue(addition);
+    api.replacePreparedLibraryCard.mockReturnValue(addition);
     const item = {
       id: 'item',
       title: 'Frozen',
@@ -343,7 +361,11 @@ describe('Session working state', () => {
     api.saveSession.mockReturnValue(
       of({ ...session(), revision: 3, notes: 'Typed during capture', items: [item] }),
     );
-    const added = state.add('capture', 'source.md', null);
+    const added = state.replaceFromLibrary(
+      'item',
+      { key: 'card:a', draft: 'draft-a', revision: 1 } as never,
+      'capture',
+    );
     await Promise.resolve();
     expect(state.mutating()).toBe(true);
     state.edit({ notes: 'Typed during capture' });
@@ -478,81 +500,6 @@ describe('Session working state', () => {
     await Promise.resolve();
     expect(state.previews()['session'].html).toBe('<p>New campaign</p>');
     expect(Object.keys(state.previews())).toEqual(['session']);
-  });
-  it('stops a partial addition queue and retries only unfinished selections at the latest revision', async () => {
-    await state.open('campaign-a', 'session-a');
-    const firstItem = {
-      id: 'overview',
-      title: 'Overview',
-      markdown: '# Overview',
-      notes: '',
-      anchors: {},
-      provenance: {
-        kind: 'source',
-        authored: null,
-        campaign: 'campaign-a',
-        capture: 'pinned',
-        path: 'adventure.md',
-        section: null,
-        documentHash: 'h',
-        contentHash: 'h',
-      },
-    };
-    const sceneItem = {
-      ...firstItem,
-      id: 'scene',
-      title: 'Scene',
-      provenance: { ...firstItem.provenance, path: 'scene.md', section: 'nested' },
-    };
-    api.addSessionSource
-      .mockReturnValueOnce(of({ ...session(), revision: 2, items: [firstItem] }))
-      .mockReturnValueOnce(
-        throwError(
-          () => new HttpErrorResponse({ status: 503, error: { detail: 'Temporary failure' } }),
-        ),
-      )
-      .mockReturnValueOnce(of({ ...session(), revision: 3, items: [firstItem, sceneItem] }));
-    await state.startAdditions('pinned', [
-      { path: 'adventure.md', section: null },
-      { path: 'scene.md', section: 'nested' },
-    ]);
-    expect(state.additions().map((a) => a.status)).toEqual(['completed', 'failed']);
-    expect(state.current()?.items).toHaveLength(1);
-    expect(state.queueRunning()).toBe(false);
-    await state.retryAdditions();
-    expect(api.addSessionSource.mock.calls.map((c) => c[2])).toEqual([
-      { revision: 1, capture: 'pinned', path: 'adventure.md', section: null },
-      { revision: 2, capture: 'pinned', path: 'scene.md', section: 'nested' },
-      { revision: 2, capture: 'pinned', path: 'scene.md', section: 'nested' },
-    ]);
-    expect(state.current()?.items.map((i) => i.id)).toEqual(['overview', 'scene']);
-    expect(state.additions().map((a) => a.status)).toEqual(['completed', 'completed']);
-  });
-  it('guards a running queue and preserves notes typed during sequential captures', async () => {
-    await state.open('campaign-a', 'session-a');
-    const late = new Subject<SessionData>();
-    api.addSessionSource
-      .mockReturnValueOnce(late)
-      .mockReturnValueOnce(of({ ...session(), revision: 4, notes: 'Keep edits' }));
-    api.saveSession.mockReturnValue(of({ ...session(), revision: 3, notes: 'Keep edits' }));
-    const running = state.startAdditions('capture', [
-      { path: 'a.md', section: null },
-      { path: 'b.md', section: 'subtree' },
-    ]);
-    await Promise.resolve();
-    expect(await state.allowLeave()).toBe(false);
-    expect(await state.add('other', 'unselected.md', null)).toBe(false);
-    state.edit({ notes: 'Keep edits' });
-    late.next({ ...session(), revision: 2 });
-    await running;
-    expect(api.saveSession.mock.calls[0][2]).toMatchObject({ revision: 2, notes: 'Keep edits' });
-    expect(api.addSessionSource.mock.calls[1][2]).toMatchObject({
-      revision: 3,
-      path: 'b.md',
-      section: 'subtree',
-    });
-    expect(state.current()?.notes).toBe('Keep edits');
-    expect(state.queueRunning()).toBe(false);
   });
   it('sends explicit Scene links under the saved session revision without changing Play', async () => {
     await state.open('campaign-a', 'session-a');

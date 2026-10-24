@@ -200,11 +200,7 @@ export class Workspace implements OnDestroy {
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly busy = computed(
-    () =>
-      this.state.transferBusy() ||
-      this.state.mutating() ||
-      this.state.checkingRemoval() ||
-      this.state.queueRunning(),
+    () => this.state.transferBusy() || this.state.mutating() || this.state.checkingRemoval(),
   );
   readonly reading = signal(false);
   readonly campaignReady = signal(false);

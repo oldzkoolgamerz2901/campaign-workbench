@@ -98,7 +98,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         val capture = sources().refresh(campaign).getOrNull()!!.capture!!
         val section = sources().document(campaign, capture, "card.md").getOrNull()!!.sections.last().id
         var session = prep().create(campaign, CreateSession("Sections", "")).getOrNull()!!
-        session = prep().add(campaign, session.id, AddSource(session.revision, capture, "card.md", section)).getOrNull()!!
+        session = prep().addHistoricalSource(context!!, campaign, session.id, HistoricalSource(session.revision, capture, "card.md", section)).getOrNull()!!
         service().list(campaign, session.id).getOrNull()!!.entries.single().matches shouldBe emptyList()
         val added = service().add(campaign, session.id, request(campaign, session)).getOrNull()!!
         added.added shouldBe true
@@ -114,7 +114,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         service().add(other, imported, request(other, restored)).getOrNull()!!.session.items.size shouldBe 3
         // Historical full Source captures do satisfy membership without automatic conversion.
         var legacy = prep().create(campaign, CreateSession("Legacy whole", "")).getOrNull()!!
-        legacy = prep().add(campaign, legacy.id, AddSource(0, capture, "card.md", null)).getOrNull()!!
+        legacy = prep().addHistoricalSource(context!!, campaign, legacy.id, HistoricalSource(0, capture, "card.md", null)).getOrNull()!!
         val noOp = service().add(campaign, legacy.id, request(campaign, legacy)).getOrNull()!!
         noOp.added shouldBe false
         noOp.session shouldBe legacy
@@ -171,7 +171,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         }
         val campaigns = c.getBean(Campaigns::class.java)
         val tx = c.getBean(Transactions::class.java)
-        val brokenPrep = PreparationService(campaigns, c.getBean(Sources::class.java), failing, tx,
+        val brokenPrep = PreparationService(campaigns, failing, tx,
             c.getBean(PreparationMarkdown::class.java), c.getBean(SessionDrafts::class.java), c.getBean(PreparationImageStore::class.java))
         val broken = SessionLibraryService(campaigns, library(), brokenPrep, tx)
         runCatching { broken.add(campaign, session.id, request(campaign, session)) }.isFailure shouldBe true
