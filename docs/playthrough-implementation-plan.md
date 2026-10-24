@@ -92,6 +92,8 @@ Test valid identity, untyped/duplicate metadata (title context without fabricate
 
 ## P6 — Cross-session resource and scene history
 
+**Delivery (2026-10-24):** Implemented ahead of revised P7 at the owner's request; see the [bounded P6 plan and developer handover](implementation-plan.md#p6--bounded-implementation-plan--2026-10-24). The separate [formal assessment](verification.md#p6--cross-session-resource-and-scene-history--2026-10-24) passes; owner acceptance remains separate. The original scope/acceptance below is retained for traceability.
+
 **Scope:** separate Playthrough primary-resource/scene query APIs, bounded pagination/indexes and card-history UI, reusing note records and current session navigation.
 
 **Acceptance:** newest-first immutable creation chronology plus stable ID tie-break, pinned notes remain in full history, no title/path/image merges. Sections share logical parent history; prepared copies remain independently selectable. Restrict results by containing campaign even for imported foreign origins. Missing originals remain readable; unresolved references provide session context only. Test deletion/rename, imported copies, pagination ties, campaign isolation and no automatic merges/deduplication of independent imports. No duplicate history storage or campaign-history workspace.

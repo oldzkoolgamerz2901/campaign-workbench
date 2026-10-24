@@ -45,7 +45,24 @@ data class EditPlayNote(
     @param:JsonProperty(value = "resource", required = true)
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val resource: UUID?
 )
+data class PlayHistoryEntry(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val note: PlayNoteData,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val sessionTitle: String
+)
+data class PlayHistoryPage(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val entries: List<PlayHistoryEntry>,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val nextTime: Instant?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val nextId: UUID?
+)
+data class PlayHistoryTarget(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val item: UUID,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val resource: ResourceSnapshot
+)
+data class PlayHistoryTargets(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val targets: List<PlayHistoryTarget>)
 interface PlayNotes {
+    fun targets(campaign: UUID, session: UUID): Either<Failure, PlayHistoryTargets>
+    fun history(campaign: UUID, reference: ResourceReference, scene: Boolean, pinnedOnly: Boolean,
+        limit: Int, beforeTime: Instant?, beforeId: UUID?): Either<Failure, PlayHistoryPage>
     fun list(campaign: UUID, session: UUID): Either<Failure, PlayNoteList>
     fun create(campaign: UUID, session: UUID, request: CreatePlayNote): Either<Failure, PlayNoteData>
     fun edit(campaign: UUID, session: UUID, note: UUID, request: EditPlayNote): Either<Failure, PlayNoteData>

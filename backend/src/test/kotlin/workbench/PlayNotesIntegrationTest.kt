@@ -52,6 +52,11 @@ class PlayNotesIntegrationTest : StringSpec({
             val first = notes.create(campaign, s.id, operation).getOrNull()!!
             first.resource!!.reference shouldBe ResourceReference(campaign, card)
             first.scene shouldBe null
+            val targets = notes.targets(campaign, s.id).getOrNull()!!.targets
+            targets.map { it.item } shouldBe listOf(scene, section, plain)
+            targets[0].resource.reference shouldBe targets[1].resource.reference
+            targets[2].resource.reference shouldBe null
+
             p.open(campaign, s.id).getOrNull() shouldBe s
             notes.create(other, s.id, operation).isLeft() shouldBe true
             w = play.transition(campaign, s.id, TransitionScene(w.revision, s.revision, scene)).getOrNull()!!

@@ -1,15 +1,18 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal, viewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
-import { SessionData } from '../../api/generated';
+import { SessionData, ResourceSnapshot } from '../../api/generated';
 import { PlayNotesState } from './play-notes-state';
 import { PlayWorkspaceState } from './workspace-state';
 import { NoteMarkdown } from './note-markdown';
+import { PlayHistory } from './play-history';
+import { PlayHistoryState } from './play-history-state';
 
 @Component({
   selector: 'play-notes',
-  imports: [FormsModule, MatButtonModule, DatePipe, NoteMarkdown],
+  providers: [PlayHistoryState],
+  imports: [FormsModule, MatButtonModule, DatePipe, NoteMarkdown, PlayHistory],
   template: `
     <h3>PlayNotes</h3>
     <p class="muted">
@@ -105,6 +108,7 @@ import { NoteMarkdown } from './note-markdown';
         <play-note-markdown [campaign]="session().campaign" [markdown]="notes.text()" />
       </details>
     }
+    <play-history [session]="session()" />
     <button matButton (click)="notes.reloadHistory()" [disabled]="notes.loading()">
       Reload note history
     </button>
@@ -131,6 +135,16 @@ import { NoteMarkdown } from './note-markdown';
             {{ note.resource?.title ?? 'None' }}
           </p>
           <play-note-markdown [campaign]="session().campaign" [markdown]="note.markdown" />
+          @if (note.resource; as resource) {
+            <button matButton (click)="openHistory(resource, 'resource')">
+              Resource history: {{ resource.title }}
+            </button>
+          }
+          @if (note.scene; as scene) {
+            <button matButton (click)="openHistory(scene, 'scene')">
+              Scene history: {{ scene.title }}
+            </button>
+          }
           <button matButton (click)="notes.select(note)">Edit / pin note</button>
         </article>
       } @empty {
@@ -179,7 +193,13 @@ import { NoteMarkdown } from './note-markdown';
 })
 export class PlayNotesPanel {
   readonly session = input.required<SessionData>();
+  private readonly historyElement = viewChild(PlayHistory, { read: ElementRef });
+  async openHistory(target: ResourceSnapshot, kind: 'resource' | 'scene') {
+    await this.history.show(target, kind);
+    this.historyElement()?.nativeElement.scrollIntoView({ block: 'nearest' });
+  }
   readonly notes = inject(PlayNotesState);
+  readonly history = inject(PlayHistoryState);
   readonly play = inject(PlayWorkspaceState);
   readonly visible = signal(20);
   readonly pins = computed(() => this.notes.notes().filter((n) => n.pinned));

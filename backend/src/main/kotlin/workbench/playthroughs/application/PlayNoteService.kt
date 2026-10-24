@@ -24,6 +24,22 @@ class PlayNoteService(private val campaigns: Campaigns, private val preparation:
     private fun Raise<Failure>.resource(snapshot: SessionData, item: UUID?): ResourceSnapshot? = item?.let { id ->
         ensureNotNull(snapshot.items.find { it.id == id }) { invalid() }.context()
     }
+    override fun targets(campaign: UUID, session: UUID): Either<Failure, PlayHistoryTargets> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        PlayHistoryTargets(preparation.snapshot(campaign, session).bind().items.map { PlayHistoryTarget(it.id, it.context()) })
+    } }
+    override fun history(campaign: UUID, reference: ResourceReference, scene: Boolean, pinnedOnly: Boolean,
+        limit: Int, beforeTime: Instant?, beforeId: UUID?): Either<Failure, PlayHistoryPage> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        ensure(limit in 1..50 && ((beforeTime == null) == (beforeId == null))) {
+            Failure.Invalid("playnotes.history-query", "Use a page size from 1 to 50 and both cursor fields together.")
+        }
+        val records = store.history(campaign, reference, scene, pinnedOnly, limit + 1, beforeTime, beforeId)
+        val page = records.take(limit)
+        val titles = page.map { it.note.session }.distinct().associateWith { preparation.snapshot(campaign, it).bind().title }
+        val next = page.lastOrNull()?.note?.takeIf { records.size > limit }
+        PlayHistoryPage(page.map { PlayHistoryEntry(it.note, titles.getValue(it.note.session)) }, next?.createdAt, next?.id)
+    } }
     override fun list(campaign: UUID, session: UUID): Either<Failure, PlayNoteList> = snapshot(campaign, session).map(::PlayNoteList)
     override fun snapshot(campaign: UUID, session: UUID): Either<Failure, List<PlayNoteData>> = tx.run { either {
         campaigns.configuration(campaign).bind()

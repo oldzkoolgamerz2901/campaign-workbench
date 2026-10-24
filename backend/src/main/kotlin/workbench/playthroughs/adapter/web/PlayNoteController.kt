@@ -15,6 +15,10 @@ import java.util.UUID
 @ApiResponse(responseCode = "409", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
 @ApiResponse(responseCode = "422", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
 class PlayNoteController(private val service: PlayNotes) {
+    @GetMapping("/history-targets")
+    @Operation(operationId = "playHistoryTargets")
+    @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = PlayHistoryTargets::class))])
+    fun targets(@PathVariable campaign: UUID, @PathVariable session: UUID) = service.targets(campaign, session).response()
     @GetMapping
     @Operation(operationId = "listPlayNotes")
     @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = PlayNoteList::class))])
