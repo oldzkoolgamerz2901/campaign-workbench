@@ -244,6 +244,22 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
       .click();
     await page.getByRole('menuitem', { name: 'Mark used', exact: true }).click();
     await workspaceSaved;
+    const playNotes = page.locator('play-notes');
+    await playNotes.getByLabel('PlayNote Markdown', { exact: true }).fill('P8 illustrated outcome');
+    await playNotes
+      .getByLabel('Primary resource', { exact: true })
+      .selectOption(frozen.items[0].id);
+    await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(playNotes.getByLabel('PlayNote Markdown', { exact: true })).toHaveValue('');
+    await playNotes.getByRole('button', { name: 'Edit / pin note', exact: true }).click();
+    await playNotes.getByLabel('Pinned', { exact: true }).check();
+    await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(playNotes.getByRole('region', { name: 'Pinned PlayNotes' })).toContainText(
+      'P8 illustrated outcome',
+    );
+    const originalNotes = await (
+      await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}/play-notes`)
+    ).json();
     const downloadingSession = page.waitForEvent('download');
     await page.getByRole('button', { name: 'More session actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Export session', exact: true }).click();
@@ -265,6 +281,14 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     ).json();
     expect(restored.items[0].image.hash).toBe(originalHash);
     expect(restored.items[0].notes).toBe('Frozen illustrated note');
+    const restoredNotes = await (
+      await request.get(`/api/campaigns/${destination.id}/sessions/${imported.id}/play-notes`)
+    ).json();
+    expect(restoredNotes.notes).toHaveLength(1);
+    expect(restoredNotes.notes[0].id).not.toBe(originalNotes.notes[0].id);
+    expect(restoredNotes.notes[0].markdown).toBe('P8 illustrated outcome');
+    expect(restoredNotes.notes[0].pinned).toBe(true);
+    expect(restoredNotes.notes[0].resource).toEqual(originalNotes.notes[0].resource);
     await page.getByRole('button', { name: 'Illustrated voyage', exact: true }).click();
     await page.goto(`/?campaign=${destination.id}&session=${imported.id}&mode=play&view=prepare`);
     await expect(page.getByRole('button', { name: 'Used cards (1)', exact: true })).toBeVisible();

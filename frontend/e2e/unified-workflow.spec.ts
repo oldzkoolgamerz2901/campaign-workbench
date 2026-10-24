@@ -169,6 +169,18 @@ test('research, author, prepare, plan, play and update preserve the same session
     await expect(page.getByRole('dialog')).toContainText('Harbour keeper');
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
 
+    await page
+      .getByRole('navigation', { name: 'Play supporting panel' })
+      .getByRole('button', { name: 'Notes', exact: true })
+      .click();
+    const playNotes = page.locator('play-notes');
+    await playNotes.getByLabel('PlayNote Markdown', { exact: true }).fill('P8 keeper outcome');
+    await playNotes.getByLabel('Primary resource', { exact: true }).selectOption(keeper.id);
+    await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(playNotes.getByLabel('PlayNote Markdown', { exact: true })).toHaveValue('');
+    const originalNotes = await (await request.get(`${f.endpoint}/play-notes`)).json();
+    expect(originalNotes.notes[0].scene.title).toBe('Harbour arrival');
+    expect(originalNotes.notes[0].resource.title).toBe('Harbour keeper');
     const archive = await request.post(`${f.base}/sessions/portable-export`, {
       data: { sessions: [f.session.id] },
     });
@@ -179,6 +191,14 @@ test('research, author, prepare, plan, play and update preserve the same session
     });
     expect(importedResponse.ok(), await importedResponse.text()).toBe(true);
     const imported = (await importedResponse.json()).sessions[0];
+    const restoredNotes = await (
+      await request.get(`${f.base}/sessions/${imported.id}/play-notes`)
+    ).json();
+    expect(restoredNotes.notes).toHaveLength(1);
+    expect(restoredNotes.notes[0].id).not.toBe(originalNotes.notes[0].id);
+    expect(restoredNotes.notes[0].markdown).toBe('P8 keeper outcome');
+    expect(restoredNotes.notes[0].scene).toEqual(originalNotes.notes[0].scene);
+    expect(restoredNotes.notes[0].resource).toEqual(originalNotes.notes[0].resource);
     await page.goto(`/?campaign=${f.campaign.id}&session=${imported.id}&mode=play&view=prepare`);
     await expect(page.getByRole('region', { name: 'Active Scene', exact: true })).toContainText(
       'Harbour arrival',

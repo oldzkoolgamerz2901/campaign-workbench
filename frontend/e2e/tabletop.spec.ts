@@ -92,6 +92,93 @@ async function mode(page: Page, name: string) {
     .click();
 }
 
+test('P7 Library inspection and uncertain Add preserve piles, Scene, Used and guarded notes', async ({
+  page,
+  request,
+}) => {
+  const f = await fixture(request);
+  try {
+    const [scene, npc, relic, fourth] = f.ids;
+    let w = await (await request.get(`${f.endpoint}/workspace`)).json();
+    for (const [item, destination] of [
+      [npc, 'PILE_1'],
+      [relic, 'PILE_2'],
+      [fourth, 'USED'],
+    ]) {
+      const response = await request.post(`${f.endpoint}/workspace/move`, {
+        data: { revision: w.revision, item, destination },
+      });
+      expect(response.ok(), await response.text()).toBe(true);
+      w = await response.json();
+    }
+    const activated = await request.post(`${f.endpoint}/workspace/scene`, {
+      data: { revision: w.revision, preparationRevision: f.session.revision, scene, movements: [] },
+    });
+    expect(activated.ok(), await activated.text()).toBe(true);
+    const before = await activated.json();
+    await page.goto(f.url);
+    const notes = page.locator('play-notes');
+    const text = notes.getByLabel('PlayNote Markdown', { exact: true });
+    await expect(text).toBeEnabled();
+    await text.fill('P7 guarded note');
+    await notes.getByLabel('Primary resource', { exact: true }).selectOption(npc);
+    page.once('dialog', (dialog) => dialog.dismiss());
+    await mode(page, 'Library');
+    await expect(text).toHaveValue('P7 guarded note');
+    await expect(notes.getByLabel('Primary resource', { exact: true })).toHaveValue(npc);
+    await notes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(text).toHaveValue('');
+    const savedNotes = await (await request.get(`${f.endpoint}/play-notes`)).json();
+    await mode(page, 'Library');
+    await page.getByRole('button', { name: 'Extra item', exact: false }).click();
+    const reader = page.getByRole('article', { name: 'Selected Library document' });
+    await expect(reader).toContainText('Complete frozen Extra document.');
+    expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(before);
+    // Commit the Add but lose its response: reopening must reconcile membership safely.
+    await page.route(`**${f.endpoint}/library`, async (route) => {
+      if (route.request().method() === 'POST') {
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        await route.abort('failed');
+      } else await route.continue();
+    });
+    await reader.getByRole('button', { name: 'Add to session', exact: true }).click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await page.unroute(`**${f.endpoint}/library`);
+    await mode(page, 'Play');
+    await expect(page.locator('play-tabletop')).toBeVisible();
+    const after = await (await request.get(`${f.endpoint}/workspace`)).json();
+    expect(after.pile1).toEqual(before.pile1);
+    expect(after.pile2).toEqual(before.pile2);
+    expect(after.used).toEqual(before.used);
+    expect(after.activeSceneItemId).toBe(scene);
+    expect(after.sessionCards).toHaveLength(1);
+    expect(await (await request.get(`${f.endpoint}/play-notes`)).json()).toEqual(savedNotes);
+    await mode(page, 'Library');
+    await page.getByRole('button', { name: 'Extra item', exact: false }).click();
+    await expect(reader.getByText('Already in session', { exact: true })).toBeVisible();
+    const session = await (await request.get(f.endpoint)).json();
+    const catalogue = await (await request.get(`${f.endpoint}/library`)).json();
+    const entry = catalogue.entries.find(
+      (value: any) => value.entry.classification.metadata.title === 'Extra',
+    ).entry;
+    const retry = await request.post(`${f.endpoint}/library`, {
+      data: {
+        revision: session.revision,
+        key: entry.key,
+        capture: catalogue.capture,
+        draft: entry.draft,
+        draftRevision: entry.revision,
+      },
+    });
+    expect(retry.ok(), await retry.text()).toBe(true);
+    expect((await retry.json()).added).toBe(false);
+    expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(after);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
 test('two piles preserve covers/order, unique locations, reader and keyboard-accessible movement', async ({
   page,
   request,

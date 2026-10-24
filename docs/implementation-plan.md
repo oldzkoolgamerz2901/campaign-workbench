@@ -5,8 +5,60 @@ For current work, read the relevant accepted architecture and increment scope be
 - **Workspace ownership and identity:** [accepted reconciliation](#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23), supplemented by the accepted UX-C6/C7 scopes below.
 - **Delivered integration and limits:** [UW6 handover](#uw6--accepted-integration-and-final-handover) and the latest formal assessments. Delivery, verification and owner acceptance are distinct.
 - **Delivered PlayNotes:** [P5 handover](#p5--implementation-and-developer-handover--2026-10-24) and [formal assessment](verification.md#p5--playnotes-context-safety-and-archives--2026-10-24). P6 cross-session history is implemented; see the [P6 handover](#p6--implementation-and-developer-handover--2026-10-24).
-- **Future Play work:** [accepted tabletop architecture](#play-tabletop--accepted-architecture-reconciliation--2026-10-24) and [proposed T1/T2 and reconciled P5/P7/P6/P8 sequence](#play-tabletop--proposed-implementation-sequence--2026-10-24) supersede conflicting future focus/P4R direction in the [original Playthrough plan](playthrough-implementation-plan.md). Historical delivery evidence remains unchanged. No plan grants execution permission.
+- **Integrated Play handover:** [P8 plan, handover and Q10 acceptance map](#p8--accepted-bounded-implementation-plan--2026-10-24) and [formal assessment](verification.md#p8--integrated-developer-handover--2026-10-24) cover delivered T1/T2/P5/P6/revised P7. The accepted tabletop reconciliation supersedes conflicting focus/P4R direction in the original Playthrough plan. Owner acceptance remains separate; no plan grants execution permission.
 - **Other future work:** [creative co-author direction](#creative-co-author--accepted-architectural-direction-and-open-choices--2026-10-19) retains its open choices.
+
+## P8 — accepted bounded implementation plan — 2026-10-24
+
+Consolidate the Q10f–Q10x evidence under the accepted tabletop reconciliation. Reuse current owners and contracts; no new feature, API, dependency, persistence or archive version. Extend existing illustrated recovery and unified workflow browser journeys with PlayNotes preservation/context remapping. Run integrated developer checks, inspect actual Write/Prepare/Play and populated-tabletop screenshots at 1280×800, 1440×900 and 390×844, then separately assess the final candidate with fresh backend tests and integrated browser checks. Correct demonstrated in-scope defects only. Record durable evidence, accepted supersessions and manual/unverified limits; owner functional/visual acceptance remains separate. Expected edits: existing browser tests, this plan, README and verification evidence. Preserve earlier uncommitted P7 work.
+
+### P8 — implementation and developer handover — 2026-10-24
+
+Extended existing browser journeys rather than adding application behavior: the illustrated Write/Prepare/Play recovery journey now creates, edits and pins a PlayNote, then checks its fresh imported identity and preserved resource evidence alongside frozen artwork, Preparation notes and Used placement. The unified author/prepare/play/update/recovery journey now checks captured Scene/resource note context through portable import. Existing tests cover piles, Library Add, history, concurrency, invalid archives, navigation and retries; the acceptance map below identifies their current responsibilities and supersessions.
+
+Final developer run `/tmp/p8-developer.log`: **131 frontend tests in 14 files**, production build, generated-client/version checks, **51/51 Chromium journeys**, and isolated PostgreSQL installation preservation across restart. Backend tasks passed with cached test outputs; fresh execution belongs to the separate formal pass. The first developer run exposed an incorrect new-test assumption that pinning is available before creation; corrected to the existing create/edit/pin flow before the final run. No application defect or application change resulted. Existing initial/style/generator warnings and budgets remain unchanged.
+
+Visually inspected actual Write, Prepare, illustrated Play and populated-tabletop captures at 1280×800, 1440×900 and 390×844. Laptop panels remain readable; narrow workspaces stack vertically and the tabletop retains its horizontal card shelf. Existing browser overflow/scroll/keyboard checks passed. Screenshots are generated under ignored `frontend/test-results/` and are temporary evidence, not durable repository assets. Owner visual acceptance remains separate. Safari/WebKit, exhaustive assistive-technology, maximum-scale performance and every concurrency/forced-termination schedule remain unverified. No campaign source edits, migration, dependency, archive format change, data reset or commit.
+
+The separate [P8 formal assessment](verification.md#p8--integrated-developer-handover--2026-10-24) passes fresh **91 backend tests**, **131 frontend tests**, build/client checks and **51 Chromium journeys**, plus database installation preservation across restart. All 444 compared application/test source files remained unchanged during formal execution. No unresolved P8 defect was identified within assessed scope. This completes the planned integrated handover; owner functional/visual acceptance and subsequent product scope remain separate.
+
+### P8 — reconciled acceptance and evidence map
+
+The accepted 2026-10-24 tabletop reconciliation governs current acceptance; the original Q10 wording remains historical context. A mapping is not a claim that every concurrency schedule or browser has been tested.
+
+| IDs | Current accepted behavior | Evidence owners/journeys |
+| --- | --- | --- |
+| Q10f | Five disjoint locations, Scene slot, two ordered covered piles, searchable Session Cards/Used; supersedes independent focus slots | PlayWorkspace tests, T1/T2 assessments, `tabletop.spec.ts`, 50-item `workspace.spec.ts` |
+| Q10g | Explicit atomic Scene activation/change/deactivation, Keep/customize/cancel; reading never activates | Playthrough integration tests, Scene overview/tabletop journeys |
+| Q10h | Server-captured Scene plus optional primary resource; reading does not alter draft context | PlayNotes integration/state tests, `play-notes.spec.ts`, unified workflow |
+| Q10i, Q10s | Existing right Document reader and temporary pile overlay replace fourth-card/replacement and expanded-focus UI | Tabletop reader, overlay, cover and panel journeys; shared reader/geometry tests |
+| Q10j | Dedicated Library inspection and explicit atomic Add, pinned destination, new Session Card, frozen historical-target safety | Revised P7 assessment; unified Library/workflow and UX-C1/C7 journeys |
+| Q10k, Q10l | Independent Markdown PlayNotes record improvisation/outcomes; no automatic resource/world-state changes | P5 tests/assessment, P8 illustrated and unified workflow note round trips |
+| Q10m | Exact origin-qualified resource/Scene history across sessions; independent pins and chronology | PlayHistory integration/state tests, `play-history.spec.ts`, P6 assessment |
+| Q10n, Q10o | One optional primary resource; explicit pin stays in full chronology | PlayNotes tests/journey; illustrated pinned-note portable recovery |
+| Q10p | Existing frozen full-document reader, heading navigation and shared artwork | Reader, artwork, artwork-fit, unified workflow and tabletop journeys |
+| Q10q | Existing session navigation plus card history, with unsaved-note guards | P6 history journey, session and recovery journeys |
+| Q10r, Q10w | Restore committed Scene, locations, pile names/order/covers through reopen and Prepare visits; temporary panel/overlay/selection need not persist | T1/T2 persistence/archive evidence; tabletop, unified workflow and artwork recovery |
+| Q10t | Used means manually set aside; no discovery state | Explicit move commands/tests and Used journeys; accepted exclusions |
+| Q10u | Scene overview exposes prepared related cards and their current placement, including Used; inspection never returns/moves them | Scene overview/tabletop and unified workflow; replaces authored-link suggestion completion |
+| Q10v | No recent-scene control or transition history | Accepted exclusion; existing Scene selection/overview |
+| Q10x | Removal prunes only removed placement, clears removed Scene, advances affected cover, retains notes/other arrangement | PlayWorkspace reconciliation, tabletop Prepare-removal journey, P5/P6 removed-resource tests |
+
+Archive completeness, malformed-import rollback, revision conflicts, concurrent retries, campaign isolation and restart preservation are covered by existing backend integration tests and per-increment formal records. P8 reruns the current suites rather than treating historical green results as fresh evidence. Deferred AI, note-to-resource promotion, discovery/world-state tracking, recent-scenes UI, extra piles and freeform positioning remain excluded.
+
+## Revised P7 — bounded implementation plan — 2026-10-24
+
+**Status: ACCEPTED.** Investigation established that unified Library atomic Add and tabletop reconciliation already implement the accepted product behavior. Reuse Writing's catalogue/representation ownership, Preparation's transaction and membership ownership, and Playthroughs' snapshot reconciliation. No new API, persistence, dependency or embedded Library panel is needed.
+
+Add a combined browser journey with both populated piles/covers, active Scene, Used membership and a PlayNote association. Verify cancelled navigation retains the unsaved note, save explicitly before leaving, inspect without mutation, lose a successful Add response, reopen Play to reconcile one new Session Card, and retry without duplication or placement/history changes. Retain existing destination-switch, stale representation, rollback and historical-target regressions. Scope tests and handover/assessment documentation; application corrections only for demonstrated in-scope defects. Developer integration checks precede a separate formal assessment. Owner acceptance remains separate.
+
+### Revised P7 — implementation and developer handover — 2026-10-24
+
+No application changes were required. Added the combined P7 journey in `frontend/e2e/tabletop.spec.ts`: both piles/covers, active Scene, Used, cancelled unsaved-note navigation and primary association, saved-note preservation, inspection without runtime mutation, committed Add with lost response, Play reopening/reconciliation and duplicate retry without further runtime change.
+
+Developer integration (`/tmp/p7-developer.log`) passed **131 frontend tests in 14 files**, production build, **51 Chromium journeys**, generated-client/version checks and database installation preservation across restart. Backend build/test tasks passed using cached results; formal verification forces fresh execution. Existing bundle/style/generator warnings and budgets remain unchanged. Formatting followed the developer run; the separate formal run exercises the final formatted test. No new API, migration, archive format, dependency or campaign-content edits. Owner acceptance and P8 remain separate.
+
+The separate [P7 formal assessment](verification.md#revised-p7--library-inspection-and-explicit-add--2026-10-24) passes fresh **91 backend tests**, **131 frontend tests**, build/client checks and **22 relevant Chromium journeys**, plus database installation preservation across restart. No application/test changes occurred during that assessment. Revised P7 is delivered and verified; owner acceptance remains separate. **P8 integrated developer handover is the next planned increment**, subject to its own bounded scope and authorization.
 
 ## Documentation cleanup — bounded increment — 2026-10-24
 
