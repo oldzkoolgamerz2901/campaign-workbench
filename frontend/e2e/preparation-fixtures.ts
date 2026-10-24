@@ -158,8 +158,9 @@ export async function importHistoricalSession(
 ) {
   const response = await request.post(`/api/campaigns/${campaign}/sessions/import`, {
     data: {
-      version: 9,
+      version: 10,
       sessions: [{ ...session, items }],
+      notes: [],
       workspaces: [{ session: session.id, workspace: null }],
     },
   });

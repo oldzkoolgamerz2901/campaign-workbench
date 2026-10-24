@@ -1,8 +1,8 @@
 # Campaign Workbench
 
-**T2 tabletop (2026-10-24):** Play now integrates the unique-location tabletop backend: reserved Scene slot, two persistent runtime piles and a shared Notes/Document panel. Session archives use strict v9. See the [T2 handover](docs/implementation-plan.md#t2--implementation-and-developer-handover--2026-10-24) for checks and limits. PlayNotes capture/history remains future P5 work.
+**P5 PlayNotes (2026-10-24):** Play’s Notes panel now supports independent Markdown notes, explicit resource association, captured Scene context, editing, pins and session chronology. Drafts survive reader/tabletop interactions; changed Scene context requires explicit review, and uncertain saves retain safe retry identity. Preparation references remain read-only. Session archives use strict v10 and include all notes. See the [P5 handover](docs/implementation-plan.md#p5--implementation-and-developer-handover--2026-10-24) for evidence and limits. Cross-session resource/Scene history remains future P6 work.
 
-A local laptop workspace for campaign preparation and play. The source library provides campaign registration, switching, Markdown browsing, and passage search. Increment 2 adds durable session preparation, frozen source material, Markdown notes, a reading folio, and portable session archives. Manual writing adds drafts, type groups, playing-card/full-document previews, source copying, reviewed Markdown downloads, and exact-revision approval into frozen session contents. Play records, authority assignments, general source history, and AI remain future work.
+A local laptop workspace for campaign preparation and play. The source library provides campaign registration, switching, Markdown browsing, and passage search. Increment 2 adds durable session preparation, frozen source material, Markdown notes, a reading folio, and portable session archives. Manual writing adds drafts, type groups, playing-card/full-document previews, source copying, reviewed Markdown downloads, and exact-revision approval into frozen session contents. Cross-session Play history, authority assignments, general source history and AI remain future work.
 
 The Angular frontend and Kotlin/Spring modular backend live here. Independent campaign directories retain authoritative Markdown. PostgreSQL owns application state. The backend reads explicitly registered campaign directories and never rewrites their sources.
 
@@ -18,7 +18,7 @@ Read [AGENTS.md](AGENTS.md) and the required workflow documents before developme
 | Workspace UX decisions | [Accepted workspace design](docs/unified-workspace-ux-design.md) |
 | Formal findings, corrections and verification limits | [Verification](docs/verification.md), relevant increment assessment |
 | Completed developer checks or historical implementation rationale | [Implementation history](docs/implementation-history.md#record-index), relevant record only |
-| Future PlayNotes/history | [Playthrough implementation plan](docs/playthrough-implementation-plan.md), P5/P6 |
+| PlayNotes and future cross-session history | [P5 handover](docs/implementation-plan.md#p5--implementation-and-developer-handover--2026-10-24); [Playthrough implementation plan](docs/playthrough-implementation-plan.md), P6 |
 
 The increment descriptions below retain delivery context. Historical limitations apply to their original increment; later accepted changes may supersede them. Verification results do not imply owner acceptance or execution authorization.
 

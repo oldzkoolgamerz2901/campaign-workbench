@@ -19,6 +19,7 @@ import { CampaignControls } from '../campaigns/campaign-controls';
 import { SessionContents } from './session-contents';
 import { revealReaderTarget } from '../shared/reader/reader-presentation';
 import { PlayingCard } from '../shared/playing-card/playing-card';
+import { PlayNotesPanel } from '../playthroughs/play-notes';
 import { Tabletop } from '../playthroughs/tabletop';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { PreparationLibrary } from './preparation-library';
@@ -38,6 +39,7 @@ import { MarkdownView } from './markdown-view';
     SessionContents,
     PlayingCard,
     Tabletop,
+    PlayNotesPanel,
     WorkbenchHeader,
   ],
   templateUrl: './workspace.html',
@@ -73,7 +75,7 @@ export class Workspace implements OnDestroy {
     );
   });
   readonly saveStatus = computed(() => {
-    const statuses = [this.state.status(), this.state.play.status()];
+    const statuses = [this.state.status(), this.state.play.status(), this.state.playNotes.status()];
     return statuses.includes('failed')
       ? 'failed'
       : statuses.includes('saving')
@@ -384,6 +386,8 @@ export class Workspace implements OnDestroy {
       readerIntent = this.readerIntent;
     if (!session) return;
     await this.state.initializeTable();
+    if (epoch !== this.routeEpoch) return;
+    await this.state.playNotes.open(session.campaign, session.id);
     if (
       epoch !== this.routeEpoch ||
       !this.reading() ||

@@ -82,6 +82,8 @@ The shared PlayingCard used 5:7 before P2G. P2G changes its outer ratio to **243
 
 ## P5 — PlayNotes, context safety and archives
 
+**Later delivery (2026-10-24):** Implemented and passed separate [formal verification](verification.md#p5--playnotes-context-safety-and-archives--2026-10-24) after T1/T2; see the [bounded plan and developer handover](implementation-plan.md#p5--bounded-implementation-plan--2026-10-24). V20 and strict session archive v10 include PlayNotes. Owner acceptance remains separate; the reconciled next increment is revised P7, subject to its own planning/authorization. The original scope below is retained for traceability.
+
 **Scope:** Playthrough note persistence/API/state/editor using existing Markdown editing/rendering patterns; current-session chronology and pinned presentation; public snapshot-based associations; portable coordinator/codec validation. Keep Preparation session/item notes unchanged.
 
 **Acceptance:** freeform notes, immutable creation chronology with stable ID tie-break, optional primary resource and captured scene/title, pinning without removing chronological entries. Own note revision prevents lost edits/pins. Create requests carry operation ID and expected active-scene item (including null); changed scene returns a context conflict retaining text, unrelated reorder does not block creation. Identical retries return one note; changed payload with same operation ID conflicts. Preserve originating UI campaign/session.

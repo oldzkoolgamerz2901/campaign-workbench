@@ -11,6 +11,6 @@ import workbench.sessionarchives.application.*
 @Configuration
 class SessionArchiveConfiguration {
     @Bean fun portableSessionService(preparation: PreparationTransfers, workspaces: WorkspaceTransfers, transfers: PortableTransfers,
-        codec: SessionArchiveCodec, processor: ImageProcessor, tx: Transactions, campaigns: Campaigns) =
-        PortableSessionService(preparation, workspaces, transfers, codec, processor, tx, campaigns)
+        codec: SessionArchiveCodec, processor: ImageProcessor, tx: Transactions, campaigns: Campaigns, notes: workbench.playthroughs.api.PlayNoteTransfers) =
+        PortableSessionService(preparation, workspaces, transfers, codec, processor, tx, campaigns, notes)
 }

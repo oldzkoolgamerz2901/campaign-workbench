@@ -219,7 +219,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         val campaigns = c.getBean(workbench.campaigns.api.Campaigns::class.java)
         val brokenPreparation = PreparationService(campaigns, failing, tx,
             c.getBean(PreparationMarkdown::class.java), c.getBean(SessionDrafts::class.java), images)
-        val brokenSessions = PortableSessionService(PreparationTransferFacade(brokenPreparation, images), c.getBean(workbench.playthroughs.api.WorkspaceTransfers::class.java), transfer, c.getBean(SessionArchiveCodec::class.java), processor, tx, campaigns)
+        val brokenSessions = PortableSessionService(PreparationTransferFacade(brokenPreparation, images), c.getBean(workbench.playthroughs.api.WorkspaceTransfers::class.java), transfer, c.getBean(SessionArchiveCodec::class.java), processor, tx, campaigns, c.getBean(workbench.playthroughs.api.PlayNoteTransfers::class.java))
         brokenSessions.import(target, sessionZip.inputStream()).isLeft() shouldBe true
         prep().list(target).getOrNull()!!.sessions.size shouldBe 0
         jdbc().queryForObject("SELECT count(*) FROM preparation.image_original WHERE owner_id=?", Long::class.java, target) shouldBe 0L

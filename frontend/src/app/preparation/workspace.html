@@ -481,7 +481,10 @@
         aria-label="Working notes"
       >
         @if (state.current(); as session) {
-          <p class="eyebrow">YOUR PREPARATION</p>
+          @if (reading()) {
+            <play-notes [session]="session" />
+          }
+          <p class="eyebrow">{{ reading() ? 'PREPARATION REFERENCES · READ ONLY' : 'YOUR PREPARATION' }}</p>
           <div class="note-tabs">
             <button
               matButton

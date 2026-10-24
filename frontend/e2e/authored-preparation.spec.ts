@@ -129,7 +129,7 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(9);
+    expect(archive.version).toBe(10);
     const imported = await (
       await request.post(`/api/campaigns/${destination.id}/sessions/import`, { data: archive })
     ).json();

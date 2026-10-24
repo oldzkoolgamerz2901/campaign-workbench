@@ -18,7 +18,35 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         require(bytes.size <= MAX_ARCHIVE)
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
-        fields(tree, "version", "sessions", "workspaces")
+        fields(tree, "version", "sessions", "workspaces", "notes")
+        integer(tree.path("version")); require(tree.path("version").intValue() == 10)
+        val notes = tree.path("notes")
+        require(notes.isArray && notes.size() <= 10000)
+        val counts = mutableMapOf<String, Int>()
+        for (note in notes) {
+            fields(note, "id", "campaign", "session", "revision", "markdown", "scene", "resource", "createdAt", "updatedAt", "pinned")
+            listOf("id", "campaign", "session").forEach { uuid(note.path(it)) }
+            val session = note.path("session").asString()
+            counts[session] = (counts[session] ?: 0) + 1
+            require(counts.getValue(session) <= 10000)
+            val revision = note.path("revision")
+            require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
+            strings(note, "markdown", "createdAt", "updatedAt")
+            require(note.path("markdown").asString().isNotBlank() && note.path("pinned").isBoolean)
+            val created = java.time.Instant.parse(note.path("createdAt").asString())
+            require(java.time.Instant.parse(note.path("updatedAt").asString()) >= created)
+            for (name in listOf("scene", "resource")) {
+                val context = note.path(name)
+                if (!context.isNull) {
+                    fields(context, "reference", "title"); string(context.path("title"))
+                    require(context.path("title").asString().isNotBlank())
+                    val reference = context.path("reference")
+                    if (!reference.isNull) {
+                        fields(reference, "campaign", "card"); uuid(reference.path("campaign")); uuid(reference.path("card"))
+                    }
+                }
+            }
+        }
         val records = tree.path("workspaces")
         require(records.isArray && records.size() <= 100)
         for (record in records) {
@@ -42,7 +70,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             }
         }
         val contents = tree.deepCopy() as tools.jackson.databind.node.ObjectNode
-        contents.remove("workspaces")
+        contents.remove("workspaces"); contents.remove("notes")
         read(mapper.writeValueAsBytes(contents)).map {
             mapper.treeToValue(tree, workbench.sessionarchives.api.SessionTransfer::class.java)
         }
@@ -66,7 +94,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version == 9)
+        require(version == 10)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0

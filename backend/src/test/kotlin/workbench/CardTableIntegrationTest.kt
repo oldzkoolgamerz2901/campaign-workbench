@@ -142,7 +142,7 @@ class CardTableIntegrationTest : StringSpec({
             w = play.cover(campaign, s.id, ChooseCover(w.revision, PileSlot.PILE_1, second)).getOrNull()!!
             s = p.save(campaign, s.id, SaveSession(s.revision, s.title, "", s.notes, s.items.filter { it.id != second }.map { ItemNotes(it.id, "") })).getOrNull()!!
             val archive = archives.manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-            archive.version shouldBe 9
+            archive.version shouldBe 10
             archive.workspaces.single().workspace!!.sessionCards shouldBe emptyList()
             archive.workspaces.single().workspace!!.activeSceneItemId shouldBe first
             archive.workspaces.single().workspace!!.pile1.items shouldBe listOf(third)
@@ -180,7 +180,7 @@ class CardTableIntegrationTest : StringSpec({
             }
             val tx = context.getBean(Transactions::class.java)
             val broken = PortableSessionService(context.getBean(PreparationTransfers::class.java), failing, context.getBean(PortableTransfers::class.java), codec,
-                context.getBean(ImageProcessor::class.java), tx, context.getBean(workbench.campaigns.api.Campaigns::class.java))
+                context.getBean(ImageProcessor::class.java), tx, context.getBean(workbench.campaigns.api.Campaigns::class.java), context.getBean(PlayNoteTransfers::class.java))
             val count = p.list(other).getOrNull()!!.sessions.size
             broken.restore(other, archive).isLeft() shouldBe true
             p.list(other).getOrNull()!!.sessions.size shouldBe count
@@ -251,9 +251,9 @@ class CardTableIntegrationTest : StringSpec({
             val tree = mapper.valueToTree<ObjectNode>(archive)
             tree.put("version", 6)
             reader.readTransfer(mapper.writeValueAsBytes(tree)).isLeft() shouldBe true
-            tree.put("version", 9); tree.put("unknown", true)
+            tree.put("version", 10); tree.put("unknown", true)
             reader.readTransfer(mapper.writeValueAsBytes(tree)).isLeft() shouldBe true
-            reader.readTransfer("{\"version\":9,\"version\":9}".toByteArray()).isLeft() shouldBe true
+            reader.readTransfer("{\"version\":10,\"version\":10}".toByteArray()).isLeft() shouldBe true
         } finally { context.close(); database.stop(); root.toFile().deleteRecursively() }
     }
 })

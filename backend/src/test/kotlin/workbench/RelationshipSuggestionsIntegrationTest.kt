@@ -81,7 +81,7 @@ class RelationshipSuggestionsIntegrationTest : StringSpec({
             http("scene-links/$first/$scene", "{\"revision\":${s.revision},\"linked\":true}").statusCode() shouldBe 400
             val archives = context.getBean(PortableSessionService::class.java)
             val archive = archives.manifest(campaign, ExportSessions(listOf(s.id, foreign.id))).getOrNull()!!
-            archive.version shouldBe 9
+            archive.version shouldBe 10
             archive.workspaces.last().workspace shouldBe null
             val reader = context.getBean(SessionArchiveReader::class.java)
             reader.readTransfer(reader.writeTransfer(archive)).getOrNull() shouldBe archive

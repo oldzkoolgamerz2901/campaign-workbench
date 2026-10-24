@@ -12,5 +12,6 @@ data class ArchivedWorkspace(
 data class SessionTransfer(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val version: Int,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val sessions: List<SessionData>,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val workspaces: List<ArchivedWorkspace>
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val workspaces: List<ArchivedWorkspace>,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: List<workbench.playthroughs.api.PlayNoteData>
 )
