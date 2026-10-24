@@ -4,6 +4,17 @@ Date: 2026-10-17
 
 Status: Requirements approved by the owner on 2026-10-17, with subsequent accepted revisions for local laptop operation, direct campaign-folder access, and multiple campaigns. Outstanding decisions remain explicit. Architectural proposals and implementation plans require their own approval; this specification does not authorize implementation.
 
+## Reading and decision precedence
+
+This specification retains the evolution of accepted requirements. A later, explicitly accepted refinement supersedes only conflicting earlier behavior; broad requirements may describe future capabilities rather than delivered features. [Current delivery/evidence](implementation-plan.md) and [future work](future-work.md) distinguish implementation status from acceptance and proposals.
+
+| Area | Most specific accepted reference |
+| --- | --- |
+| Library, Writing and frozen preparation | [Unified requirements](#unified-library-writing-and-preparation--accepted-requirements--2026-10-22), then [UX refinements](#library--write--prepare-visual-simplification--accepted-requirements--2026-10-23) and UX-C6/C7 below |
+| Tabletop, notes, history and P7/P8 | [2026-10-24 reconciliation](#play-tabletop--accepted-requirements-reconciliation--2026-10-24); original Q10 decisions remain traceability context |
+| Creative co-author | [Accepted requirements](#creative-co-author--accepted-requirements--2026-10-19), with unresolved choices retained; not implemented by P8 |
+| Earlier outstanding questions | Dated investigation context; consult later accepted decisions and evidence before treating them as unresolved |
+
 ## Purpose and audience
 
 The app supports two main activities: **preparing a session** and **playing a session**. Assisted creation is part of preparation and is optionally available during play.
