@@ -132,9 +132,9 @@ flowchart TB
 
 **Non-interference:** This remains a deferred feature on a separate documentation branch. Do not merge into `main`, change active Codex increments, or treat this proposal as permission to implement.
 
-## Consolidated sharing architecture — accepted decisions 1–14 (2026-10-24)
+## Consolidated sharing architecture — accepted decisions 1–21 (2026-10-24)
 
-**Status:** Owner-accepted conceptual architecture, **deferred feature**. This section supersedes earlier lists of unresolved product choices above where they conflict. Network and persistence mechanisms marked proposed or open below are **not** accepted implementation choices. This branch is isolated from ongoing Codex work; no implementation or merge is authorized.
+**Status:** Owner-accepted conceptual architecture (Decisions 1–21), **deferred feature**. This section supersedes earlier lists of unresolved product choices above where they conflict. Network and persistence mechanisms marked proposed or open below are **not** accepted implementation choices. This branch is isolated from ongoing Codex work; no implementation or merge is authorized.
 
 ### Decisions and rationale
 
@@ -154,6 +154,13 @@ flowchart TB
 | 12 | DM-controlled transfers | Players may claim group inventory and discard own inventory; no player-to-player transfers |
 | 13 | Shared content immutable | Corrections require distributing a new instance; never silently refresh |
 | 14 | Handouts withdrawable/restorable by DM | Hide from players, retain recipient, snapshot and history; no permanent deletion required |
+| 15 | Sharing retains its own immutable artwork | Copy frozen artwork through Preparation public contract into Sharing-owned PostgreSQL storage; deduplicate within Sharing; survive source removal |
+| 16 | One application, gateway implementation after feasibility verification | Prefer second embedded Tomcat connector with proven route isolation; fallback to minimal allowlisting gateway/proxy; DM stays localhost-only |
+| 17 | Persistent revocable device credentials | Server stores hash; multiple devices per player; scoped to campaign; no access/refresh token rotation infrastructure |
+| 18 | Poll complete player collections | No revision protocol or WebSockets; refresh after mutations and on browser resume; polling interval is implementation detail |
+| 19 | Sharing excluded from existing archives | Session and Writing archives retain their scope; campaign-wide Sharing backup/export deferred; never export reusable device secrets |
+| 20 | Transactionally validate current state | Use existing campaign locking contract; authorize and check owner/status within transaction; no client expected-version requirement; one winning claim |
+| 21 | localStorage + Authorization header | Player browser stores persistent credential and sends in Authorization header; no auth cookies; enforce script injection protections |
 
 ### Domain and responsibility boundaries
 
@@ -177,11 +184,11 @@ Conceptual entities:
 - `PairedDevice(id, campaignPlayerId, credentialHash, revokedAt, lastSeenAt)`: revocable browser authorization scoped through its player to one campaign; device fingerprinting is unnecessary.
 - `SharedCard(id, campaignId, mode, status, immutableSnapshot, sourceProvenance, version, recipientOrOwner)`: each distribution creates a unique instance. **Inventory** has exactly one owner (group or player); **Handout** has a visibility recipient (group or player), not an inventory owner.
 - `SharedCardEvent(id, sharedCardId, actor, action, timestamp, ...)`: append-only operation history; current state is stored directly, not event-sourced.
-- Snapshot includes frozen title, document, card representation and artwork reference or independently retained immutable content. Snapshot must remain readable after source changes or deletion.
+- Snapshot includes frozen title, document, card representation and Sharing-owned immutable artwork. Preparation supplies frozen artwork through its public contract; Sharing retains its own PostgreSQL image data and deduplicates within Sharing, following the existing Writing/Preparation pattern. The shared image remains accessible after source or prepared-item removal, including while discarded/withdrawn. No new global Assets module or cross-module reference counting. Snapshot must remain readable after source changes or deletion.
 
 Domain operations: distribute inventory/handout; claim active group inventory; DM transfer active inventory; player/DM discard inventory; DM restore inventory to prior owner; DM withdraw/restore handout to prior recipient; manage roster and paired devices. A discarded card cannot be claimed or transferred until restored. Inactive players retain ownership; DM can explicitly transfer their inventory.
 
-Every command checks actor, campaign, mode, state and ownership; all state mutations and corresponding history records commit atomically. Concurrent group claims must yield at most one winner. Follow the existing campaign-row locking/public contract rather than inventing a second concurrency framework.
+Every command checks actor, campaign, mode, current state and ownership within a transaction; all state mutations and corresponding history records commit atomically. Concurrent group claims must yield at most one winner. Follow the existing campaign-row locking/public contract rather than inventing a second concurrency framework. Do not require client-supplied expected versions for ordinary mutations. On a stale or invalid operation, preserve authoritative state and return a conflict/error so the player can refresh.
 
 ### Player access and lifecycle
 
@@ -196,10 +203,11 @@ stateDiagram-v2
 
 - At most one campaign is available through the gateway. On startup, gateway is disabled regardless of previous runtime state.
 - DM chooses a campaign player and generates a short-lived, single-use pairing QR; scan exchanges temporary token for a revocable device credential without a second approval.
+- The pairing QR contains a short-lived single-use token; successful exchange yields a high-entropy persistent device credential. Store only its hash server-side. The browser stores the credential in localStorage and sends it in an Authorization header (not URLs or cookies). No refresh-token mechanism is needed. Prevent script injection and sanitize untrusted card Markdown because scripts on the player origin can read localStorage. Trusted-LAN HTTP remains susceptible to credential interception.
 - Previously paired active players reconnect when the DM enables the same campaign again. Deactivation blocks all that player's devices without deleting pairings or collections; device revocation blocks only that device.
 - Gateway derives campaign/player identity from credential and currently enabled campaign; never trusts tablet-provided IDs. Players see own and group collections only. Group inventory is not duplicated into every player's collection.
 - Disable/switch must stop accepting requests, complete or safely reject in-flight operations against their original campaign, then switch. Never rebind an existing request to the newly selected campaign.
-- Tablet UI is online-only; use refresh/polling for collection changes. No WebSockets, offline synchronization, cloud or external accounts required.
+- Tablet UI is online-only; periodically poll complete authorized personal/group collections (no collection revision protocol), refresh immediately after claim/discard and when the browser resumes. Stop polling on disabled gateway or rejected authorization; show disconnected/stale-data feedback when unreachable, and never treat stale data as permission. A five-second polling interval is an illustrative default, not a requirement. No WebSockets, offline synchronization, cloud or external accounts required.
 - QR should use an explicit reachable LAN IP address. Guest networks/client isolation, VLANs and laptop firewall may block traffic; a running gateway is not proof of tablet reachability.
 - HTTP on a trusted LAN is a deliberate first-version tradeoff: credentials and content are not encrypted. Do not claim protection against active local network interception.
 
@@ -225,18 +233,18 @@ Permanent deletion, player handout removal, quantity mechanics, and direct playe
 
 ### Open technical questions and verification gates
 
-1. **Artwork retention (high priority):** Inspect actual image ownership, immutable SHA/content references, deletion/garbage-collection paths and frozen PreparedItem image behavior. Ensure shared snapshots survive source deletion, including discarded and withdrawn instances. Reuse existing image storage; avoid an unnecessary new Assets module.
-2. **Gateway isolation (high priority):** Verify whether an additional Spring Boot listener in the same process can strictly restrict reachable routes (including DM APIs, actuator/admin, OpenAPI/docs, static files, path variants). A second port alone is insufficient. If not demonstrably safe, compare a minimal allowlisting proxy. Keep DM and PostgreSQL localhost-only.
-3. **Credential threat model:** Specify exact pairing token lifetime (five minutes proposed, not mandated), single-use enforcement, credential generation/hash/storage/transport, CSRF behavior, revocation, expiry/rotation, browser storage, and handling of HTTP interception under trusted LAN.
+1. **Artwork integration (verification required):** Decision 15 selects Sharing-owned immutable PostgreSQL artwork, deduplicated within Sharing. Inspect actual Preparation image read contract, immutable SHA/content representation, deletion/garbage-collection paths, and safe snapshot copying to verify this can be implemented with existing conventions. Do not reopen ownership without demonstrated conflict.
+2. **Gateway isolation (high priority):** Decision 16 prefers an additional embedded Tomcat LAN listener if strict route isolation is demonstrable, otherwise a minimal allowlisting gateway/proxy. Verify that DM APIs, actuator/admin, OpenAPI/docs, unintended static files and path variants are inaccessible on the LAN. A second port alone is insufficient. Keep DM and PostgreSQL localhost-only.
+3. **Credential implementation details:** Decisions 17 and 21 select a persistent revocable credential, server-side hash, browser localStorage and Authorization header. Verify token generation, hash lookup, one-use pairing exchange, revocation, error handling, XSS/Markdown sanitization and handling of HTTP interception under the accepted trusted-LAN assumption. Five-minute QR lifetime is proposed, not fixed. No cookie-based CSRF flow or refresh-token system is selected.
 4. **Player UI delivery:** Verify how to build and serve the dedicated player-facing Angular entry/view without exposing the development server or accidentally granting DM API access.
 5. **LAN address/lifecycle:** Determine correct IP with multiple adapters/VPNs, changing DHCP addresses, OS firewall prompts, gateway bind/start/stop behavior, in-flight request handling and user-visible connection diagnostics.
 6. **Module integration:** Verify the current module/package boundaries, Preparation's frozen snapshot read contract, Campaigns' lock API, and image retention contract. No direct cross-module repository/table access.
-7. **Consistency and errors:** Finalize optimistic version/locking approach, claim conflict responses, operation retries, transactional audit events, polling/revision contract, and restore edge cases (e.g. inactive owner).
-8. **Archives/backups:** Clarify whether campaign-wide Sharing roster, device pairings, shared snapshots and history participate in any campaign-level export/import. Existing session archives are scoped to sessions; do not silently attach campaign-wide state to them. Preserve security of credentials in backups.
+7. **Consistency and errors:** Decision 20 requires transactional current-state validation under existing campaign locking and atomic audit history; no client expected versions. Verify lock usage by player requests, one-winner claims, retries/conflict responses and restore edge cases (e.g. inactive owner). Decision 18 requires full-collection polling without revisions.
+8. **Archives/backups:** Decision 19 explicitly excludes Sharing from existing session and Writing archives. Future campaign-wide backup/export is out of scope; do not silently attach Sharing to session archives or export reusable authentication credentials. Document that existing archives are not player-collection backups.
 9. **Verification:** Demonstrate LAN denial of all DM routes, one-winner concurrent claims, immutable snapshots after source deletion, campaign-switch isolation, revoked/inactive player denial, restoration, and correct access by group/personal recipients.
 
 ### Architecture review outcome
 
-Domain behavior and accepted product decisions are coherent and substantially complete. **Architecture is not yet ready for implementation planning** until the high-priority image retention and gateway isolation investigations are completed and their implementation constraints are resolved. Preserve this as an approved conceptual direction with explicitly open technical questions, not as authorization to implement.
+**Conceptual architecture is accepted and closed at Decisions 1–21.** Technical feasibility and existing-code integration are not yet verified. Before implementation planning, complete the gateway isolation and image integration investigations, confirm campaign locking and frontend packaging, and resolve any demonstrated technical conflicts through the normal approval workflow. The open items above are verification and design constraints, not permission to silently change accepted decisions. Preserve this as an approved conceptual direction with explicitly open technical questions, not as authorization to implement.
 
 **Non-interference:** Documentation is maintained only on `docs/future-player-card-sharing`; no merge, PR, change to `main`, active Codex work, implementation plan, harness, code, or migrations is authorized.
