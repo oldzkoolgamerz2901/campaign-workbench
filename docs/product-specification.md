@@ -794,3 +794,15 @@ The owner approved these requirements after the direct-add consumer investigatio
 - Exclude persistence migrations, archive-format changes, campaign-content edits and UX-C7 authored-link reconciliation.
 
 Architecture and the concrete bounded implementation plan require their own approval. Execution authorization remains in the conversation.
+
+### UX-C7 — accepted authored-link reconciliation requirements — 2026-10-24
+
+Following investigation with temporary fixtures, the owner approved the following behavior. Library currently represents an associated Source/Draft as one card while authored-link checks count both paths as competing documents; moving the Draft placement can also make heading checks inspect Source content while Library opens the effective Draft. These requirements correct that inconsistency without changing association authority.
+
+- Resolve in-app authored links through unified card identity, using the effective Draft and its headings when one exists. An explicitly associated Source and Draft are one target, including supported Source-path and Draft-placement locators. Do not infer association from path, title, hash or independent-copy provenance.
+- Preserve genuine competing identity/path claims as conflicts; never choose an arbitrary claimant. Preserve safe URI handling, missing-document/heading feedback, campaign isolation and Draft-only/self navigation.
+- Keep export warnings accurate about campaign files and headings still requiring export/incorporation. Successful in-app navigation does not establish that a portable Markdown link already works in the captured campaign files. Preserve authored body bytes, manual incorporation and explicit warning acknowledgement.
+- Track resolved target revisions so changing an associated target invalidates an export inspection even when its Draft placement differs from the linked Source path.
+- Pin new preparation approvals to exact resolved target revisions. Preserve existing approved revisions, export artifacts, frozen sessions and historical link evidence; do not reinterpret or rewrite retained history.
+
+Required evidence includes associated typed/untyped Source/Draft pairs, true identity/path collisions, moved Draft placement, Draft-only/self links, heading navigation, export warnings and stale reports, future exact-revision freezing, and historical session/Writing recovery regressions. The consequential resolver architecture and bounded implementation plan retain their own approval gates. All-stage execution authorization is recorded in the conversation.

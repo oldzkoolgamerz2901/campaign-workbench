@@ -127,6 +127,7 @@ describe('Unified Library destinations and representation safety', () => {
       7,
       undefined,
       'draft',
+      undefined,
       'body',
       false,
       { httpHeaderAccept: 'application/json' },
@@ -145,6 +146,7 @@ describe('Unified Library destinations and representation safety', () => {
       'capture',
       undefined,
       'alternate.md',
+      undefined,
       undefined,
       'body',
       false,
@@ -353,5 +355,103 @@ describe('Unified Library destinations and representation safety', () => {
     expect(state.error()).toContain('Selected card changed');
     expect(state.assembly()[0].status).toBe('failed');
     expect(sessions.addSessionLibraryCard).not.toHaveBeenCalled();
+  });
+  it('retains the reader when an exact Draft link revision changed', async () => {
+    await state.bind('campaign', '');
+    await state.open(entry);
+    const reader = state.document();
+    api.listLibraryCards.mockReturnValue(
+      of({ capture: 'capture', entries: [{ ...entry, draft: 'target', revision: 8 }] }),
+    );
+    expect(await state.follow({ kind: 'draft', draft: 'target', revision: 7 })).toBe(false);
+    expect(state.document()).toBe(reader);
+    expect(state.error()).toContain('Link target changed');
+    expect(state.stale()).toBe(true);
+  });
+  it('opens an exact Draft link and rejects a new associated representation of a Source link', async () => {
+    await state.bind('campaign', '');
+    api.listLibraryCards.mockReturnValue(
+      of({ capture: 'capture', entries: [{ ...entry, draft: 'target', revision: 7 }] }),
+    );
+    expect(await state.follow({ kind: 'draft', draft: 'target', revision: 7 })).toBe(true);
+    const reader = state.document();
+    expect(await state.follow({ kind: 'source', path: 'a.md' })).toBe(false);
+    expect(state.document()).toBe(reader);
+  });
+  it('rejects competing path claimants and identity-conflicted Draft targets', async () => {
+    await state.bind('campaign', '');
+    await state.open(entry);
+    const reader = state.document();
+    api.listLibraryCards.mockReturnValue(
+      of({ capture: 'capture', entries: [entry, { ...entry, key: 'other' }] }),
+    );
+    expect(await state.follow({ kind: 'source', path: 'a.md' })).toBe(false);
+    expect(state.error()).toContain('conflicting');
+    api.listLibraryCards.mockReturnValue(
+      of({
+        capture: 'capture',
+        entries: [{ ...entry, draft: 'target', revision: 7, conflicts: ['Duplicate identity'] }],
+      }),
+    );
+    expect(await state.follow({ kind: 'draft', draft: 'target', revision: 7 })).toBe(false);
+    expect(state.document()).toBe(reader);
+  });
+  it('does not replace a manual selection after a delayed link lookup', async () => {
+    await state.bind('campaign', '');
+    await state.open(entry);
+    const late = new Subject<{ capture: string; entries: LibraryEntry[] }>();
+    api.listLibraryCards.mockReturnValue(late);
+    const following = state.follow({ kind: 'draft', draft: 'target', revision: 7 });
+    await state.open({ ...entry, key: 'manual' });
+    const reader = state.document();
+    late.next({ capture: 'capture', entries: [{ ...entry, draft: 'target', revision: 7 }] });
+    late.complete();
+    expect(await following).toBe(false);
+    expect(state.document()).toBe(reader);
+    expect(state.selectedEntry()?.key).toBe('manual');
+  });
+  it('retains the reader when capture changes during link lookup', async () => {
+    await state.bind('campaign', '');
+    await state.open(entry);
+    const reader = state.document();
+    api.listLibraryCards.mockReturnValue(of({ capture: 'new-capture', entries: [entry] }));
+    expect(await state.follow({ kind: 'source', path: 'a.md' })).toBe(false);
+    expect(state.document()).toBe(reader);
+    expect(state.error()).toContain('Capture changed');
+  });
+  it('restores the originating reader when the target becomes stale after catalogue lookup', async () => {
+    await state.bind('campaign', '');
+    await state.open(entry);
+    const reader = state.document(),
+      selected = state.selectedEntry();
+    api.listLibraryCards.mockReturnValue(
+      of({ capture: 'capture', entries: [{ ...entry, draft: 'target', revision: 7 }] }),
+    );
+    api.readLibraryCard.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({ status: 409, error: { detail: 'Target changed while opening' } }),
+      ),
+    );
+    expect(await state.follow({ kind: 'draft', draft: 'target', revision: 7 })).toBe(false);
+    expect(state.document()).toBe(reader);
+    expect(state.selectedEntry()).toBe(selected);
+    expect(state.error()).toBe('Target changed while opening');
+    expect(state.stale()).toBe(true);
+  });
+  it('honors the latest clicked link even when an earlier lookup completes last', async () => {
+    await state.bind('campaign', '');
+    await state.open(entry);
+    const late = new Subject<{ capture: string; entries: LibraryEntry[] }>();
+    api.listLibraryCards
+      .mockReturnValueOnce(late)
+      .mockReturnValueOnce(of({ capture: 'capture', entries: [entry] }));
+    const older = state.follow({ kind: 'draft', draft: 'older', revision: 1 });
+    expect(await state.follow({ kind: 'source', path: 'a.md' })).toBe(true);
+    const reader = state.document();
+    late.next({ capture: 'capture', entries: [{ ...entry, draft: 'older', revision: 1 }] });
+    late.complete();
+    expect(await older).toBe(false);
+    expect(state.document()).toBe(reader);
   });
 });

@@ -13,7 +13,7 @@ interface ApprovedRevisionStore {
     fun put(value: ApprovedDraft)
 }
 class SessionDraftService(private val campaigns: Campaigns, private val drafts: DraftStore,
-    private val revisions: ApprovedRevisionStore, private val authoring: Authoring, private val sources: Sources,
+    private val revisions: ApprovedRevisionStore, private val authoring: Authoring, private val library: CardLibraryService,
     private val tx: Transactions, private val images: WritingImageStore) : SessionDrafts {
     override fun image(campaign: UUID, draft: UUID, revision: Long): Either<Failure, ProcessedImage?> = tx.run { either {
         campaigns.configuration(campaign).bind()
@@ -34,9 +34,7 @@ class SessionDraftService(private val campaigns: Campaigns, private val drafts: 
             encoded.markdown.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024) {
             Failure.Invalid("writing.not-ready", "A valid session card, campaign-relative path and Markdown within 2 MiB are required for approval.")
         }
-        val library = sources.authoringLibrary(campaign).bind()
-        val links = authoring.links(d.path, d.body, library.documents,
-            drafts.list(campaign).map { AuthoredTarget(it.id, it.revision, it.path, it.body) }, d.id)
-        ApprovedDraft(draftData(d), encoded.markdown, contentHash(encoded.markdown), encoded.preview, library.capture, links).also(revisions::put)
+        val resolved = library.resolveLinks(campaign, d).bind()
+        ApprovedDraft(draftData(d), encoded.markdown, contentHash(encoded.markdown), encoded.preview, resolved.capture, resolved.links).also(revisions::put)
     } }
 }

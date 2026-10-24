@@ -17,6 +17,35 @@ class CardLibraryService(
 ) : CardLibraries {
     private data class View(val entry: LibraryEntry, val sources: List<CatalogueSource>, val draft: Draft?, val preview: DraftPreview?)
     private data class Snapshot(val capture: UUID?, val views: List<View>)
+    internal data class LinkResolution(val capture: UUID?, val links: List<CheckedLink>, val targetRevisions: Map<String, Long>, val sourcePaths: Set<String>)
+    private fun encoded(d: Draft) = authoring.encode(AuthoredDocument(d.card, d.title, d.type, d.status, d.tags, d.summary, d.body), d.origin?.retainedEnvelope.orEmpty())
+    private fun targets(snapshot: Snapshot, origin: Draft? = null) = snapshot.views.map { view ->
+        val d = if (view.draft?.id == origin?.id) origin else view.draft
+        AuthoredLinkTarget(view.entry.key,
+            (view.entry.sources.map { it.path } + listOfNotNull(d?.path)).toSet(),
+            d?.let { encoded(it).markdown } ?: view.sources.firstOrNull()?.raw.orEmpty(),
+            d?.id, d?.revision, view.entry.conflicts.isNotEmpty())
+    }
+    internal fun resolveLinks(campaign: UUID, origin: Draft): Either<Failure, LinkResolution> = tx.run { either {
+        resolve(snapshot(campaign).bind(), origin.path, encoded(origin).markdown, origin.id, origin)
+    } }
+    private fun resolve(snapshot: Snapshot, path: String, raw: String, own: UUID, origin: Draft? = null): LinkResolution {
+        val targets = targets(snapshot, origin)
+        val captured = snapshot.views.flatMap { it.sources }.associate { it.path to it.raw }
+        val links = authoring.resolvedLinks(path, raw, targets, own).map { link ->
+            val target = targets.singleOrNull { it.draft == link.draft && link.draft != null }
+            if (target == null || link.kind !in setOf("draft", "self") || (link.kind == "self" && link.path == path)) link
+            else link.copy(warning = when {
+                captured[link.path] == target.markdown -> null
+                link.path !in captured -> "${link.path} opens Draft revision ${link.revision}, but no captured campaign file exists there. Export/incorporate the target for a portable link."
+                else -> "${link.path} opens Draft revision ${link.revision}; the captured campaign file differs. Export/incorporate the target to reproduce the effective content."
+            })
+        }
+        val relevant = links.mapNotNull { it.path }.toSet() + path
+        val revisions = targets.filter { it.draft != null && it.draft != own && it.paths.any { alias -> alias in relevant } }
+            .sortedBy { it.draft }.associate { it.draft.toString() to it.revision!! }
+        return LinkResolution(snapshot.capture, links, revisions, captured.keys)
+    }
     private fun key(card: UUID?, path: String) = card?.let { "card:$it" } ?: "source:$path"
     private fun conflict() = Failure.Conflict("writing.identity-conflict", "Conflicting Source/card identities require explicit resolution before editing or preparing this card.")
 
@@ -124,37 +153,45 @@ class CardLibraryService(
         }.map { it.entry })
     } }
 
-    override fun document(campaign: UUID, key: String, capture: UUID?, revision: Long?, sourcePath: String?, draft: UUID?): Either<Failure, LibraryDocument> = tx.run { either {
+    override fun document(campaign: UUID, key: String, capture: UUID?, revision: Long?, sourcePath: String?, draft: UUID?, linkPath: String?): Either<Failure, LibraryDocument> = tx.run { either {
         val view = snapshot(campaign).bind()
         ensure(view.capture == capture) { Failure.Conflict("sources.capture-replaced", "Captured library changed. Reload the catalogue before reading.") }
         val item = ensureNotNull(view.views.find { it.entry.key == key }) { Failure.NotFound("writing.library-not-found", "Library card is unavailable.") }
+        if (linkPath != null) {
+            // The URI interpreter supplies a decoded locator, which can contain encoded filename
+            // punctuation. Reading does not impose the stricter finished-export placement rules.
+            ensure(linkPath.isNotBlank() && linkPath.length <= 4096 && !linkPath.startsWith('/') &&
+                '\\' !in linkPath && linkPath.none { it.isISOControl() } &&
+                linkPath.split('/').none { it.isEmpty() || it == "." || it == ".." }) {
+                Failure.Invalid("writing.link-path", "Link locator must be a safe campaign-relative path.")
+            }
+            val claims = view.views.filter { target -> target.draft?.path == linkPath || target.entry.sources.any { it.path == linkPath } }
+            ensure(claims.size == 1 && claims.single().entry.key == key && item.entry.conflicts.isEmpty()) {
+                Failure.Conflict("writing.link-target-changed", "Link target has conflicting or changed Library paths. Reload the selected document or preview.")
+            }
+        }
         ensure(item.draft?.id == draft && item.draft?.revision == revision) {
             Failure.Conflict("writing.stale-revision", "Draft identity or saved revision changed. Reload the catalogue before reading.")
         }
         val selected = if (sourcePath == null) item.sources.singleOrNull() else
             ensureNotNull(item.sources.find { it.path == sourcePath }) { Failure.NotFound("writing.library-not-found", "Choose a Source belonging to this card.") }
         ensure(item.draft != null || selected != null) { Failure.Conflict("writing.source-choice-required", "Choose an explicit Source path to inspect conflicting identity claims.") }
-        val preview = item.draft?.let { d ->
-            val captured = sources.authoringLibrary(campaign).bind()
-            item.preview!!.copy(checkedLinks = authoring.links(d.path, d.body, captured.documents,
-                drafts.list(campaign).map { AuthoredTarget(it.id, it.revision, it.path, it.body) }, d.id))
-        }
+        val raw = item.draft?.let { encoded(it).markdown } ?: selected!!.raw
+        val links = resolve(view, item.draft?.path ?: selected!!.path, raw, item.draft?.id ?: UUID(0, 0)).links
+        val preview = item.preview?.copy(checkedLinks = links)
         LibraryDocument(item.entry, item.draft?.body ?: selected!!.raw,
-            selected?.document, preview, item.draft?.let(::draftData), adventureChoices(view, item))
+            selected?.document, preview, item.draft?.let(::draftData), adventureChoices(view, item), links)
     } }
 
     /** Resolve locators through unified identities, using the effective saved body at every alias. */
     private fun adventureChoices(snapshot: Snapshot, origin: View): List<AdventureChoice> {
         if (origin.entry.classification.metadata?.type != "adventure") return emptyList()
         val paths = snapshot.views.flatMap { target ->
-            (target.sources.map { it.path } + listOfNotNull(target.draft?.path)).distinct().map { it to target }
+            (target.entry.sources.map { it.path } + listOfNotNull(target.draft?.path)).distinct().map { it to target }
         }.groupBy({ it.first }, { it.second })
-        val bodies = paths.mapNotNull { (path, targets) ->
-            targets.singleOrNull()?.let { target -> path to (target.draft?.body ?: target.sources.first { it.path == path }.raw) }
-        }.toMap()
         val path = origin.draft?.path ?: origin.sources.singleOrNull()?.path ?: return emptyList()
-        val body = origin.draft?.body ?: authoring.decode(origin.sources.single().raw).body
-        return authoring.links(path, body, bodies, emptyList(), origin.draft?.id ?: UUID(0, 0))
+        val raw = origin.draft?.let { encoded(it).markdown } ?: origin.sources.single().raw
+        return resolve(snapshot, path, raw, origin.draft?.id ?: UUID(0, 0)).links
             .filter { it.kind !in setOf("external", "local", "self") && it.path != path }
             .mapNotNull { link ->
                 val targets = paths[link.path].orEmpty()
@@ -165,7 +202,7 @@ class CardLibraryService(
                     target == null -> "Linked material is unavailable or unsupported."
                     target.conflicts.isNotEmpty() -> "Linked card has an identity conflict."
                     target.classification.metadata?.type != "scene" || !target.ready -> "Linked card is not a valid preparable Scene."
-                    link.warning != null -> link.warning
+                    link.kind !in setOf("source", "draft", "self") -> link.warning ?: "Linked target is unavailable."
                     else -> null
                 })
             }.distinctBy { it.entry?.key ?: it.destination }

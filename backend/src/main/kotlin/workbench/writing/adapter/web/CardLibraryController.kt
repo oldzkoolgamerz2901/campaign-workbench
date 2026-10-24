@@ -33,8 +33,8 @@ class CardLibraryController(private val library: CardLibraries, private val mapp
     @GetMapping("/document")
     @Operation(operationId = "readLibraryCard", description = "Send the catalogue's draft ID and revision together for a Draft; omit both for a Source-only card. Stale capture or representation selections return a conflict.")
     @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = LibraryDocument::class))])
-    fun document(@PathVariable campaign: UUID, @RequestParam key: String, @RequestParam(required = false) capture: UUID?, @RequestParam(required = false) revision: Long?, @RequestParam(required = false) sourcePath: String?, @RequestParam(required = false) draft: UUID?) =
-        library.document(campaign, key, capture, revision, sourcePath, draft).response()
+    fun document(@PathVariable campaign: UUID, @RequestParam key: String, @RequestParam(required = false) capture: UUID?, @RequestParam(required = false) revision: Long?, @RequestParam(required = false) sourcePath: String?, @RequestParam(required = false) draft: UUID?, @RequestParam(required = false) linkPath: String?) =
+        library.document(campaign, key, capture, revision, sourcePath, draft, linkPath).response()
 
     @PostMapping("/edit-source")
     @Operation(operationId = "editLibrarySource")

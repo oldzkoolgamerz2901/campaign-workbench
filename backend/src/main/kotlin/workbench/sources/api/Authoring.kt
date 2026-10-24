@@ -9,6 +9,7 @@ interface Authoring {
     fun catalog(): AuthoringCatalog
     fun decode(raw: String): DecodedAuthoring
     fun encode(input: AuthoredDocument, retainedEnvelope: String = ""): EncodedAuthoring
+    fun resolvedLinks(path: String, markdown: String, targets: List<AuthoredLinkTarget>, own: UUID): List<CheckedLink>
     fun links(path: String, body: String, sources: Map<String, String>, drafts: List<AuthoredTarget>, own: UUID): List<CheckedLink>
 }
 data class AuthoredDocument(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val card: UUID, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val type: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val status: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val tags: List<String>, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val summary: String?, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val body: String)

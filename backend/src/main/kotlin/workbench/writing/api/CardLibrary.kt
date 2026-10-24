@@ -19,11 +19,11 @@ data class CardLibrary(val campaign: UUID, val capture: UUID?, val entries: List
 data class AdventureChoice(val destination: String, val entry: LibraryEntry?, val problem: String?)
 data class LibraryDocument(
     val entry: LibraryEntry, val markdown: String, val source: SourceDocument?, val draftPreview: DraftPreview?, val draft: DraftData?,
-    val adventureChoices: List<AdventureChoice> = emptyList()
+    val adventureChoices: List<AdventureChoice> = emptyList(), val checkedLinks: List<CheckedLink> = emptyList()
 )
 interface CardLibraries {
     fun list(campaign: UUID, query: String = "", filter: SourceFilter = SourceFilter()): Either<Failure, CardLibrary>
     /** Match the catalogue representation: Draft ID and revision together, or both null for a Source. */
-    fun document(campaign: UUID, key: String, capture: UUID?, revision: Long?, sourcePath: String? = null, draft: UUID? = null): Either<Failure, LibraryDocument>
+    fun document(campaign: UUID, key: String, capture: UUID?, revision: Long?, sourcePath: String? = null, draft: UUID? = null, linkPath: String? = null): Either<Failure, LibraryDocument>
     fun editSource(campaign: UUID, request: EditLibrarySource): Either<Failure, DraftData>
 }

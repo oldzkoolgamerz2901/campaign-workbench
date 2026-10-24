@@ -75,30 +75,36 @@ class MarkdownAuthoring(private val markdown: CommonmarkMarkdown) : Authoring {
     }
     override fun inspect(input: AuthoredDocument) = encode(input).preview
 
-    override fun links(path: String, body: String, sources: Map<String, String>, drafts: List<AuthoredTarget>, own: java.util.UUID): List<CheckedLink> {
-        val parsedBody = markdown.parse("---\nworkbench: {}\n---\n$body")
-        val sourceParsed = sources.mapValues { markdown.parse(it.value) }
-        val draftParsed = drafts.associate { it.id to markdown.parse("---\nworkbench: {}\n---\n${it.body}") }
+    override fun links(path: String, body: String, sources: Map<String, String>, drafts: List<AuthoredTarget>, own: java.util.UUID) =
+        resolvedLinks(path, "---\nworkbench: {}\n---\n$body",
+            sources.map { (path, raw) -> AuthoredLinkTarget("source:$path", setOf(path), raw) } +
+                drafts.map { AuthoredLinkTarget("draft:${it.id}", setOf(it.path), "---\nworkbench: {}\n---\n${it.body}", it.id, it.revision) }, own)
+
+    override fun resolvedLinks(path: String, markdown: String, targets: List<AuthoredLinkTarget>, own: java.util.UUID): List<CheckedLink> {
+        val parsedBody = this.markdown.parse(markdown)
+        val parsedTargets = targets.associate { it.key to this.markdown.parse(it.markdown) }
         return parsedBody.links.map { link ->
             val d = linkDestination(path, link.destination)
-            fun result(kind: String, warning: String? = null, section: String? = null, target: AuthoredTarget? = null) = CheckedLink(link.key, link.destination, kind, d.path, d.anchor, section, d.external, target?.id, target?.revision, warning)
+            fun result(kind: String, warning: String? = null, section: String? = null, target: AuthoredLinkTarget? = null) =
+                CheckedLink(link.key, link.destination, kind, d.path, d.anchor, section, d.external, target?.draft, target?.revision, warning)
             when {
                 !d.valid -> result("unsupported", "Unsupported or unsafe link: ${link.destination}")
                 d.external != null -> result("external")
-                d.local -> if (d.anchor == null || d.anchor in parsedBody.anchors) result("local", section = d.anchor?.let { parsedBody.anchors[it] }) else result("missing-anchor", "Missing local heading: ${d.anchor}")
+                d.local -> if (d.anchor == null || d.anchor in parsedBody.anchors) result("local", section = d.anchor?.let { parsedBody.anchors[it] })
+                    else result("missing-anchor", "Missing local heading: ${d.anchor}")
                 else -> {
-                    val candidates = drafts.filter { it.path == d.path }
-                    val source = sourceParsed[d.path]
-                    if (candidates.size + (if (source != null) 1 else 0) > 1) result("ambiguous", "Several source/draft documents share ${d.path}.")
-                    else if (source != null) {
-                        if (d.anchor != null && d.anchor !in source.anchors) result("missing-anchor", "Missing heading ${d.anchor} in ${d.path}.")
-                        else result("source", section = d.anchor?.let { source.anchors[it] })
-                    } else if (candidates.size == 1) {
-                        val target = candidates.single(); val parsed = draftParsed.getValue(target.id)
-                        if (d.anchor != null && d.anchor !in parsed.anchors) result("missing-anchor", "Missing draft heading ${d.anchor} in ${d.path}.", target = target)
-                        else if (target.id == own) result("self", section = d.anchor?.let { parsed.anchors[it] }, target = target)
-                        else result("draft", "${d.path} is a draft and must also be exported/incorporated.", target = target, section = d.anchor?.let { parsed.anchors[it] })
-                    } else result("missing-document", "Missing document: ${d.path}.")
+                    val candidates = targets.filter { d.path in it.paths }.distinctBy { it.key }
+                    val target = candidates.singleOrNull()
+                    when {
+                        candidates.size > 1 || target?.conflict == true -> result("ambiguous", "Several Library identities claim ${d.path}, or the linked card has an identity conflict.")
+                        target == null -> result("missing-document", "Missing document: ${d.path}.")
+                        else -> {
+                            val parsed = parsedTargets.getValue(target.key)
+                            if (d.anchor != null && d.anchor !in parsed.anchors) result("missing-anchor", "Missing heading ${d.anchor} in the effective document at ${d.path}.", target = target)
+                            else result(if (target.draft == null) "source" else if (target.draft == own) "self" else "draft",
+                                section = d.anchor?.let { parsed.anchors[it] }, target = target)
+                        }
+                    }
                 }
             }
         }

@@ -275,7 +275,7 @@ export class UnifiedLibraryState {
       if (epoch === this.epoch && request === this.catalogueRequest) this.loading.set(false);
     }
   }
-  async open(entry: LibraryEntry, sourcePath?: string) {
+  async open(entry: LibraryEntry, sourcePath?: string, linkPath?: string) {
     if (this.assemblyRunning()) return;
     const campaign = this.campaign(),
       capture = this.capture(),
@@ -298,6 +298,7 @@ export class UnifiedLibraryState {
           entry.revision ?? undefined,
           sourcePath,
           entry.draft ?? undefined,
+          linkPath,
           'body',
           false,
           json,
@@ -603,27 +604,66 @@ export class UnifiedLibraryState {
       this.editing.set(false);
     }
   }
-  async follow(link: Pick<CheckedLink, 'kind'> & Partial<Pick<CheckedLink, 'path' | 'draft'>>) {
+  async follow(
+    link: Pick<CheckedLink, 'kind'> & Partial<Pick<CheckedLink, 'path' | 'draft' | 'revision'>>,
+  ): Promise<boolean> {
     const campaign = this.campaign(),
-      epoch = this.epoch;
+      epoch = this.epoch,
+      request = ++this.readerRequest;
     try {
       const all = await firstValueFrom(
         this.api.listLibraryCards(campaign, ...allCriteria, 'body', false, json),
       );
-      if (epoch !== this.epoch) return;
+      if (epoch !== this.epoch || request !== this.readerRequest) return false;
       if (all.capture !== this.capture()) {
         this.stale.set(true);
         throw new Error('Capture changed. Reload catalogue before following links.');
       }
-      const entry = all.entries?.find((e) =>
-        link.kind === 'draft'
-          ? e.draft === link.draft
-          : e.sources?.some((s) => s.path === link.path),
+      const entries =
+        all.entries?.filter((e) =>
+          link.kind === 'draft'
+            ? e.draft === link.draft
+            : e.sources?.some((s) => s.path === link.path),
+        ) ?? [];
+      const entry = entries.length === 1 ? entries[0] : undefined;
+      if (entries.length > 1 || entry?.conflicts?.length)
+        throw new Error(
+          'Link target has conflicting Library identities. Resolve the conflict before following it.',
+        );
+      if (!entry) throw new Error('Link target is unavailable in the captured Library.');
+      if (link.kind === 'draft' ? entry.revision !== link.revision : !!entry.draft) {
+        this.stale.set(true);
+        throw new Error(
+          'Link target changed. Reload the selected document or preview before following it.',
+        );
+      }
+      const previous = {
+        entry: this.selectedEntry(),
+        document: this.document(),
+        capture: this.documentCapture(),
+        mode: this.mode(),
+        assembly: this.assembly(),
+        context: this.assemblyContext,
+      };
+      await this.open(entry, undefined, link.path ?? undefined);
+      if (this.readerRequest === request + 1 && (this.stale() || this.error())) {
+        this.selectedEntry.set(previous.entry);
+        this.document.set(previous.document);
+        this.documentCapture.set(previous.capture);
+        this.mode.set(previous.mode);
+        this.assembly.set(previous.assembly);
+        this.assemblyContext = previous.context;
+        return false;
+      }
+      return (
+        this.readerRequest === request + 1 &&
+        this.document()?.entry?.key === entry.key &&
+        !this.stale() &&
+        !this.error()
       );
-      if (entry) await this.open(entry);
-      else this.error.set('Link target is unavailable in the captured Library.');
     } catch (error) {
-      if (epoch === this.epoch) this.fail(error);
+      if (epoch === this.epoch && request === this.readerRequest) this.fail(error);
+      return false;
     }
   }
   private fail(error: unknown) {

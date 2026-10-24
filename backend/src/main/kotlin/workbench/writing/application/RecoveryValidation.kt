@@ -62,7 +62,8 @@ internal class RecoveryValidation(private val authoring: Authoring) {
                         require(l.draft != null && l.revision != null && l.path != null && l.external == null)
                         if (l.kind == "self") require(l.draft == d.id && l.revision == d.revision)
                         byRevision[l.draft to l.revision]?.let { target ->
-                            require(target.fields.path == l.path && (l.anchor == null || l.anchor in encoded(target).preview.anchors))
+                            // URI path is a locator; exact Draft identity/revision is the frozen target.
+                            require(l.anchor == null || l.anchor in encoded(target).preview.anchors)
                         }
                     }
                     "local" -> require(l.draft == null && l.revision == null && l.external == null && (l.anchor == null || l.anchor in parsed.anchors))

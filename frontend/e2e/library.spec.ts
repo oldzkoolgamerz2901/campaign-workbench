@@ -23,6 +23,16 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
   page.on('request', (request) => {
     if (request.url().includes('example.invalid')) remote.push(request.url());
   });
+  const register = async () => {
+    const captured = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname.endsWith('/sources/refresh') &&
+        response.ok(),
+    );
+    await page.getByRole('button', { name: 'Register campaign', exact: true }).click();
+    await captured;
+  };
   const manageCampaign = async () => {
     await page.getByRole('button', { name: 'Manage campaign', exact: true }).click();
   };
@@ -44,7 +54,7 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
       await page.getByText('Register a campaign', { exact: true }).click();
     await page.getByLabel('Display name').fill(name);
     await page.getByLabel('Folder path').fill(first);
-    await page.getByRole('button', { name: 'Register campaign', exact: true }).click();
+    await register();
     await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(
       name,
     );
@@ -77,7 +87,7 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
       .getByRole('button', { name: new RegExp('^' + 'source.md'.replaceAll('.', '[.]')) })
       .click();
     await expect(page.locator('.document-reader')).toContainText(
-      'Missing or unsupported document/section link',
+      'Missing or unsupported captured Source document/section link',
     );
     await expect(page.getByRole('complementary', { name: 'Related cards' })).toHaveCount(0);
     await page.getByRole('link', { name: 'missing', exact: true }).click();
@@ -107,7 +117,7 @@ test('register, browse, search, refresh, configure and reopen isolated campaigns
       await page.getByText('Register a campaign', { exact: true }).click();
     await page.getByLabel('Display name').fill(name + ' Other');
     await page.getByLabel('Folder path').fill(second);
-    await page.getByRole('button', { name: 'Register campaign', exact: true }).click();
+    await register();
     await expect(page.getByLabel('Campaign', { exact: true }).locator('option:checked')).toHaveText(
       name + ' Other',
     );

@@ -10,7 +10,7 @@ import workbench.writing.domain.*
 import java.time.Instant
 import java.util.UUID
 
-class WritingExportService(private val campaigns: Campaigns, private val store: DraftStore, private val exports: ExportStore, private val authoring: Authoring, private val sources: Sources, private val tx: Transactions) {
+class WritingExportService(private val campaigns: Campaigns, private val store: DraftStore, private val exports: ExportStore, private val authoring: Authoring, private val sources: Sources, private val library: CardLibraryService, private val tx: Transactions) {
     private fun invalid(message: String) = Failure.Invalid("writing.export-invalid", message)
     private fun stale(message: String) = Failure.Conflict("writing.export-stale", message)
     private fun load(campaign: UUID, id: UUID): Either<Failure, Draft> = either {
@@ -40,32 +40,31 @@ class WritingExportService(private val campaigns: Campaigns, private val store: 
     fun inspect(campaign: UUID, id: UUID, request: InspectExport): Either<Failure, ExportInspection> = tx.run { either {
         val draft = load(campaign, id).bind()
         ensure(draft.revision == request.revision) { stale("Draft changed. Save/reload and inspect this revision again.") }
-        val library = sources.authoringLibrary(campaign).bind()
-        ensure(library.capture == request.capture) { stale("Library capture changed. Reload the source library and inspect again.") }
-        report(draft, library)
+        val resolved = library.resolveLinks(campaign, draft).bind()
+        ensure(resolved.capture == request.capture) { stale("Library capture changed. Reload the source library and inspect again.") }
+        report(draft, resolved)
     } }
 
-    private fun report(draft: Draft, library: AuthoringLibrary): ExportInspection {
+    private fun report(draft: Draft, resolved: CardLibraryService.LinkResolution): ExportInspection {
         val encoded = authoring.encode(AuthoredDocument(draft.card, draft.title, draft.type, draft.status, draft.tags, draft.summary, draft.body), draft.origin?.retainedEnvelope.orEmpty())
-        val targets = store.list(draft.campaign).map { AuthoredTarget(it.id, it.revision, it.path, it.body) }
-        val links = authoring.links(draft.path, draft.body, library.documents, targets, draft.id)
+        val targets = store.list(draft.campaign)
+        val links = resolved.links
         val errors = encoded.errors + exportPathErrors(draft.path) +
             (if (encoded.markdown.toByteArray(Charsets.UTF_8).size > 3 * 1024 * 1024) listOf("Encoded Markdown exceeds 3 MiB.") else emptyList()) +
             (if (exports.list(draft.campaign, draft.id).size >= 1000) listOf("This draft has reached the 1,000 artifact limit. Existing downloads remain available.") else emptyList())
         val warnings = mutableListOf<String>()
-        if (library.capture == null) warnings += "No captured campaign library is available; source references cannot be verified."
-        if (draft.path in library.documents) warnings += "Suggested placement already contains a source file. Export does not replace it."
+        if (resolved.capture == null) warnings += "No captured campaign library is available; source references cannot be verified."
+        if (draft.path in resolved.sourcePaths) warnings += "Suggested placement already contains a source file. Export does not replace it."
         if (targets.any { it.id != draft.id && it.path == draft.path }) warnings += "Another draft shares the suggested placement."
         if (draft.origin != null && draft.origin.path.substringBeforeLast('/', "") != draft.path.substringBeforeLast('/', "") && links.any { it.kind !in setOf("local", "external") }) warnings += "Export directory differs from the original source directory. Relative links were checked against the new placement."
         warnings += encoded.preview.classification.issues.filter { it.severity != "error" }.map { it.message }
         warnings += links.mapNotNull { it.warning }
-        val relevantPaths = links.mapNotNull { it.path }.toSet() + draft.path
-        val revisions = targets.filter { it.id != draft.id && it.path in relevantPaths }.sortedBy { it.id }.associate { it.id.toString() to it.revision }
+        val revisions = resolved.targetRevisions
         val hash = contentHash(encoded.markdown)
-        val parts = listOf(draft.revision.toString(), library.capture?.toString().orEmpty(), draft.path, hash) +
+        val parts = listOf(draft.revision.toString(), resolved.capture?.toString().orEmpty(), draft.path, hash) +
             revisions.flatMap { listOf(it.key, it.value.toString()) } + errors + warnings + links.flatMap { listOf(it.key, it.destination, it.kind, it.path.orEmpty(), it.anchor.orEmpty(), it.section.orEmpty(), it.draft?.toString().orEmpty(), it.revision?.toString().orEmpty()) }
         val fingerprint = contentHash(parts.joinToString("") { "${it.length}:$it" })
-        return ExportInspection(draft.revision, library.capture, draft.path, encoded.markdown, hash, fingerprint, errors, warnings.distinct(), links, revisions)
+        return ExportInspection(draft.revision, resolved.capture, draft.path, encoded.markdown, hash, fingerprint, errors, warnings.distinct(), links, revisions)
     }
 
     fun create(campaign: UUID, id: UUID, request: CreateExport): Either<Failure, ExportData> = tx.run { either {

@@ -17,6 +17,9 @@ data class DecodedAuthoring(
 )
 data class EncodedAuthoring(val markdown: String, val preview: AuthoredPreview, val errors: List<String>)
 data class AuthoredTarget(val id: UUID, val revision: Long, val path: String, val body: String)
+/** Pure interpretation input. The composing owner supplies identity, aliases and conflicts. */
+data class AuthoredLinkTarget(val key: String, val paths: Set<String>, val markdown: String,
+    val draft: UUID? = null, val revision: Long? = null, val conflict: Boolean = false)
 data class CheckedLink(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val key: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val destination: String,

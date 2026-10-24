@@ -9,7 +9,7 @@ import workbench.writing.api.*
 import workbench.writing.domain.Draft
 import java.util.UUID
 
-class WritingService(private val campaigns: Campaigns, private val store: DraftStore, private val authoring: Authoring, private val tx: Transactions, private val sources: Sources, private val images: WritingImageStore, private val processor: ImageProcessor) {
+class WritingService(private val campaigns: Campaigns, private val store: DraftStore, private val authoring: Authoring, private val tx: Transactions, private val library: CardLibraryService, private val images: WritingImageStore, private val processor: ImageProcessor) {
     private fun invalid(message: String) = Failure.Invalid("writing.invalid", message)
     private fun data(d: Draft) = draftData(d)
     private fun load(campaign: UUID, id: UUID): Either<Failure, Draft> = either { ensureNotNull(store.get(campaign, id)) { Failure.NotFound("writing.not-found", "Draft not found in this campaign.") } }
@@ -53,13 +53,14 @@ class WritingService(private val campaigns: Campaigns, private val store: DraftS
         ensure(before.revision == revision) { Failure.Conflict("writing.stale-revision", "This draft changed elsewhere. Your edits are retained; reload explicitly before deleting the newer revision.") }
         store.delete(campaign, id); images.prune(WritingImageOwner.Campaign(campaign))
     } }
-    fun preview(campaign: UUID, id: UUID, fields: DraftFields): Either<Failure, DraftPreview> = either {
-        tx.run { either { campaigns.configuration(campaign).bind(); load(campaign, id).bind() } }.bind().let { draft ->
-            ensure(withinWorkingLimits(fields)) { invalid("Preview exceeds working draft limits.") }
-            val library = sources.authoringLibrary(campaign).bind()
-            val targets = store.list(campaign).map { AuthoredTarget(it.id, it.revision, if (it.id == draft.id) fields.path else it.path, if (it.id == draft.id) fields.body else it.body) }
-            DraftPreview(authoring.encode(AuthoredDocument(draft.card, fields.title, fields.type, fields.status, fields.tags, fields.summary, fields.body), draft.origin?.retainedEnvelope.orEmpty()).preview,
-                exportPathErrors(fields.path), authoring.links(fields.path, fields.body, library.documents, targets, draft.id), library.capture)
-        }
-    }
+    fun preview(campaign: UUID, id: UUID, fields: DraftFields): Either<Failure, DraftPreview> = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val draft = load(campaign, id).bind()
+        ensure(withinWorkingLimits(fields)) { invalid("Preview exceeds working draft limits.") }
+        val effective = draft.copy(title = fields.title, type = fields.type, status = fields.status, tags = fields.tags,
+            summary = fields.summary, body = fields.body, path = fields.path)
+        val resolved = library.resolveLinks(campaign, effective).bind()
+        DraftPreview(authoring.encode(AuthoredDocument(draft.card, fields.title, fields.type, fields.status, fields.tags, fields.summary, fields.body), draft.origin?.retainedEnvelope.orEmpty()).preview,
+            exportPathErrors(fields.path), resolved.links, resolved.capture)
+    } }
 }

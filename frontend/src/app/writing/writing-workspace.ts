@@ -119,23 +119,35 @@ export class WritingWorkspace implements OnDestroy {
     }
   }
   async followTarget(link: CheckedLink) {
-    if (this.state.deleting() || !(await this.state.flush())) return;
-    const campaign = this.state.campaign();
-    if (!campaign) return;
+    const draft = this.state.current(),
+      campaign = this.state.campaign(),
+      token = this.routeToken,
+      request = ++this.researchRequest;
+    const current = () =>
+      this.active &&
+      request === this.researchRequest &&
+      token === this.routeToken &&
+      this.state.current()?.id === draft?.id &&
+      this.state.campaign() === campaign;
+    if (!draft || !campaign || this.state.deleting() || !(await this.state.flush()) || !current())
+      return;
     await this.references.bind(campaign, '');
-    if (link.kind === 'source' && this.state.preview()?.capture !== this.references.capture()) {
+    if (!current()) return;
+    if (this.state.preview()?.capture !== this.references.capture()) {
       this.sourceNotice.set(
         'Source capture changed. Reload captured index and check the updated preview before opening this link.',
       );
       return;
     }
-    await this.references.follow(link);
+    const followed = await this.references.follow(link);
+    if (!current()) return;
     const entry = this.references.document()?.entry;
     if (
+      followed &&
       entry &&
       !this.references.error() &&
       (link.kind === 'draft'
-        ? entry.draft === link.draft
+        ? entry.draft === link.draft && entry.revision === link.revision
         : entry.sources?.some((source) => source.path === link.path))
     )
       await this.openReference(entry, link);

@@ -1,4 +1,13 @@
-import { Component, OnDestroy, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  Injector,
+  afterNextRender,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -48,6 +57,7 @@ export class UnifiedLibrary implements OnDestroy {
   readonly context = inject(NavigationContext);
   readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly injector = inject(Injector);
   private readonly artworkApi = inject(ArtworkControllerService);
   private readonly sessionsApi = inject(PreparationControllerService);
   readonly sourceReader = viewChild(ReaderPresentation);
@@ -210,13 +220,13 @@ export class UnifiedLibrary implements OnDestroy {
   }
   async follow(
     link: Pick<CheckedLink, 'kind'> &
-      Partial<Pick<CheckedLink, 'path' | 'draft' | 'section' | 'anchor'>>,
+      Partial<Pick<CheckedLink, 'path' | 'draft' | 'revision' | 'section' | 'anchor'>>,
   ) {
-    await this.state.follow(link);
+    if (!(await this.state.follow(link))) return;
     const entry = this.state.document()?.entry;
     if (
       link.kind === 'draft'
-        ? entry?.draft !== link.draft
+        ? entry?.draft !== link.draft || entry?.revision !== link.revision
         : !entry?.sources?.some((s) => s.path === link.path)
     )
       return;
@@ -224,25 +234,59 @@ export class UnifiedLibrary implements OnDestroy {
   }
   private revealTarget(sectionId?: string | null, anchor?: string | null) {
     const expected = this.state.document();
-    setTimeout(() => {
-      if (!this.active || this.state.document() !== expected) return;
-      const document = this.state.document();
-      const preview = document?.draftPreview?.preview;
-      const section = sectionId ?? (anchor ? preview?.anchors[anchor] : null);
-      if (!section) return;
-      const sections = preview?.sections ?? document?.source?.sections ?? [];
-      const index = sections.findIndex((s) => s.id === section);
-      if (index >= 0)
-        (preview ? this.draftReader()?.presentation() : this.sourceReader())?.go(index);
-      else this.state.error.set('The linked section is unavailable in this document revision.');
-    });
+    afterNextRender(
+      {
+        read: () => {
+          if (!this.active || this.state.document() !== expected) return;
+          const document = this.state.document();
+          const preview = document?.draftPreview?.preview;
+          const section = preview && anchor ? preview.anchors[anchor] : sectionId;
+          if (!section) {
+            if (anchor)
+              this.state.error.set('The linked heading is unavailable in this document revision.');
+            return;
+          }
+          const presentation = preview ? this.draftReader()?.presentation() : this.sourceReader();
+          const index =
+            presentation?.headings().findIndex((heading) => heading.key === section) ?? -1;
+          if (index >= 0) presentation?.go(index);
+          else this.state.error.set('The linked section is unavailable in this document revision.');
+        },
+      },
+      { injector: this.injector },
+    );
   }
+
   followSource(event: MouseEvent) {
     if (!(event.target instanceof Element)) return;
     const anchor = event.target.closest('a');
     if (!anchor) return;
     event.preventDefault();
     const source = this.state.document()?.source;
+    const checked = this.state
+      .document()
+      ?.checkedLinks?.find((l) => anchor.getAttribute('href') === `#${l.key}`);
+    if (checked) {
+      if (checked.external) window.open(checked.external, '_blank', 'noopener,noreferrer');
+      else if (
+        checked.kind === 'local' ||
+        (checked.kind === 'source' && checked.path === source?.path)
+      ) {
+        const index = checked.section
+          ? this.sourceReader()
+              ?.headings()
+              .findIndex((h) => h.key === checked.section)
+          : 0;
+        if (index !== undefined && index >= 0) this.sourceReader()?.go(index);
+      } else if (checked.kind === 'source' || checked.kind === 'draft') void this.follow(checked);
+      else
+        this.state.error.set(
+          checked.warning
+            ? `Link target unavailable. ${checked.warning}`
+            : 'Link target unavailable in this Library revision.',
+        );
+      return;
+    }
     const link = source?.links.find((l) => anchor.getAttribute('href') === `#${l.key}`);
     if (!link || link.missing) {
       this.state.error.set('Link target unavailable in this capture.');
@@ -254,7 +298,11 @@ export class UnifiedLibrary implements OnDestroy {
     }
     if (link.document === source?.path) {
       if (link.section)
-        this.sourceReader()?.go(source.sections.findIndex((s) => s.id === link.section));
+        this.sourceReader()?.go(
+          this.sourceReader()!
+            .headings()
+            .findIndex((h) => h.key === link.section),
+        );
     } else if (link.document)
       void this.follow({ kind: 'source', path: link.document, section: link.section });
   }

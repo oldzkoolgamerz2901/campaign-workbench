@@ -17,7 +17,7 @@ import { ReaderControls } from '../shared/reader/reader-controls';
       (click)="follow($event)"
     >
       @for (section of preview()?.sections ?? []; track section.id) {
-        <section [attr.data-section]="section.id">
+        <section [id]="section.id" [attr.data-section]="section.id" tabindex="-1">
           @for (block of section.blocks; track block.id) {
             <div [innerHTML]="block.html"></div>
           }
