@@ -25,15 +25,19 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             fields(record, "session", "workspace"); uuid(record.path("session"))
             val workspace = record.path("workspace")
             if (!workspace.isNull) {
-                fields(workspace, "session", "revision", "active", "used", "activeSceneItemId", "focusedItemIds")
+                fields(workspace, "session", "revision", "sessionCards", "used", "activeSceneItemId", "pile1", "pile2")
                 uuid(workspace.path("session"))
                 val revision = workspace.path("revision")
                 require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
                 if (!workspace.path("activeSceneItemId").isNull) uuid(workspace.path("activeSceneItemId"))
-                require(workspace.path("focusedItemIds").isArray && workspace.path("focusedItemIds").size() <= 3)
-                for (name in listOf("active", "used", "focusedItemIds")) {
-                    val ids = workspace.path(name)
-                    require(ids.isArray && ids.size() <= 1000); ids.forEach(::uuid)
+                for (name in listOf("sessionCards", "used")) ids(workspace.path(name))
+                for (name in listOf("pile1", "pile2")) {
+                    val pile = workspace.path(name)
+                    fields(pile, "name", "items", "cover")
+                    val title = pile.path("name")
+                    require(title.isNull || (title.isString && title.asString().isNotBlank() && title.asString().length <= 200))
+                    ids(pile.path("items"))
+                    if (!pile.path("cover").isNull) uuid(pile.path("cover"))
                 }
             }
         }
@@ -62,7 +66,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version == 8)
+        require(version == 9)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
@@ -162,6 +166,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             strings(issue, "code", "message", "severity"); nullableString(issue.path("field"))
         }
     }
+    private fun ids(node: JsonNode) { require(node.isArray && node.size() <= 1000); node.forEach(::uuid) }
     private fun fields(node: JsonNode, vararg names: String) { require(node.isObject && node.properties().map { it.key }.toSet() == names.toSet()) }
     private fun integer(node: JsonNode) { require(node.isIntegralNumber && node.canConvertToInt()) }
     private fun string(node: JsonNode) { require(node.isString && node.asString().toByteArray(Charsets.UTF_8).size <= MAX_TEXT) }

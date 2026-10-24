@@ -33,7 +33,7 @@ fun PreparationService.addHistoricalSource(context: ApplicationContext, campaign
     val data = PreparedItemData(item.id, item.title, item.markdown,
         ProvenanceData(selected.campaign, selected.capture, selected.path, selected.section, selected.documentHash, selected.contentHash),
         item.anchors, item.notes, captured.data())
-    validateArchive(Archive(8, listOf(current.copy(items = current.items + data))), illustrated = true).bind()
+    validateArchive(Archive(9, listOf(current.copy(items = current.items + data))), illustrated = true).bind()
     val store = context.getBean(SessionStore::class.java)
     val before = store.get(campaign, id)!!
     store.put(before.copy(revision = before.revision + 1, items = before.items + item))

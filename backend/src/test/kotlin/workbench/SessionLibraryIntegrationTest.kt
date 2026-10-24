@@ -202,7 +202,9 @@ class SessionLibraryIntegrationTest : StringSpec({
         frozen = prep().association(campaign, session.id, first.id, frozen.items.last().id, ChangeSceneAssociation(frozen.revision, true)).getOrNull()!!
         val old = frozen
         val initial = play().open(campaign, session.id).getOrNull()!!
-        val workspace = play().save(campaign, session.id, SaveWorkspace(initial.revision, listOf(frozen.items.last().id), listOf(first.id), first.id, listOf(first.id))).getOrNull()!!
+        val sceneWorkspace = play().transition(campaign, session.id, TransitionScene(initial.revision, frozen.revision, first.id)).getOrNull()!!
+        val pileWorkspace = play().move(campaign, session.id, MoveCard(sceneWorkspace.revision, frozen.items.last().id, CardLocation.PILE_2)).getOrNull()!!
+        val workspace = play().rename(campaign, session.id, RenamePile(pileWorkspace.revision, PileSlot.PILE_2, "Reference")).getOrNull()!!
         val edited = writing().save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(title = "New scene", body = "# New\nSafe <script>evil</script>"))).getOrNull()!!
         val illustrated = writing().replaceImage(campaign, d.id, SaveDraft(edited.revision, edited.fields, "replace"), ImageFixtures.png(13, 9).inputStream()).getOrNull()!!
         prep().open(campaign, session.id).getOrNull() shouldBe old
@@ -233,9 +235,12 @@ class SessionLibraryIntegrationTest : StringSpec({
         restored.items.map { it.notes } shouldBe replaced.items.map { it.notes }
         restored.sceneLinks shouldBe listOf(SceneAssociation(restored.items.first().id, restored.items.last().id))
         val restoredPlay = play().open(campaign, imported).getOrNull()!!
-        restoredPlay.used shouldBe listOf(restored.items.first().id)
+        restoredPlay.used shouldBe emptyList()
         restoredPlay.activeSceneItemId shouldBe restored.items.first().id
-        restoredPlay.focusedItemIds shouldBe listOf(restored.items.first().id)
+        restoredPlay.sessionCards shouldBe emptyList()
+        restoredPlay.pile2.items shouldBe listOf(restored.items.last().id)
+        restoredPlay.pile2.cover shouldBe restored.items.last().id
+        restoredPlay.pile2.name shouldBe "Reference"
         val differentType = writing().save(campaign, d.id, SaveDraft(illustrated.revision, illustrated.fields.copy(type = "npc"))).getOrNull()!!
         differentType.fields.type shouldBe "npc"
         service().list(campaign, session.id).getOrNull()!!.entries.single().matches.all { !it.canUpdate } shouldBe true
@@ -267,7 +272,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         view.items.first().source.links.single().target shouldBe "@$aItem#a"
         s.items.first().provenance.authored!!.revision shouldBe b2.revision
         val manifest = context!!.getBean(PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-        manifest.version shouldBe 8
+        manifest.version shouldBe 9
         manifest.workspaces.single().workspace shouldBe null
         val archiveService = context!!.getBean(PortableSessionService::class.java)
         val imported = archiveService.restore(campaign, manifest).getOrNull()!!.sessions.single().id

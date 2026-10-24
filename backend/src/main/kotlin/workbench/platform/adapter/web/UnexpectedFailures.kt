@@ -20,6 +20,10 @@ class UnexpectedFailures {
     fun conflict(ex: Exception) = ResponseEntity.status(409).body(problem(409, "record.conflict", "The record conflicts with an existing or newer record."))
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException::class)
     fun missingRoute(ex: Exception) = ResponseEntity.status(404).body(problem(404, "request.not-found", "Requested resource not found."))
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException::class)
+    fun unsupportedMethod(ex: org.springframework.web.HttpRequestMethodNotSupportedException) = ResponseEntity.status(405)
+        .header("Allow", *(ex.supportedMethods ?: emptyArray()))
+        .body(problem(405, "request.method-not-allowed", "This operation is not supported for the requested resource."))
     @ExceptionHandler(Exception::class)
     fun unexpected(ex: Exception): ResponseEntity<ProblemDetail> {
         val id = UUID.randomUUID().toString()

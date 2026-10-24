@@ -9,14 +9,13 @@ import workbench.playthroughs.domain.PlayWorkspace
 import java.util.UUID
 
 @Entity
-@Table(name = "workspace", schema = "playthroughs")
-class WorkspaceEntity(@Id var session: UUID = UUID.randomUUID(), var revision: Long = 0, var active: String = "[]", var used: String = "[]", var activeSceneItemId: UUID? = null, var focusedItemIds: String = "[]")
+@Table(name = "tabletop_workspace", schema = "playthroughs")
+class WorkspaceEntity(@Id var session: UUID = UUID.randomUUID(), var revision: Long = 0, var state: String = "{}")
 interface WorkspaceRepository : JpaRepository<WorkspaceEntity, UUID>
 @Repository
 class JpaWorkspaceStore(private val repository: WorkspaceRepository, private val mapper: ObjectMapper) : WorkspaceStore {
-    private fun ids(json: String) = mapper.readValue(json, Array<UUID>::class.java).toList()
-    override fun get(session: UUID) = repository.findById(session).orElse(null)?.let { PlayWorkspace(it.session, it.revision, ids(it.active), ids(it.used), it.activeSceneItemId, ids(it.focusedItemIds)) }
+    override fun get(session: UUID) = repository.findById(session).orElse(null)?.let { mapper.readValue(it.state, PlayWorkspace::class.java) }
     override fun put(workspace: PlayWorkspace) {
-        repository.saveAndFlush(WorkspaceEntity(workspace.session, workspace.revision, mapper.writeValueAsString(workspace.active), mapper.writeValueAsString(workspace.used), workspace.activeSceneItemId, mapper.writeValueAsString(workspace.focusedItemIds)))
+        repository.saveAndFlush(WorkspaceEntity(workspace.session, workspace.revision, mapper.writeValueAsString(workspace)))
     }
 }

@@ -344,15 +344,6 @@ export class SessionState {
     if (!session || !(await this.flush()) || epoch !== this.epoch) return;
     await this.play.open(session.campaign, session.id);
   }
-  moveTable(id: string, to: number) {
-    if (!this.mutating()) this.play.move(id, to);
-  }
-  markUsed(id: string) {
-    if (!this.mutating()) this.play.use(id);
-  }
-  returnToTable(id: string) {
-    if (!this.mutating()) this.play.restore(id);
-  }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
     if (this.mutating()) {

@@ -27,7 +27,7 @@ describe('Session working state', () => {
   const api = {
     saveSession: vi.fn(),
     openPlayWorkspace: vi.fn(),
-    savePlayWorkspace: vi.fn(),
+    movePlayCard: vi.fn(),
     openSession: vi.fn(),
     renderSession: vi.fn(),
     previewMarkdown: vi.fn(),
@@ -70,33 +70,28 @@ describe('Session working state', () => {
       of({
         session: initial.id,
         revision: 7,
-        active: ['a', 'b', 'c'],
+        sessionCards: ['a', 'b', 'c'],
         used: [],
         activeSceneItemId: null,
-        focusedItemIds: [],
+        pile1: { name: null, items: [], cover: null },
+        pile2: { name: null, items: [], cover: null },
       }),
     );
     await state.open('campaign-a', 'session-a');
     await state.initializeTable();
     state.selectItem('b');
     expect(state.play.current()?.activeSceneItemId).toBeNull();
-    expect(state.play.current()?.focusedItemIds).toEqual([]);
-    state.moveTable('c', 0);
-    state.markUsed('b');
-    expect(state.play.current()).toMatchObject({ active: ['c', 'a'], used: ['b'] });
+    api.movePlayCard.mockReturnValue(
+      of({ ...state.play.current()!, revision: 8, sessionCards: ['a', 'c'], used: ['b'] }),
+    );
+    await state.play.move('b', 'USED');
     expect(state.current()).toEqual(initial);
     expect(state.selectedItem()).toBe('b');
-    state.returnToTable('b');
-    const table = state.play.current()!;
-    api.savePlayWorkspace.mockReturnValue(of({ ...table, revision: 8 }));
-    expect(await state.play.flush()).toBe(true);
     expect(api.saveSession).not.toHaveBeenCalled();
-    expect(api.savePlayWorkspace.mock.calls[0][2]).toEqual({
+    expect(api.movePlayCard.mock.calls[0][2]).toMatchObject({
       revision: 7,
-      active: ['b', 'c', 'a'],
-      used: [],
-      activeSceneItemId: null,
-      focusedItemIds: [],
+      item: 'b',
+      destination: 'USED',
     });
     state.edit({ notes: 'Preparation only' });
     api.saveSession.mockReturnValue(of({ ...initial, revision: 2, notes: 'Preparation only' }));
@@ -115,14 +110,15 @@ describe('Session working state', () => {
       return of({
         session: initial.id,
         revision: 9,
-        active: ['b'],
+        sessionCards: ['b'],
         used: [],
         activeSceneItemId: null,
-        focusedItemIds: [],
+        pile1: { name: null, items: [], cover: null },
+        pile2: { name: null, items: [], cover: null },
       });
     });
     await state.initializeTable();
-    expect(state.play.current()?.active).toEqual(['b']);
+    expect(state.play.current()?.sessionCards).toEqual(['b']);
   });
 
   it('preserves failed local workspace edits while reloading Preparation in the same session', async () => {
@@ -131,16 +127,16 @@ describe('Session working state', () => {
       of({
         session: 'session-a',
         revision: 7,
-        active: ['a', 'b'],
+        sessionCards: ['a', 'b'],
         used: [],
         activeSceneItemId: null,
-        focusedItemIds: [],
+        pile1: { name: null, items: [], cover: null },
+        pile2: { name: null, items: [], cover: null },
       }),
     );
     await state.initializeTable();
-    state.markUsed('a');
-    api.savePlayWorkspace.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
-    await state.play.flush();
+    api.movePlayCard.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    await state.play.move('a', 'USED');
     const table = state.play.current();
     state.edit({ notes: 'Discard these Preparation notes only' });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -149,7 +145,7 @@ describe('Session working state', () => {
     expect(state.play.current()).toEqual(table);
     expect(state.play.status()).toBe('failed');
     expect(state.play.hasUnsaved()).toBe(true);
-    expect(api.savePlayWorkspace).toHaveBeenCalledTimes(1);
+    expect(api.movePlayCard).toHaveBeenCalledTimes(1);
   });
   it('flushes notes before replacement and pins both revisions while preserving edits during capture', async () => {
     await state.open('campaign-a', 'session-a');
@@ -515,7 +511,7 @@ describe('Session working state', () => {
       { revision: 1, linked: true },
     ]);
     expect(state.current()?.sceneLinks).toEqual([{ scene: 'scene', item: 'npc' }]);
-    expect(api.savePlayWorkspace).not.toHaveBeenCalled();
+    expect(api.movePlayCard).not.toHaveBeenCalled();
   });
   it('retains note edits made while a Scene command is in flight', async () => {
     await state.open('campaign-a', 'session-a');

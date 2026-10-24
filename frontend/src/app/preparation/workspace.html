@@ -73,7 +73,10 @@
           <option [value]="type">{{ type === 'npc' ? 'NPC' : type }}</option>
         }
       </select>
-      <small>{{ activeCount() }} / {{ state.play.current()?.active?.length ?? 0 }} on table</small>
+      <small
+        >{{ activeCount() }} / {{ state.play.current()?.sessionCards?.length ?? 0 }} in Session
+        Cards</small
+      >
     } @else {
       <small>{{ state.current()?.items?.length ?? 0 }} prepared</small>
     }
@@ -89,7 +92,9 @@
     }
     <button
       matButton
-      [attr.aria-label]="(notesOpen() ? 'Hide' : 'Show') + ' notes'"
+      [attr.aria-label]="
+        (notesOpen() ? 'Hide' : 'Show') + (reading() ? ' Notes / Document panel' : ' notes')
+      "
       [attr.aria-expanded]="notesOpen()"
       (click)="notesOpen.set(!notesOpen())"
     >
@@ -97,9 +102,11 @@
     </button>
     <button matButton [matMenuTriggerFor]="viewMenu">View ▾</button>
     <mat-menu #viewMenu="matMenu">
-      <button mat-menu-item (click)="toggleSourceFocus()">
-        {{ focusSource ? 'Restore panels' : 'Focus source' }}
-      </button>
+      @if (!reading()) {
+        <button mat-menu-item (click)="toggleSourceFocus()">
+          {{ focusSource ? 'Restore panels' : 'Focus source' }}
+        </button>
+      }
       <button mat-menu-item (click)="contentsOpen.set(!contentsOpen())">
         {{ contentsOpen() ? 'Hide' : 'Show' }} session contents
       </button>
@@ -210,15 +217,23 @@
     @if (state.play.status() === 'failed') {
       <div class="recovery">
         <strong>{{
-          state.play.current() ? 'Your table changes are retained.' : 'Play workspace unavailable.'
+          state.play.current()
+            ? 'Your pending table action is retained.'
+            : 'Play workspace unavailable.'
         }}</strong>
+        @if (state.play.retainedAction()) {
+          <span>{{ state.play.retainedAction() }}</span>
+        }
         @if (state.play.current()) {
-          <button matButton (click)="state.play.flush()">Retry table save</button>
+          <button matButton (click)="state.play.retry()">Review / retry table action</button>
         }
         <button matButton (click)="state.play.reload()">Reload / discard table changes</button>
       </div>
     }
 
+    @if (reading() && state.play.notice()) {
+      <p role="status">{{ state.play.notice() }}</p>
+    }
     @if (state.error()) {
       <div role="alert" class="error">{{ state.error() }}</div>
     }
@@ -263,57 +278,25 @@
   }
   <div
     [class.reading-table]="reading()"
-    [class.has-tabletop]="reading() && hasTabletop()"
     class="working-area library-hidden"
     [class.contents-hidden]="!contentsOpen() || !state.current()"
     [class.notes-hidden]="!notesOpen() || !state.current()"
     [hidden]="!campaignReady() || !library.selected()"
   >
     @if (reading() && state.current(); as session) {
-      @if (state.play.current(); as workspace) {
-        @if (hasTabletop() || workspace.activeSceneItemId) {
-          <play-tabletop
-            [campaign]="session.campaign"
-            [session]="session.id"
-            [items]="session.items"
-            [workspace]="workspace"
-            [expanded]="state.play.expandedItemId()"
-            [inspection]="state.play.inspectionItemId()"
-            [disabled]="!campaignReady() || busy() || state.play.loading()"
-            (focusItem)="focusPrepared($event)"
-            (openTarget)="followCaptured($event)"
-            (removeFocus)="state.play.unfocus($event)"
-            (replaceFocus)="state.play.replaceFocus($event.slot, $event.id)"
-            (activateScene)="state.play.activateScene($event)"
-            (expandItem)="expandPrepared($event)"
-            (returnToCards)="state.play.expand(null)"
-            (openDocument)="openPreparedDocument($event)"
-            (closeInspection)="closeInspection()"
-          />
-        }
+      @if (state.play.current()) {
+        <play-tabletop
+          [campaign]="session.campaign"
+          [session]="session.id"
+          [items]="session.items"
+          [selected]="state.selectedItem()"
+          [query]="cardQuery()"
+          [group]="cardGroup()"
+          [contentsOpen]="contentsOpen()"
+          [disabled]="!campaignReady() || busy() || state.play.loading()"
+          (openDocument)="openPreparedDocument($event)"
+        />
       }
-    }
-    @if (reading() && contentsOpen() && state.current(); as session) {
-      <read-card-table
-        [campaign]="session.campaign"
-        [session]="session.id"
-        [items]="session.items"
-        [table]="state.play.current()"
-        [focused]="state.play.current()?.focusedItemIds ?? []"
-        [activeScene]="state.play.current()?.activeSceneItemId ?? null"
-        [query]="cardQuery()"
-        [group]="cardGroup()"
-        [selected]="state.selectedItem()"
-        [disabled]="!campaignReady() || busy() || state.play.loading() || !state.play.current()"
-        (selectItem)="selectPrepared($event)"
-        (openDocument)="openPreparedDocument($event)"
-        (focusItem)="focusPrepared($event)"
-        (removeFocus)="state.play.unfocus($event)"
-        (activateScene)="state.play.activateScene($event)"
-        (moveItem)="state.moveTable($event.id, $event.to)"
-        (useItem)="state.markUsed($event)"
-        (restoreItem)="state.returnToTable($event)"
-      />
     }
     <session-contents
       [campaign]="state.current()?.campaign ?? ''"
@@ -332,216 +315,240 @@
       (addLibrary)="openPrepareLibrary()"
       (sessionNotes)="sessionNotes()"
     />
-    <article class="source-page" aria-label="Prepared source" tabindex="0">
-      @if (item(); as prepared) {
-        @if (!reading()) {
-          @if (inspectedScene()) {
-            <button matButton (click)="backToScene()">Back to scene</button>
-          }
-          <nav aria-label="Prepared view">
-            <button
-              matButton
-              [attr.aria-pressed]="!planning()"
-              (click)="planning.set(false); cardOpen.set(false)"
-            >
-              Read
-            </button>
-            @if (isScene()) {
-              <button
-                matButton
-                [attr.aria-pressed]="planning()"
-                (click)="planning.set(true); cardOpen.set(false)"
-              >
-                Scene planning
-              </button>
-            }
-          </nav>
-          <preparation-planning
-            [session]="state.current()!"
-            [item]="prepared"
-            [planning]="planning()"
-            [disabled]="busy()"
-            (inspect)="inspectSceneCard($event)"
-          />
-        }
-
-        @if (reading() && state.play.inspectionItemId() === prepared.id) {
-          <p class="eyebrow">Temporary document inspection</p>
-        } @else if (reading() && state.play.expandedItemId() === prepared.id) {
-          <p class="eyebrow">Expanded focused card</p>
-        }
-        @if (!sourceHasTitle()) {
-          <h3>{{ prepared.title }}</h3>
-        }
-        <details class="provenance">
-          <summary>{{ prepared.provenance.path }}</summary>
-          @if (prepared.provenance.authored; as authored) {
-            <p>Authored draft {{ authored.draft }} · revision {{ authored.revision }}</p>
-            <p>Approved {{ authored.approvedAt }} · {{ authored.approval }}</p>
-            @if (authored.original) {
-              <details>
-                <summary>Original source evidence · {{ authored.originalPath }}</summary>
-                <p>
-                  Capture: {{ authored.originalCapture }} · SHA-256: {{ authored.originalHash }}
-                </p>
-                <pre>{{ authored.original }}</pre>
-              </details>
-            }
-          } @else {
-            <p>Source capture: {{ prepared.provenance.capture }}</p>
-          }
-          <p>Section: {{ prepared.provenance.section ?? 'Whole document' }}</p>
-          <p>Content SHA-256: {{ prepared.provenance.contentHash }}</p>
-          @if (prepared.capturedSource?.classification; as classification) {
-            @if (classification.metadata; as metadata) {
-              <p>
-                {{ metadata.type }} · {{ metadata.purpose }} · {{ metadata.status }} ·
-                {{ metadata.tags?.join(' · ') }}
-              </p>
-              @if (metadata.summary; as summary) {
-                <p>{{ summary }}</p>
-              }
-            }
-            @for (issue of classification.issues ?? []; track $index) {
-              <p>{{ issue.message }}</p>
-            }
-          }
-        </details>
-        @if (
-          !reading() && !planning() && prepared.capturedSource?.classification?.metadata;
-          as card
-        ) {
-          <nav class="document-tabs" aria-label="Prepared presentation">
-            <button matButton [attr.aria-pressed]="cardOpen()" (click)="cardOpen.set(true)">
-              Card
-            </button>
-            <button matButton [attr.aria-pressed]="!cardOpen()" (click)="cardOpen.set(false)">
-              Document
-            </button>
-          </nav>
-          @if (cardOpen()) {
-            <playing-card
-              [artwork]="artwork.item(state.current()!.campaign, state.current()!.id, prepared)"
-              [title]="card.title ?? prepared.title"
-              [type]="card.type ?? ''"
-              [tags]="card.tags ?? []"
-              [summary]="card.summary ?? ''"
-              (openDocument)="cardOpen.set(false)"
-            />
-          }
-        }
-        <prepared-markdown
-          #sourceReader
-          [hidden]="!reading() && (cardOpen() || planning())"
-          [content]="source()"
-          [readingTools]="true"
-          [typed]="!!prepared.capturedSource?.classification?.metadata"
-          [identity]="prepared.id"
-          (capturedTarget)="followCaptured($event)"
-        />
-        @if (!planning() && prepared.capturedSource?.relationships?.length) {
-          <aside aria-label="Captured relationships">
-            <h4>Captured relationships</h4>
-            @for (
-              relationship of prepared.capturedSource?.relationships ?? [];
-              track $index;
-              let index = $index
-            ) {
-              <button
-                matButton
-                (click)="capturedRelated(index)"
-                [disabled]="!capturedAvailable(index)"
-              >
-                {{ relationship.classification?.metadata?.title ?? relationship.destination }}
-                {{ capturedAvailable(index) ? '' : '(outside captured material)' }}
-              </button>
-            }
-          </aside>
-        }
-      } @else {
-        <h3>Your session</h3>
-        <p class="muted">
-          Choose prepared cards from Session contents, or add complete cards from Library.
-        </p>
-        @if (!reading()) {
-          <button matButton (click)="openPrepareLibrary()">Add material from Library</button>
-        }
-      }
-    </article>
-    <article
-      class="notes-page"
-      [class.session-notes]="notesScope() === 'session' || !item()"
-      [hidden]="!notesOpen() || !state.current()"
-      aria-label="Working notes"
+    <div
+      class="reading-support"
+      [class.reading-support-active]="reading()"
+      [class.panel-hidden]="reading() && !notesOpen()"
     >
-      @if (state.current(); as session) {
-        <p class="eyebrow">YOUR PREPARATION</p>
-        <div class="note-tabs">
+      @if (reading()) {
+        <nav class="support-tabs" aria-label="Play supporting panel">
           <button
             matButton
-            [attr.aria-pressed]="notesScope() === 'session'"
-            (click)="sessionNotes()"
+            [attr.aria-pressed]="playPanel() === 'notes'"
+            (click)="playPanel.set('notes')"
           >
-            Session</button
-          ><button
-            matButton
-            [attr.aria-pressed]="notesScope() === 'item'"
-            [disabled]="!item()"
-            (click)="notesScope.set('item'); state.selectItem(state.selectedItem())"
-          >
-            Selected item
+            Notes
           </button>
-        </div>
-        @if (notesScope() === 'item' && item(); as prepared) {
-          <h3>Item notes</h3>
-          <p class="note-context">{{ prepared.title }}</p>
+          <button
+            matButton
+            [attr.aria-pressed]="playPanel() === 'document'"
+            (click)="playPanel.set('document')"
+          >
+            Document
+          </button>
+        </nav>
+      }
+      <article
+        class="source-page"
+        aria-label="Prepared source"
+        tabindex="0"
+        [hidden]="reading() && playPanel() !== 'document'"
+      >
+        @if (item(); as prepared) {
           @if (!reading()) {
-            <label
-              >Item Markdown notes<textarea
-                rows="9"
-                [ngModel]="prepared.notes"
-                (ngModelChange)="state.editItemNotes(prepared.id, $event)"
-              ></textarea>
-            </label>
-            <h4>Preview</h4>
+            @if (inspectedScene()) {
+              <button matButton (click)="backToScene()">Back to scene</button>
+            }
+            <nav aria-label="Prepared view">
+              <button
+                matButton
+                [attr.aria-pressed]="!planning()"
+                (click)="planning.set(false); cardOpen.set(false)"
+              >
+                Read
+              </button>
+              @if (isScene()) {
+                <button
+                  matButton
+                  [attr.aria-pressed]="planning()"
+                  (click)="planning.set(true); cardOpen.set(false)"
+                >
+                  Scene planning
+                </button>
+              }
+            </nav>
+            <preparation-planning
+              [session]="state.current()!"
+              [item]="prepared"
+              [planning]="planning()"
+              [disabled]="busy()"
+              (inspect)="inspectSceneCard($event)"
+            />
           }
-          <prepared-markdown [content]="state.previews()[prepared.id] ?? null" />
-          @if (!prepared.notes) {
-            <p class="muted">No notes for this item.</p>
+
+          @if (!sourceHasTitle()) {
+            <h3>{{ prepared.title }}</h3>
+          }
+          <details class="provenance">
+            <summary>{{ prepared.provenance.path }}</summary>
+            @if (prepared.provenance.authored; as authored) {
+              <p>Authored draft {{ authored.draft }} · revision {{ authored.revision }}</p>
+              <p>Approved {{ authored.approvedAt }} · {{ authored.approval }}</p>
+              @if (authored.original) {
+                <details>
+                  <summary>Original source evidence · {{ authored.originalPath }}</summary>
+                  <p>
+                    Capture: {{ authored.originalCapture }} · SHA-256: {{ authored.originalHash }}
+                  </p>
+                  <pre>{{ authored.original }}</pre>
+                </details>
+              }
+            } @else {
+              <p>Source capture: {{ prepared.provenance.capture }}</p>
+            }
+            <p>Section: {{ prepared.provenance.section ?? 'Whole document' }}</p>
+            <p>Content SHA-256: {{ prepared.provenance.contentHash }}</p>
+            @if (prepared.capturedSource?.classification; as classification) {
+              @if (classification.metadata; as metadata) {
+                <p>
+                  {{ metadata.type }} · {{ metadata.purpose }} · {{ metadata.status }} ·
+                  {{ metadata.tags?.join(' · ') }}
+                </p>
+                @if (metadata.summary; as summary) {
+                  <p>{{ summary }}</p>
+                }
+              }
+              @for (issue of classification.issues ?? []; track $index) {
+                <p>{{ issue.message }}</p>
+              }
+            }
+          </details>
+          @if (
+            !reading() && !planning() && prepared.capturedSource?.classification?.metadata;
+            as card
+          ) {
+            <nav class="document-tabs" aria-label="Prepared presentation">
+              <button matButton [attr.aria-pressed]="cardOpen()" (click)="cardOpen.set(true)">
+                Card
+              </button>
+              <button matButton [attr.aria-pressed]="!cardOpen()" (click)="cardOpen.set(false)">
+                Document
+              </button>
+            </nav>
+            @if (cardOpen()) {
+              <playing-card
+                [artwork]="artwork.item(state.current()!.campaign, state.current()!.id, prepared)"
+                [title]="card.title ?? prepared.title"
+                [type]="card.type ?? ''"
+                [tags]="card.tags ?? []"
+                [summary]="card.summary ?? ''"
+                (openDocument)="cardOpen.set(false)"
+              />
+            }
+          }
+          <prepared-markdown
+            #sourceReader
+            [hidden]="!reading() && (cardOpen() || planning())"
+            [content]="source()"
+            [readingTools]="true"
+            [typed]="!!prepared.capturedSource?.classification?.metadata"
+            [identity]="prepared.id"
+            (capturedTarget)="followCaptured($event)"
+          />
+          @if (!planning() && prepared.capturedSource?.relationships?.length) {
+            <aside aria-label="Captured relationships">
+              <h4>Captured relationships</h4>
+              @for (
+                relationship of prepared.capturedSource?.relationships ?? [];
+                track $index;
+                let index = $index
+              ) {
+                <button
+                  matButton
+                  (click)="capturedRelated(index)"
+                  [disabled]="!capturedAvailable(index)"
+                >
+                  {{ relationship.classification?.metadata?.title ?? relationship.destination }}
+                  {{ capturedAvailable(index) ? '' : '(outside captured material)' }}
+                </button>
+              }
+            </aside>
           }
         } @else {
-          <h3>Session notes</h3>
+          <h3>Your session</h3>
+          <p class="muted">
+            Choose prepared cards from Session contents, or add complete cards from Library.
+          </p>
           @if (!reading()) {
-            <label
-              >Session Markdown notes<textarea
-                rows="9"
-                [ngModel]="session.notes"
-                (ngModelChange)="state.edit({ notes: $event })"
-              ></textarea>
-            </label>
-            <h4>Preview</h4>
+            <button matButton (click)="openPrepareLibrary()">Add material from Library</button>
           }
-          <prepared-markdown [content]="state.previews()['session'] ?? null" />
         }
-        @if (!reading()) {
-          <details class="session-details" [open]="!session.items.length">
-            <summary>Session details</summary>
-            <label
-              >Session title<input
-                [ngModel]="session.title"
-                (ngModelChange)="state.edit({ title: $event })"
-                maxlength="200" /></label
-            ><label
-              >Session objective<textarea
-                rows="3"
-                [ngModel]="session.objective"
-                (ngModelChange)="state.edit({ objective: $event })"
-              ></textarea>
-            </label>
-          </details>
+      </article>
+      <article
+        class="notes-page"
+        [class.session-notes]="notesScope() === 'session' || !item()"
+        [hidden]="!notesOpen() || !state.current() || (reading() && playPanel() !== 'notes')"
+        aria-label="Working notes"
+      >
+        @if (state.current(); as session) {
+          <p class="eyebrow">YOUR PREPARATION</p>
+          <div class="note-tabs">
+            <button
+              matButton
+              [attr.aria-pressed]="notesScope() === 'session'"
+              (click)="sessionNotes()"
+            >
+              Session</button
+            ><button
+              matButton
+              [attr.aria-pressed]="notesScope() === 'item'"
+              [disabled]="!item()"
+              (click)="notesScope.set('item'); state.selectItem(state.selectedItem())"
+            >
+              Selected item
+            </button>
+          </div>
+          @if (notesScope() === 'item' && item(); as prepared) {
+            <h3>Item notes</h3>
+            <p class="note-context">{{ prepared.title }}</p>
+            @if (!reading()) {
+              <label
+                >Item Markdown notes<textarea
+                  rows="9"
+                  [ngModel]="prepared.notes"
+                  (ngModelChange)="state.editItemNotes(prepared.id, $event)"
+                ></textarea>
+              </label>
+              <h4>Preview</h4>
+            }
+            <prepared-markdown [content]="state.previews()[prepared.id] ?? null" />
+            @if (!prepared.notes) {
+              <p class="muted">No notes for this item.</p>
+            }
+          } @else {
+            <h3>Session notes</h3>
+            @if (!reading()) {
+              <label
+                >Session Markdown notes<textarea
+                  rows="9"
+                  [ngModel]="session.notes"
+                  (ngModelChange)="state.edit({ notes: $event })"
+                ></textarea>
+              </label>
+              <h4>Preview</h4>
+            }
+            <prepared-markdown [content]="state.previews()['session'] ?? null" />
+          }
+          @if (!reading()) {
+            <details class="session-details" [open]="!session.items.length">
+              <summary>Session details</summary>
+              <label
+                >Session title<input
+                  [ngModel]="session.title"
+                  (ngModelChange)="state.edit({ title: $event })"
+                  maxlength="200" /></label
+              ><label
+                >Session objective<textarea
+                  rows="3"
+                  [ngModel]="session.objective"
+                  (ngModelChange)="state.edit({ objective: $event })"
+                ></textarea>
+              </label>
+            </details>
+          }
         }
-      }
-    </article>
+      </article>
+    </div>
   </div>
   @if (!library.selected() && campaignReady()) {
     <p class="empty-campaign">

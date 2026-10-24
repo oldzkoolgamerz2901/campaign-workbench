@@ -46,7 +46,7 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
       ).json();
     }
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare&mode=play`);
-    const cards = page.locator('read-card-table .shelf playing-card article');
+    const cards = page.locator('play-tabletop .shelf playing-card article');
     await expect(cards).toHaveCount(3);
     for (const width of [1440, 1280, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });

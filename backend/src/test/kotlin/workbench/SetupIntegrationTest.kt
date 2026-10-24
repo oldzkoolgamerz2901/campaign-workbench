@@ -53,7 +53,8 @@ class SetupIntegrationTest : StringSpec({
             val contract = mapper.readTree(it.body())
             java.nio.file.Files.writeString(java.nio.file.Path.of("build/openapi-p1.json"), it.body())
             it.body() shouldContain "openPlayWorkspace"
-            it.body() shouldContain "savePlayWorkspace"
+            it.body() shouldContain "movePlayCard"
+            it.body() shouldContain "transitionPlayScene"
             contract.path("components").path("schemas").path("SessionData").path("properties").has("table") shouldBe false
             contract.path("components").path("schemas").path("SaveSession").path("properties").has("table") shouldBe false
             contract.path("components").path("schemas").path("SessionTransfer").path("properties").has("workspaces") shouldBe true

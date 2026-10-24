@@ -1,0 +1,440 @@
+<section aria-label="Play tabletop" cdkDropListGroup>
+  <div class="table-slots">
+    <section class="table-slot scene-slot" aria-label="Active Scene">
+      <header><h3>Active Scene</h3></header>
+      @if (activeScene(); as item) {
+        <ng-container *ngTemplateOutlet="card; context: { $implicit: item, location: 'SCENE' }" />
+        <div class="slot-tools">
+          <button [disabled]="locked()" (click)="showScene()">Change Scene</button>
+          <button [disabled]="locked()" (click)="showScene(item.id)">Related cards</button>
+          <button [disabled]="locked()" (click)="deactivate()">Deactivate Scene</button>
+        </div>
+      } @else {
+        <div class="empty-slot">
+          <p>No active Scene</p>
+          <button [disabled]="locked() || !scenes().length" (click)="showScene()">
+            Activate Scene
+          </button>
+        </div>
+      }
+    </section>
+    @for (slot of pileSlots; track slot) {
+      <section
+        class="table-slot runtime-pile"
+        [attr.aria-label]="slot === 'PILE_1' ? 'Runtime Pile 1' : 'Runtime Pile 2'"
+        cdkDropList
+        [cdkDropListData]="slot"
+        [cdkDropListSortingDisabled]="true"
+        [cdkDropListDisabled]="locked()"
+        (cdkDropListDropped)="drop($event, slot)"
+      >
+        <header>
+          <h3>{{ pileTitle(slot) }}</h3>
+          <span
+            >{{ pile(slot).items.length }}
+            {{ pile(slot).items.length === 1 ? 'card' : 'cards' }} ▱</span
+          >
+        </header>
+        @if (item(pile(slot).cover); as cover) {
+          <div
+            cdkDrag
+            [cdkDragData]="cover.id"
+            [cdkDragDisabled]="locked()"
+            class="card-entry"
+            [attr.data-item-id]="cover.id"
+          >
+            <button
+              class="drag-handle"
+              cdkDragHandle
+              [disabled]="locked()"
+              [attr.aria-label]="'Drag card: ' + cover.title"
+            >
+              ⠿ Move card
+            </button>
+            <ng-container *ngTemplateOutlet="card; context: { $implicit: cover, location: slot }" />
+          </div>
+        } @else {
+          <div class="empty-slot">Drop a card here</div>
+        }
+        <div class="slot-tools">
+          <button
+            [disabled]="locked() || pile(slot).items.length < 2"
+            (click)="cycle(slot, -1)"
+            [attr.aria-label]="'Previous cover: ' + pileTitle(slot)"
+          >
+            Previous
+          </button>
+          <button
+            [disabled]="locked() || pile(slot).items.length < 2"
+            (click)="cycle(slot, 1)"
+            [attr.aria-label]="'Next cover: ' + pileTitle(slot)"
+          >
+            Next
+          </button>
+          <button
+            [disabled]="locked()"
+            (click)="showPile(slot)"
+            [attr.aria-label]="'Show all: ' + pileTitle(slot)"
+          >
+            Show all
+          </button>
+        </div>
+      </section>
+    }
+  </div>
+  <div class="collection-heading">
+    <h3>
+      Session Cards
+      <small>{{ sessionCards().length }} / {{ state.current()?.sessionCards?.length ?? 0 }}</small>
+    </h3>
+    <div
+      class="used-holder"
+      cdkDropList
+      [cdkDropListData]="'USED'"
+      [cdkDropListSortingDisabled]="true"
+      [cdkDropListDisabled]="locked() || filtered()"
+      (cdkDropListDropped)="drop($event, 'USED')"
+      aria-label="Used cards drop target"
+    >
+      <button
+        [disabled]="disabled()"
+        [attr.aria-expanded]="usedOpen()"
+        (click)="usedOpen.set(!usedOpen())"
+      >
+        Used cards ({{ state.current()?.used?.length ?? 0 }})
+      </button>
+    </div>
+  </div>
+  @if (contentsOpen()) {
+    <div
+      class="card-shelf shelf"
+      #sessionShelf
+      role="list"
+      aria-label="Session Cards"
+      cdkDropList
+      cdkDropListOrientation="horizontal"
+      [cdkDropListData]="'SESSION_CARDS'"
+      [cdkDropListDisabled]="locked() || filtered()"
+      (cdkDropListDropped)="drop($event, 'SESSION_CARDS', true)"
+    >
+      @for (item of sessionCards(); track item.id) {
+        <div
+          class="card-entry entry"
+          [class.selected]="selected() === item.id"
+          role="listitem"
+          cdkDrag
+          [cdkDragData]="item.id"
+          [cdkDragDisabled]="locked() || filtered()"
+          [attr.data-item-id]="item.id"
+        >
+          <button
+            class="drag-handle"
+            cdkDragHandle
+            [disabled]="locked() || filtered()"
+            [attr.aria-label]="'Drag card: ' + item.title"
+          >
+            ⠿ Move card
+          </button>
+          <ng-container
+            *ngTemplateOutlet="card; context: { $implicit: item, location: 'SESSION_CARDS' }"
+          />
+        </div>
+      } @empty {
+        <p>
+          {{
+            filtered()
+              ? 'No matching Session Cards.'
+              : 'No unassigned cards. Cards in piles, Used or the Scene slot stay in their location.'
+          }}
+        </p>
+      }
+    </div>
+  }
+  @if (filtered()) {
+    <p class="hint">
+      Search filters Session Cards and Used only. Clear filters to drag those cards. Pile contents
+      stay visible.
+    </p>
+  }
+  @if (usedOpen()) {
+    <section id="used-card-tray" aria-label="Used cards tray">
+      <header>
+        <h3>Used cards · {{ used().length }} matching</h3>
+        <button (click)="usedOpen.set(false)">Close used cards</button>
+      </header>
+      <div
+        class="card-shelf"
+        role="list"
+        cdkDropList
+        cdkDropListOrientation="horizontal"
+        [cdkDropListData]="'USED'"
+        [cdkDropListDisabled]="locked() || filtered()"
+        (cdkDropListDropped)="drop($event, 'USED')"
+      >
+        @for (item of used(); track item.id) {
+          <div
+            class="card-entry entry"
+            [class.selected]="selected() === item.id"
+            role="listitem"
+            cdkDrag
+            [cdkDragData]="item.id"
+            [cdkDragDisabled]="locked() || filtered()"
+            [attr.data-item-id]="item.id"
+          >
+            <button
+              class="drag-handle"
+              cdkDragHandle
+              [disabled]="locked() || filtered()"
+              [attr.aria-label]="'Drag card: ' + item.title"
+            >
+              ⠿ Move card
+            </button>
+            <ng-container
+              *ngTemplateOutlet="card; context: { $implicit: item, location: 'USED' }"
+            />
+          </div>
+        } @empty {
+          <p>No matching used cards.</p>
+        }
+      </div>
+    </section>
+  }
+  <dialog
+    #pileDialog
+    [attr.aria-label]="pileTitle(openedPile()) + ' · Show all'"
+    (cancel)="closePile()"
+  >
+    <header>
+      <h2 id="pile-title">{{ pileTitle(openedPile()) }} · Show all</h2>
+      <button (click)="closePile()">Close pile</button>
+    </header>
+    <form (ngSubmit)="state.rename(openedPile(), pileName().trim() || null)">
+      <label
+        >Pile name<input
+          name="pileName"
+          maxlength="200"
+          [ngModel]="pileName()"
+          (ngModelChange)="pileName.set($event)"
+      /></label>
+      <button [disabled]="locked()">Save pile name</button>
+    </form>
+    @if (state.status() === 'failed') {
+      <p role="alert">{{ state.error() }} Your pending action is retained.</p>
+      <button [disabled]="state.commandBusy()" (click)="state.retry()">
+        Review / retry table action
+      </button>
+      <button [disabled]="state.commandBusy()" (click)="closePile(); state.reload()">
+        Reload / discard table changes
+      </button>
+    }
+    <p class="hint">
+      Choose a cover, reorder or move individual cards. Closing keeps saved changes.
+    </p>
+    <div
+      class="pile-contents"
+      cdkDropList
+      [cdkDropListData]="openedPile()"
+      [cdkDropListDisabled]="locked()"
+      (cdkDropListDropped)="drop($event, openedPile(), true)"
+    >
+      @for (item of entries(pile(openedPile()).items); track item.id; let index = $index) {
+        <section
+          class="pile-entry"
+          cdkDrag
+          cdkDragPreviewContainer="parent"
+          [cdkDragData]="item.id"
+          [cdkDragDisabled]="locked()"
+          [attr.data-item-id]="item.id"
+        >
+          <button
+            class="drag-handle"
+            cdkDragHandle
+            [disabled]="locked()"
+            [attr.aria-label]="'Drag card: ' + item.title"
+          >
+            ⠿ Reorder card
+          </button>
+          <ng-container
+            *ngTemplateOutlet="
+              card;
+              context: { $implicit: item, location: openedPile(), inOverlay: true }
+            "
+          />
+          <div class="slot-tools">
+            <button
+              [disabled]="locked() || index === 0"
+              (click)="shift(item.id, openedPile(), -1)"
+              [attr.aria-label]="'Move earlier: ' + item.title"
+            >
+              Earlier
+            </button>
+            <button
+              [disabled]="locked() || index === pile(openedPile()).items.length - 1"
+              (click)="shift(item.id, openedPile(), 1)"
+              [attr.aria-label]="'Move later: ' + item.title"
+            >
+              Later
+            </button>
+            <label
+              >Move card<select
+                [disabled]="locked()"
+                [ngModel]="''"
+                (ngModelChange)="move(item.id, $event)"
+                [attr.aria-label]="'Move card: ' + item.title"
+              >
+                <option value="">Choose destination</option>
+                @for (destination of locations; track destination.id) {
+                  @if (destination.id !== openedPile()) {
+                    <option [value]="destination.id">{{ destination.title }}</option>
+                  }
+                }
+              </select></label
+            >
+            <button
+              [disabled]="locked()"
+              [attr.aria-pressed]="pile(openedPile()).cover === item.id"
+              (click)="state.cover(openedPile(), item.id)"
+            >
+              Display cover: {{ item.title }}
+            </button>
+          </div>
+        </section>
+      } @empty {
+        <p>Empty pile. Close and move a card here.</p>
+      }
+    </div>
+  </dialog>
+  <dialog
+    #sceneDialog
+    aria-label="Activate / Change Scene"
+    (cancel)="state.commandBusy() ? $event.preventDefault() : closeScene()"
+  >
+    <header>
+      <h2 id="scene-title">Activate / Change Scene</h2>
+      <button [disabled]="state.commandBusy()" (click)="closeScene()">Cancel</button>
+    </header>
+    <label
+      >Scene<select
+        [ngModel]="sceneChoice()"
+        (ngModelChange)="chooseScene($event)"
+        [disabled]="state.commandBusy()"
+      >
+        @for (scene of scenes(); track scene.id) {
+          <option [value]="scene.id">{{ scene.title }}</option>
+        }
+      </select></label
+    >
+    @if (state.overviewLoading()) {
+      <p role="status">Loading Scene overview…</p>
+    }
+    @if (state.error()) {
+      <p role="alert">{{ state.error() }}</p>
+    }
+    @if (state.overview(); as overview) {
+      <p>
+        The incoming Scene is in {{ location(overview.scene) }} and will move to the reserved Scene
+        slot. The previous Scene returns to Session Cards.
+      </p>
+      <p>
+        Current piles: {{ pileTitle('PILE_1') }} ({{ overview.workspace.pile1.items.length }}),
+        {{ pileTitle('PILE_2') }} ({{ overview.workspace.pile2.items.length }}).
+      </p>
+      <button
+        class="primary"
+        [disabled]="locked() || overview.scene !== sceneChoice()"
+        (click)="confirmScene(true)"
+      >
+        Keep current piles
+      </button>
+      <button [disabled]="locked()" (click)="customize.set(!customize())">
+        Customize placements
+      </button>
+      <h3>Related and current pile cards</h3>
+      @for (item of transitionCards(); track item.id) {
+        <div class="placement-choice">
+          <span
+            >{{ item.title }} · {{ location(item.id)
+            }}{{ overview.relatedItemIds.includes(item.id) ? ' · Related' : '' }}</span
+          >
+          @if (customize()) {
+            <select
+              [disabled]="locked()"
+              [ngModel]="choices()[item.id] ?? ''"
+              (ngModelChange)="choice(item.id, $event)"
+              [attr.aria-label]="'Placement: ' + item.title"
+            >
+              <option value="">Keep current location</option>
+              @for (destination of locations; track destination.id) {
+                <option [value]="destination.id">{{ destination.title }}</option>
+              }
+            </select>
+          }
+        </div>
+      } @empty {
+        <p>No related prepared cards or existing pile cards to move.</p>
+      }
+      @if (customize()) {
+        <button [disabled]="locked()" (click)="confirmScene(false)">
+          Confirm Scene and placements
+        </button>
+      }
+      <button [disabled]="state.commandBusy()" (click)="state.refreshOverview(sceneChoice())">
+        Refresh overview / retain choices
+      </button>
+    }
+  </dialog>
+  <ng-template #card let-item let-location="location" let-inOverlay="inOverlay">
+    <playing-card
+      [artwork]="artwork.item(campaign(), session(), item)"
+      [title]="metadata(item)?.title ?? item.title"
+      [type]="metadata(item)?.type ?? ''"
+      [summary]="metadata(item)?.summary ?? ''"
+      [tags]="metadata(item)?.tags ?? []"
+      [selectable]="true"
+      [selectionLabel]="item.title"
+      [selected]="selected() === item.id"
+      [disabled]="disabled()"
+      (select)="read(item.id)"
+      (openDocument)="read(item.id)"
+    >
+      @if (location !== 'SCENE' && !inOverlay) {
+        <button
+          cardActions
+          class="card-menu"
+          [matMenuTriggerFor]="actions"
+          [disabled]="locked()"
+          [attr.aria-label]="'Card actions: ' + item.title"
+        >
+          ⋯
+        </button>
+      }
+    </playing-card>
+    <mat-menu #actions="matMenu">
+      <button mat-menu-item (click)="read(item.id)">Read</button>
+      @if (isScene(item)) {
+        <button mat-menu-item (click)="showScene(item.id)">Activate Scene</button>
+      }
+      @for (destination of locations; track destination.id) {
+        @if (destination.id !== location) {
+          <button mat-menu-item (click)="move(item.id, destination.id)">
+            {{
+              destination.id === 'USED'
+                ? 'Mark used'
+                : destination.id === 'SESSION_CARDS'
+                  ? 'Return to Session Cards'
+                  : 'Move to ' + destination.title
+            }}
+          </button>
+        }
+      }
+      @if (location === 'SESSION_CARDS') {
+        <button mat-menu-item [disabled]="filtered()" (click)="shift(item.id, 'SESSION_CARDS', -1)">
+          Move earlier
+        </button>
+        <button mat-menu-item [disabled]="filtered()" (click)="shift(item.id, 'SESSION_CARDS', 1)">
+          Move later
+        </button>
+      }
+    </mat-menu>
+  </ng-template>
+</section>

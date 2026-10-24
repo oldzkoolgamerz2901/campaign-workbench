@@ -1,0 +1,212 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+* {
+  box-sizing: border-box;
+}
+.table-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.table-slot {
+  min-width: 0;
+  padding: 8px;
+  background: #20372a;
+  border: 1px solid #728368;
+  border-radius: 8px;
+}
+header,
+.slot-tools,
+.collection-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+header {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+h3 {
+  font:
+    1.1rem Georgia,
+    serif;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+h2 {
+  font:
+    1.4rem Georgia,
+    serif;
+  margin: 0;
+}
+small,
+.hint,
+header span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+button {
+  color: #f5efde;
+  background: #304b39;
+  border: 1px solid #829078;
+  border-radius: 4px;
+  padding: 7px 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+}
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid #e8bf65;
+  outline-offset: 2px;
+}
+button[aria-pressed='true'],
+.primary {
+  border-color: #e8bf65;
+  background: #4b6042;
+}
+.empty-slot {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px dashed #829078;
+}
+.card-entry {
+  min-width: 0;
+  position: relative;
+}
+.drag-handle {
+  cursor: grab;
+  margin-bottom: 6px;
+  touch-action: none;
+}
+.slot-tools {
+  margin-top: 8px;
+}
+.card-menu {
+  font-size: 1.2rem;
+  padding: 0 10px;
+}
+playing-card {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+}
+.collection-heading {
+  justify-content: space-between;
+  margin: 16px 0 8px;
+}
+.used-holder {
+  border: 2px dashed #829078;
+  padding: 8px;
+  border-radius: 8px;
+}
+.card-shelf {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+  overflow: auto;
+  min-height: 110px;
+  padding: 8px 4px 16px;
+}
+.card-shelf > .card-entry {
+  flex: 0 0 min(320px, 80vw);
+}
+.cdk-drop-list-dragging,
+.cdk-drop-list-receiving {
+  outline: 3px dashed #e8bf65;
+  outline-offset: -3px;
+}
+.cdk-drag-preview {
+  width: 220px !important;
+  box-shadow: 0 8px 30px #0009;
+  background: #20372a;
+}
+.cdk-drag-placeholder {
+  opacity: 0.25;
+}
+dialog {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  color: #f5efde;
+  background: #20372a;
+  border: 2px solid #aa9567;
+  border-radius: 10px;
+  padding: 18px;
+}
+dialog::backdrop {
+  background: #0009;
+}
+dialog form {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+dialog input,
+dialog select {
+  max-width: 100%;
+  padding: 8px;
+  background: #f2efdc;
+  color: #28352b;
+}
+.pile-contents {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 100px;
+}
+.pile-entry {
+  display: grid;
+  grid-template-columns: minmax(150px, 240px) minmax(120px, 1fr);
+  gap: 8px 18px;
+  border-top: 1px solid #829078;
+  padding-top: 12px;
+}
+.pile-entry .drag-handle {
+  grid-column: 1/-1;
+  justify-self: start;
+}
+.pile-entry .slot-tools {
+  align-content: start;
+  align-items: start;
+}
+.placement-choice {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+@media (max-width: 750px) {
+  .table-slots {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .table-slot {
+    max-width: 340px;
+    width: 100%;
+    justify-self: center;
+  }
+  .empty-slot {
+    min-height: 140px;
+  }
+  .pile-entry {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  dialog {
+    padding: 12px;
+  }
+}

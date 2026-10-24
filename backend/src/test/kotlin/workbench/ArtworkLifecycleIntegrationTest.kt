@@ -143,7 +143,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         entries(writingZip).keys.filter { it.startsWith("images/") }.toSet() shouldBe setOf("images/${first.hash}", "images/${second.image!!.hash}")
         val play = context!!.getBean(workbench.playthroughs.api.Playthroughs::class.java)
         val workspace = play.open(campaign, session.id).getOrNull()!!
-        play.save(campaign, session.id, workbench.playthroughs.api.SaveWorkspace(workspace.revision, emptyList(), listOf(session.items.single().id), null, emptyList())).isRight() shouldBe true
+        play.move(campaign, session.id, workbench.playthroughs.api.MoveCard(workspace.revision, session.items.single().id, workbench.playthroughs.api.CardLocation.USED)).isRight() shouldBe true
         val sessionZip = bytes(context!!.getBean(PortableSessionService::class.java).export(campaign, ExportSessions(listOf(session.id))).getOrNull()!!)
         entries(sessionZip).keys.toSet() shouldBe setOf("manifest.json", "images/${first.hash}")
         writing().delete(campaign, d.id, second.revision).isRight() shouldBe true
@@ -164,7 +164,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         var importedSession = prep().open(other, imported.sessions.single().id).getOrNull()!!
         importedSession.items.single().image shouldBe first
         play.open(other, importedSession.id).getOrNull()!!.used shouldBe listOf(importedSession.items.single().id)
-        play.open(other, importedSession.id).getOrNull()!!.active shouldBe emptyList()
+        play.open(other, importedSession.id).getOrNull()!!.sessionCards shouldBe emptyList()
         (importedSession.items.single().id != session.items.single().id) shouldBe true
         context!!.close(); context = start()
         request("/api/campaigns/$other/sessions/${importedSession.id}/items/${importedSession.items.single().id}/artwork/DISPLAY").statusCode() shouldBe 200

@@ -54,7 +54,8 @@ class RelationshipSuggestionsIntegrationTest : StringSpec({
             s = p.association(campaign, s.id, scene, first, ChangeSceneAssociation(s.revision, true)).getOrNull()!!
             s.sceneLinks.size shouldBe 3
             var workspace = play.open(campaign, s.id).getOrNull()!!
-            workspace = play.save(campaign, s.id, SaveWorkspace(workspace.revision, listOf(another, scene, second), listOf(first), scene, listOf(first))).getOrNull()!!
+            workspace = play.move(campaign, s.id, MoveCard(workspace.revision, first, CardLocation.USED)).getOrNull()!!
+            workspace = play.transition(campaign, s.id, TransitionScene(workspace.revision, s.revision, scene)).getOrNull()!!
             val initial = play.suggestions(campaign, s.id, scene).getOrNull()!!
             initial.suggestions.flatMap { it.candidates }.map { it.item } shouldBe listOf(first, second)
             initial.suggestions.all { it.state == PreparedTargetState.MATCHED && it.candidates.single().anchor == null } shouldBe true
@@ -80,7 +81,7 @@ class RelationshipSuggestionsIntegrationTest : StringSpec({
             http("scene-links/$first/$scene", "{\"revision\":${s.revision},\"linked\":true}").statusCode() shouldBe 400
             val archives = context.getBean(PortableSessionService::class.java)
             val archive = archives.manifest(campaign, ExportSessions(listOf(s.id, foreign.id))).getOrNull()!!
-            archive.version shouldBe 8
+            archive.version shouldBe 9
             archive.workspaces.last().workspace shouldBe null
             val reader = context.getBean(SessionArchiveReader::class.java)
             reader.readTransfer(reader.writeTransfer(archive)).getOrNull() shouldBe archive
@@ -90,7 +91,7 @@ class RelationshipSuggestionsIntegrationTest : StringSpec({
                 archives.restore(other, archive.copy(sessions = listOf(record.copy(sceneLinks = edges), archive.sessions.last()))).isLeft() shouldBe true
                 p.list(other).getOrNull()!!.sessions.size shouldBe before
             }
-            for (version in 1..7) reader.readTransfer(mapper.writeValueAsBytes(mapper.valueToTree<ObjectNode>(archive).put("version", version))).isLeft() shouldBe true
+            for (version in 1..8) reader.readTransfer(mapper.writeValueAsBytes(mapper.valueToTree<ObjectNode>(archive).put("version", version))).isLeft() shouldBe true
             for (bad in listOf("missing", "unknown", "uuid", "null")) {
                 val tree = mapper.valueToTree<ObjectNode>(archive)
                 val sessionNode = tree.path("sessions")[0] as ObjectNode
@@ -110,7 +111,7 @@ class RelationshipSuggestionsIntegrationTest : StringSpec({
             copy.items.none { it.id in remap.keys } shouldBe true
             val copiedWorkspace = play.open(other, copy.id).getOrNull()!!
             copiedWorkspace.used shouldBe listOf(remap.getValue(first))
-            copiedWorkspace.focusedItemIds shouldBe listOf(remap.getValue(first))
+            copiedWorkspace.sessionCards shouldBe listOf(remap.getValue(second), remap.getValue(another))
             copiedWorkspace.activeSceneItemId shouldBe remap.getValue(scene)
             context.getBean(WorkspaceTransfers::class.java).snapshot(other, imported.sessions.last().id).getOrNull() shouldBe null
             context.close(); context = start()
