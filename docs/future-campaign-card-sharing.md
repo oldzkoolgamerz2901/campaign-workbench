@@ -43,7 +43,7 @@ Let a DM distribute copies of prepared session cards to players' tablets over a 
 4. Player claims a group inventory card; backend atomically transfers its owner to the player. Other claims against the former group ownership fail gracefully.
 5. DM transfers a card back to the group or another player without duplicating it.
 
-## Deferred decisions for a later requirements/architecture phase
+## Original deferred questions (historical; see accepted decisions below)
 
 - Player identity, device pairing/reconnection, token revocation, LAN isolation, and secure authorization of player vs DM operations.
 - Whether a player may voluntarily remove a Handout, and whether a removed/discarded card remains visible in history.
@@ -131,3 +131,112 @@ flowchart TB
 5. Specify gateway lifecycle, error feedback, collection polling/revisions, and tests demonstrating that DM routes are unreachable from the LAN.
 
 **Non-interference:** This remains a deferred feature on a separate documentation branch. Do not merge into `main`, change active Codex increments, or treat this proposal as permission to implement.
+
+## Consolidated sharing architecture — accepted decisions 1–14 (2026-10-24)
+
+**Status:** Owner-accepted conceptual architecture, **deferred feature**. This section supersedes earlier lists of unresolved product choices above where they conflict. Network and persistence mechanisms marked proposed or open below are **not** accepted implementation choices. This branch is isolated from ongoing Codex work; no implementation or merge is authorized.
+
+### Decisions and rationale
+
+| Decision | Accepted | Consequence |
+| --- | --- | --- |
+| 1 | Trusted home LAN, local HTTP; stronger security later | No cloud, port forwarding, mandatory TLS, offline mode, or separate tablet app in v1; HTTP traffic is unencrypted |
+| 2 | Player-specific QR immediately pairs a device | Short-lived one-use pairing token; no secondary DM approval |
+| 3 | Inventory soft discard with DM restore | Preserve instance, owner and history; players cannot self-restore |
+| 4 | Independent distributed card instances | No stack/quantity semantics; concurrent claims act on one instance |
+| 5 | Targeted handouts | Handouts visible to a player or group; recipient/visibility is distinct from inventory ownership |
+| 6 | Thin LAN gateway as application-level adapter | Sharing owns rules; gateway owns HTTP transport and access boundary |
+| 7 | DM explicitly enables gateway | Disabled on startup; runtime-only availability; stored pairings remain |
+| 8 | Campaign-specific pairing | No global account; device can have separate credentials for separate campaigns |
+| 9 | Campaign switch disables gateway | Stop accepting requests and safely drain/reject in-flight operations before switching |
+| 10 | Campaign roster managed in Share | Persistent campaign participants independent of Playthrough participants |
+| 11 | Deactivation preserves inventory and pairing records | Block access for inactive players; reactivation can reuse valid pairings |
+| 12 | DM-controlled transfers | Players may claim group inventory and discard own inventory; no player-to-player transfers |
+| 13 | Shared content immutable | Corrections require distributing a new instance; never silently refresh |
+| 14 | Handouts withdrawable/restorable by DM | Hide from players, retain recipient, snapshot and history; no permanent deletion required |
+
+### Domain and responsibility boundaries
+
+```mermaid
+flowchart TB
+    Tablet["Tablet browser / player view"] --> Gateway["LAN HTTP gateway<br/>thin adapter and authorization"]
+    DM["DM Share tab / localhost UI"] --> DMAPI["Private DM API"]
+    Gateway --> Sharing["Sharing module<br/>distribution, collections, lifecycle"]
+    DMAPI --> Sharing
+    Sharing -->|"Public read contract: frozen prepared content"| Preparation["Preparation"]
+    Sharing -->|"Public campaign identity / locking contract"| Campaigns["Campaigns"]
+    Sharing -->|"Retention/read contract (to verify)"| Artwork["Existing artwork-owning component"]
+    Sharing --> DB[("PostgreSQL")]
+    Play["Playthroughs"] -. "Independent: no pile mutations" .- Sharing
+```
+
+One Spring Boot application, one database and one Angular codebase are preferred. Sharing is a distinct logical backend module following repository conventions, **not** a separate microservice. Distribution, collection and pairing support need not become separate build modules. The player gateway must not expose DM routes. Separate ports alone do not enforce isolation.
+
+Conceptual entities:
+- `CampaignPlayer(id, campaignId, displayName, status)`: campaign-local identity; active/inactive.
+- `PairedDevice(id, campaignPlayerId, credentialHash, revokedAt, lastSeenAt)`: revocable browser authorization scoped through its player to one campaign; device fingerprinting is unnecessary.
+- `SharedCard(id, campaignId, mode, status, immutableSnapshot, sourceProvenance, version, recipientOrOwner)`: each distribution creates a unique instance. **Inventory** has exactly one owner (group or player); **Handout** has a visibility recipient (group or player), not an inventory owner.
+- `SharedCardEvent(id, sharedCardId, actor, action, timestamp, ...)`: append-only operation history; current state is stored directly, not event-sourced.
+- Snapshot includes frozen title, document, card representation and artwork reference or independently retained immutable content. Snapshot must remain readable after source changes or deletion.
+
+Domain operations: distribute inventory/handout; claim active group inventory; DM transfer active inventory; player/DM discard inventory; DM restore inventory to prior owner; DM withdraw/restore handout to prior recipient; manage roster and paired devices. A discarded card cannot be claimed or transferred until restored. Inactive players retain ownership; DM can explicitly transfer their inventory.
+
+Every command checks actor, campaign, mode, state and ownership; all state mutations and corresponding history records commit atomically. Concurrent group claims must yield at most one winner. Follow the existing campaign-row locking/public contract rather than inventing a second concurrency framework.
+
+### Player access and lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disabled
+    Disabled --> Enabled: DM enables for selected campaign
+    Enabled --> Disabled: DM disables
+    Enabled --> Disabled: DM switches campaign
+    Enabled --> Disabled: Application closes
+```
+
+- At most one campaign is available through the gateway. On startup, gateway is disabled regardless of previous runtime state.
+- DM chooses a campaign player and generates a short-lived, single-use pairing QR; scan exchanges temporary token for a revocable device credential without a second approval.
+- Previously paired active players reconnect when the DM enables the same campaign again. Deactivation blocks all that player's devices without deleting pairings or collections; device revocation blocks only that device.
+- Gateway derives campaign/player identity from credential and currently enabled campaign; never trusts tablet-provided IDs. Players see own and group collections only. Group inventory is not duplicated into every player's collection.
+- Disable/switch must stop accepting requests, complete or safely reject in-flight operations against their original campaign, then switch. Never rebind an existing request to the newly selected campaign.
+- Tablet UI is online-only; use refresh/polling for collection changes. No WebSockets, offline synchronization, cloud or external accounts required.
+- QR should use an explicit reachable LAN IP address. Guest networks/client isolation, VLANs and laptop firewall may block traffic; a running gateway is not proof of tablet reachability.
+- HTTP on a trusted LAN is a deliberate first-version tradeoff: credentials and content are not encrypted. Do not claim protection against active local network interception.
+
+### State transitions and permissions
+
+| Operation | Inventory | Handout |
+| --- | --- | --- |
+| DM distribute | Create active independent instance for group/player | Create active independent instance visible to group/player |
+| Player claim | Group active → same instance owned by claiming player, atomic | Forbidden |
+| DM transfer | Active instance to group/another player | Not an inventory transfer; visibility target set at distribution |
+| Player discard | Own active inventory only | Forbidden |
+| DM discard/withdraw | Soft discard; retain owner/history | Withdraw; retain recipient/history |
+| DM restore | Restore same instance to previous owner | Restore same instance to previous recipient |
+| Source edit/delete | No effect on frozen content | No effect on frozen content |
+
+Permanent deletion, player handout removal, quantity mechanics, and direct player transfers are not part of v1. History is audit information, not the source of current state.
+
+### Proposed API separation (illustrative, not approved endpoint contracts)
+
+- Private DM API: distribute, list all collections and discarded/withdrawn items, transfer, discard, restore, manage roster, create pairing, revoke devices, enable/disable gateway.
+- LAN player API: complete pairing, read own/group inventory and targeted handouts, claim group inventory, discard own inventory, report connection/credential errors.
+- Both APIs invoke Sharing application use cases; only LAN player routes and required static player UI assets are reachable through the gateway. Server-side authorization is mandatory.
+
+### Open technical questions and verification gates
+
+1. **Artwork retention (high priority):** Inspect actual image ownership, immutable SHA/content references, deletion/garbage-collection paths and frozen PreparedItem image behavior. Ensure shared snapshots survive source deletion, including discarded and withdrawn instances. Reuse existing image storage; avoid an unnecessary new Assets module.
+2. **Gateway isolation (high priority):** Verify whether an additional Spring Boot listener in the same process can strictly restrict reachable routes (including DM APIs, actuator/admin, OpenAPI/docs, static files, path variants). A second port alone is insufficient. If not demonstrably safe, compare a minimal allowlisting proxy. Keep DM and PostgreSQL localhost-only.
+3. **Credential threat model:** Specify exact pairing token lifetime (five minutes proposed, not mandated), single-use enforcement, credential generation/hash/storage/transport, CSRF behavior, revocation, expiry/rotation, browser storage, and handling of HTTP interception under trusted LAN.
+4. **Player UI delivery:** Verify how to build and serve the dedicated player-facing Angular entry/view without exposing the development server or accidentally granting DM API access.
+5. **LAN address/lifecycle:** Determine correct IP with multiple adapters/VPNs, changing DHCP addresses, OS firewall prompts, gateway bind/start/stop behavior, in-flight request handling and user-visible connection diagnostics.
+6. **Module integration:** Verify the current module/package boundaries, Preparation's frozen snapshot read contract, Campaigns' lock API, and image retention contract. No direct cross-module repository/table access.
+7. **Consistency and errors:** Finalize optimistic version/locking approach, claim conflict responses, operation retries, transactional audit events, polling/revision contract, and restore edge cases (e.g. inactive owner).
+8. **Archives/backups:** Clarify whether campaign-wide Sharing roster, device pairings, shared snapshots and history participate in any campaign-level export/import. Existing session archives are scoped to sessions; do not silently attach campaign-wide state to them. Preserve security of credentials in backups.
+9. **Verification:** Demonstrate LAN denial of all DM routes, one-winner concurrent claims, immutable snapshots after source deletion, campaign-switch isolation, revoked/inactive player denial, restoration, and correct access by group/personal recipients.
+
+### Architecture review outcome
+
+Domain behavior and accepted product decisions are coherent and substantially complete. **Architecture is not yet ready for implementation planning** until the high-priority image retention and gateway isolation investigations are completed and their implementation constraints are resolved. Preserve this as an approved conceptual direction with explicitly open technical questions, not as authorization to implement.
+
+**Non-interference:** Documentation is maintained only on `docs/future-player-card-sharing`; no merge, PR, change to `main`, active Codex work, implementation plan, harness, code, or migrations is authorized.
