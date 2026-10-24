@@ -1,5 +1,7 @@
 # Playthroughs — implementation planning (2026-10-22)
 
+**Current delivery:** T1/T2 and P5–P8 are delivered and formally assessed; see [P8](verification.md#p8--integrated-developer-handover--2026-10-24) and [current architecture](implementation-plan.md). This document retains the original sequence and acceptance evolution. Older statements that P5/P6/P7 are future or incomplete apply at their recording date. Owner acceptance remains separate.
+
 **Later reconciliation (2026-10-24):** [Accepted tabletop architecture and proposed T1/T2 sequence](implementation-plan.md#play-tabletop--accepted-architecture-reconciliation--2026-10-24) replace conflicting future focus/placement expectations. Accepted ordering direction is T1 → T2 → P5 → revised P7 → P6 → P8; T1/T2 are accepted and have implementation handovers. The original P5–P8 text and sequence below retain historical context; apply the later reconciliation for future work, including the superseded P7 unprepared-P4R dependency. No execution permission follows from either record.
 
 **Status:** Revised increment plan accepted by the owner, 2026-10-22. Requirements and architecture gap closures are accepted. No implementation, database reset or formal verification is authorized by this document. Accepted domain decisions live in [Playthrough architecture](playthrough-domain-architecture.md); requirements live in [product specification](product-specification.md#play-workspace-discovery--accepted-owner-decisions--2026-10-22).
