@@ -33,6 +33,7 @@ Typical emphasis: greenfield often needs product, requirements, technology, arch
 ## Select techniques by uncertainty
 
 - **Investigate** when facts can be established from code, tests, documentation, or other accessible evidence. For defects, reproduce and trace the cause before proposing corrections. Ordinary code investigation does not require a separate Research workstream.
+- **Implement efficiently** when an approved change involves costly integration or browser checks: use [efficient-implementation](skills/efficient-implementation/SKILL.md) to reduce rework within the existing phases.
 - **Grill** when meaningful decisions require the owner's preferences or trade-off judgments. Use `grilling` (or explicit `grill-me`) for bounded, consequential questions; avoid interviewing about settled facts, trivial implementation details, or unrelated domains.
 - **Model the domain** when terminology, invariants, or responsibility boundaries are unclear. Use `domain-modeling`; combine it with `grill-with-docs` when both domain decisions and approved documentation are in scope. Reuse existing project documents and approval rules.
 - **Research** when reliable external knowledge, primary sources, or substantive content investigation is needed. Use `research` within authorized scope; its output is evidence, not permission to act on recommendations.

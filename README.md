@@ -4,6 +4,22 @@ A local laptop workspace for campaign preparation and play. The source library p
 
 The Angular frontend and Kotlin/Spring modular backend live here. Independent campaign directories retain authoritative Markdown. PostgreSQL owns application state. The backend reads explicitly registered campaign directories and never rewrites their sources.
 
+## Reading map
+
+Read [AGENTS.md](AGENTS.md) and the required workflow documents before development. Then consult only the material relevant to the task:
+
+| Need | Reference |
+| --- | --- |
+| Setup and daily operation | Prerequisites and Development sections below |
+| Approved behavior | [Product specification](docs/product-specification.md), relevant requirement section |
+| Current architecture and increment scope | [Implementation plan reading map](docs/implementation-plan.md#implementation-plan-reading-map) |
+| Workspace UX decisions | [Accepted workspace design](docs/unified-workspace-ux-design.md) |
+| Formal findings, corrections and verification limits | [Verification](docs/verification.md), relevant increment assessment |
+| Completed developer checks or historical implementation rationale | [Implementation history](docs/implementation-history.md#record-index), relevant record only |
+| Future PlayNotes/history | [Playthrough implementation plan](docs/playthrough-implementation-plan.md), P5/P6 |
+
+The increment descriptions below retain delivery context. Historical limitations apply to their original increment; later accepted changes may supersede them. Verification results do not imply owner acceptance or execution authorization.
+
 **UW4 dedicated Library:** Open **Library** in the shared Library/Write/Prepare/Play header. One catalogue combines captured Sources and saved Drafts, with Draft precedence, shared search/filters, illustrated compact rows and a full Document reader; Card is an optional reading mode. Details exposes validation, identity conflicts, Source availability and revision/provenance. **Edit in Write** opens the associated Draft or creates/reuses one for a Source. Create new documents in Write. **Refresh sources** explicitly refreshes the capture; **Reload catalogue** checks saved Drafts/status, and **Reload selected document** recovers stale reading without clearing search.
 
 Select, switch or clear **Current session** explicitly; the route carries it across workspaces, and changing campaign clears it. With no destination, **Add to session…** offers session selection/creation. Add saves pending work first, freezes the selected saved representation atomically and retains the reader/search. Already-prepared entries show **View in Prepare**; newer revisions show **Prepared · Update available** and direct to Prepare. Failed/stale operations retain reading and offer retry/reload; switching session cannot redirect an in-flight Add. Catalogue and reader scroll independently on laptop and stack at narrow widths.
@@ -26,7 +42,7 @@ Prepare opens frozen **Read** first. Valid prepared Scenes also offer **Scene pl
 
 **P4R contextual suggestions (historical; UW3 replaces their source with explicit session associations):** An active scene now shows Related cards from its frozen links. Exact prepared copies appear in preparation order with section targets and Used indicators; repeated exact targets collapse. Choose a copy explicitly, focus it when there is room, or inspect it and explicitly replace a full focus slot. Suggestions do not activate scenes, reorder the table or return Used cards. Missing, unsafe and incompatible targets are unavailable. Unprepared targets are labelled; library inspection/capture remains P7. No persisted state or archive version changed. P4R passed bounded formal verification and was accepted by the owner on 2026-10-23; see `docs/verification.md`.
 
-**UW1 backend Library foundation:** `GET /api/campaigns/{campaign}/cards` composes captured Sources and saved Drafts with Draft precedence, shared query/type/tag/purpose/status filters, validation and identity-conflict diagnostics. `GET .../cards/document` requires the catalogue's capture and, for Drafts, both `draft` (Draft ID) and `revision`; Source-only reads omit both. Conflicting Source-only candidates require an explicit `sourcePath`. `POST .../cards/edit-source` accepts `capture` and `path`, reusing or creating an associated Draft without preparing a session. Valid logical UUIDs survive associated editing/export; independent **Copy source** remains a fresh-identity derivative. Writing retains observed unambiguous UUID associations so later missing Sources remain identifiable; catalogue reads never scan files or overwrite Drafts. Untyped associations retain their explicit path and do not guess moves. V17 stores this evidence in Writing and scopes live Draft identity uniqueness by campaign. The dedicated Library UI, atomic Add, prepared updates and session Scene links remain later increments; the existing frontend and P4R suggestion behavior are unchanged.
+**UW1 backend Library foundation:** `GET /api/campaigns/{campaign}/cards` composes captured Sources and saved Drafts with Draft precedence, shared query/type/tag/purpose/status filters, validation and identity-conflict diagnostics. `GET .../cards/document` requires the catalogue's capture and, for Drafts, both `draft` (Draft ID) and `revision`; Source-only reads omit both. Conflicting Source-only candidates require an explicit `sourcePath`. `POST .../cards/edit-source` accepts `capture` and `path`, reusing or creating an associated Draft without preparing a session. Valid logical UUIDs survive associated editing/export; independent **Copy source** remains a fresh-identity derivative. Writing retains observed unambiguous UUID associations so later missing Sources remain identifiable; catalogue reads never scan files or overwrite Drafts. Untyped associations retain their explicit path and do not guess moves. V17 stores this evidence in Writing and scopes live Draft identity uniqueness by campaign. UW2–UW6 subsequently delivered atomic Add, explicit prepared updates, session Scene associations and their Library/Write/Prepare/Play UI. UX-C6 retired the legacy direct-add endpoints; the UW1 limitations describe its original delivery boundary.
 
 ### Optional development database reset
 
@@ -165,9 +181,10 @@ Increment 3A adds backend classification of typed Markdown cards, filtered sourc
 ## Design and evidence
 
 - [Approved requirements](docs/product-specification.md)
-- [Accepted architecture, setup scope, superseded history and developer-check evidence](docs/implementation-plan.md)
+- [Accepted architecture and increment scopes](docs/implementation-plan.md)
+- [Completed implementation records and developer checks](docs/implementation-history.md)
 - [Historical Sea Witch assessment](../sea_witch/repository-app-assessment.md), in a separate campaign repository; its suggestions are not approved requirements.
 
-Read [AGENTS.md](AGENTS.md) before agent development. Workflow documents and skills are under `.agents/`. Developer checks do not constitute formal verification. See [formal assessments](docs/verification.md) for bounded verification evidence and [implementation evidence](docs/implementation-plan.md) for developer checks; owner acceptance remains separate.
+Read [AGENTS.md](AGENTS.md) before agent development. Workflow documents and skills are under `.agents/`. Developer checks do not constitute formal verification. See [formal assessments](docs/verification.md) for bounded verification evidence and [completed implementation records](docs/implementation-history.md) for historical developer checks; owner acceptance remains separate.
 
 **UW3 session Scene associations:** Preparation owns explicit Scene→PreparedItem links under the session revision. `PUT /api/campaigns/{campaign}/sessions/{id}/scene-links/{scene}/{item}` takes `{revision, linked}` and returns the updated Session with required `sceneLinks`. Endpoints must belong to that session and the origin must be a valid frozen Scene. Repeated linking cannot duplicate an edge. `GET .../items/{item}/removal-impact` returns the session revision and affected Scene IDs/titles for later confirmation UI. Removal prunes incoming/outgoing links atomically; same-type replacement preserves links. Related cards in Play now come exclusively from these exact endpoints in preparation order; Markdown links retain frozen-reader navigation and never create associations. Existing sessions start with no links. V18 stores bounded links on the Session row, surviving item row replacement. Session JSON/ZIP v8 strictly validates/remaps links and runtime references; v1–v7 are rejected. UW5 supplies Scene-planning controls; Writing recovery is unchanged.

@@ -1,6 +1,6 @@
 # Unified Library / Write / Prepare / Play — Accepted UX design
 
-**Status:** UX design accepted through Decision 27 (2026-10-23). Subsequent [architecture reconciliation](implementation-plan.md#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23) is approved and documented. Not implemented; planning requires separate authorization. This document describes intended UX, not necessarily current application behavior.
+**Status:** UX design accepted through Decision 27 (2026-10-23). Subsequent [architecture reconciliation](implementation-plan.md#unified-library--write--prepare--play--accepted-architecture-reconciliation--2026-10-23) is approved and documented. UW1–UW6 subsequently implemented the integrated workspace; see the [UW6 handover](implementation-plan.md#uw6--accepted-integration-and-final-handover) and [formal assessment](verification.md#uw6--unified-workspace-integration-and-final-handover--2026-10-23) for delivered scope and limits. Later UX-C increments refine that behavior. This remains the accepted design record; verification and owner acceptance are distinct.
 
 **Authority:** [Product specification](product-specification.md), [Playthrough architecture](playthrough-domain-architecture.md), and the project development workflow. This refinement supersedes conflicting *future UX direction*, not implemented features or previous historical records. No code or migration authorization follows from this document.
 
