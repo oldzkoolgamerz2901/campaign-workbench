@@ -604,3 +604,29 @@ P1–P4 runtime ownership and accepted behavior remain. P4R implementation/verif
 - <a id="dependency-and-phase-handoff"></a> [Dependency and phase handoff](history/implementation-plan-2026-10-24.md#dependency-and-phase-handoff)
 
 </details>
+
+## Proposed Play UX polish implementation sequence — 2026-10-25 (not authorized to implement)
+
+**Status:** Preparation proposal only. Owner approved the UX requirements in [the Play UX refinement](play-tabletop-ux-design.md#owner-approved-play-interaction-refinement--2026-10-25), **not** code execution. Each named increment requires its own approval under `AGENTS.md` and `.agents/development-workflow.md`. Reuse the reconciled Play placement/command architecture and prior T1/T2 verification baseline; do not replace the workspace service or note stores for presentation concerns.
+
+### PUX-1 — Direct card gestures (proposed first increment)
+- **Targets:** `frontend/src/app/playthroughs/tabletop.html`, `tabletop.ts`, `tabletop.css`, shared `playing-card` only if interaction event ownership demands it; Play E2E tests.
+- Remove visible external CDK handles; make movable card surface draggable; keep nested flip/menu/read actions operable, apply sensible drag thresholds, accessible keyboard move/reorder alternatives, and clear valid/invalid drop affordances. Confirm drag previews do not clip or alter card dimensions.
+- **Completion evidence:** click/read vs pointer-drag vs flip/menu E2E checks; movable card routes and protected active Scene; cancelled/invalid drops, filter-disabled drag, saving/locked states and keyboard alternative. Inspect hover and touch behavior. No new placement or persistence API.
+
+### PUX-2 — Focus piles and Show all tray
+- **Targets:** Play tabletop template/styles/component and targeted browser tests.
+- Compact focus headers; rename, card count, Show all and decorative stacked-card layers; embedded side arrows. Render Show all as a responsive wrapped card grid with bounded scrolling, accessible header **Other pile / Session Cards / Used cards** drop targets and Close. Remove obsolete overlay form, list rows and cover-selection controls. Reuse `PlayWorkspaceState` move/reorder/cover operations.
+- **Critical investigation before implementation:** establish how Angular CDK `cdkDropList` works with the native modal dialog, wrapped grid and connected outside locations. Map card index from actual two-dimensional drop order; ensure overlay targets work while modal is open. No simulated or duplicate cards.
+- **Completion evidence:** 0/1/2/10+ cards, two-row desktop layouts, narrow viewport scroll, precise reorder, every destination, displayed-card retention and removal fallback, failure/retry, focus return and keyboard move. Manual inspect 1280×800 and 1440×900 plus narrower width.
+
+### PUX-3 — Notes panel information architecture
+- **Targets:** `frontend/src/app/playthroughs/play-notes.ts`, `play-notes-state.ts` only if state retention reveals a genuine gap, `frontend/src/app/preparation/workspace.html` and associated styles; existing `play-history` component and focused PlayNotes E2E tests.
+- Present Live notes, read-only Preparation and History as subviews **inside** Notes. Keep Notes/Document at its current workspace ownership boundary. Avoid duplicating preparation editor or the full Markdown reader. Keep the live composer and compact recent notes together; relocate complete chronology, pins, resource history and recovery tools to History without deleting functionality.
+- **Completion evidence:** drafts across all mode transitions, captured Scene/resource association, document reader selection, note edit/retry/context-conflict/uncertain-delivery behavior, history chronology and pin access, read-only preparation references, accessibility and responsive overflow.
+
+### Dependencies, exclusions and approval gate
+- Implementation order: **PUX-1 → PUX-2 → PUX-3**. Validate CDK gesture integration before reworking drag/drop geometry. Run relevant unit and Playwright checks at each increment; formally verify only under separate authorization.
+- Preserve the placement and ordering invariants, Scene activation, frozen card metadata and 243:420 rendering, archive compatibility, existing save/retry semantics and the current Notes/Document state ownership.
+- Exclude backend schema/API changes, new note persistence, new pile domains, general component refactoring, or changes to Preparation authoring behavior unless an investigated blocker is presented for separate approval.
+- **Gate:** Review and approve PUX-1 scope explicitly before code changes. This plan is a proposal, not a claim of implemented or tested functionality.
