@@ -97,3 +97,44 @@ Do not introduce combat initiative, HP automation, monster-instance counts, dice
 The decisions above were reviewed interactively with the owner, including the corrected **unique-card location** rule and reuse of the existing right Notes area for Document. **No running browser layout inspection, drag interaction usability testing, accessibility check or formal verification has been performed for this proposed redesign.**
 
 Before implementation: reconcile the new placement model with existing Active/Used/focus revisions, Scene membership and archives; resolve transition concurrency and exact return rules; plan and verify viewport layouts, actual pointer/keyboard interactions, Reader/Notes state retention, and Scene-related card resolution. Follow `AGENTS.md` and `.agents/development-workflow.md` phase approval gates.
+
+## Owner-approved Play interaction refinement — 2026-10-25
+
+This section **supersedes conflicting presentation and interaction details above**, but not the accepted unique-card placement, ordered pile, scene lifecycle, persistence, archive, or Notes/Document ownership rules. Approved by the owner in the 2026-10-25 UX review; browser acceptance and implementation remain outstanding.
+
+### Direct manipulation of cards
+- Pressing and moving any **movable** Play card directly initiates a drag, without a visible external `Move card` or `Reorder card` handle. A plain click continues the established read/select action. Drag initiation must distinguish clicks from pointer movement and must not capture flip, document-link, contextual-menu, arrow, or other interactive controls.
+- Move the **individual unique card** (never an entire pile). Valid routes remain Session Cards, either runtime pile and Used; the active Scene remains protected and is not a general drop target. Invalid or cancelled drops preserve state.
+- Preserve a keyboard-accessible equivalent for move/reorder operations, even though prominent movement buttons are removed. Preserve the existing card actions and user-visible save/conflict feedback.
+- Verify actual CDK drag preview, scaling, drop-list connectivity, touch/pointer handling, scrolling and click suppression in-browser; do not assume removing `cdkDragHandle` alone resolves every event collision.
+
+### Compact focus piles
+- Retain the three-slot tabletop composition: Scene left, Pile 1 center, Pile 2 right. Preserve the shared 243:420 PlayingCard geometry and a visually aligned Scene/pile area.
+- Pile header shows the pile title with a small **rename** affordance, a card count, a compact Show all control and a decorative stacked-card indication when 2+ cards are present. The stack visual must not introduce duplicate draggable items.
+- Position Previous and Next as small accessible arrow buttons to the left and right of the displayed card **within** the pile region. Remove the external Move card button and bottom Previous/Next/Show all action row. Empty and single-item states remain clear; arrows disabled when fewer than two cards.
+- Cycling only changes the displayed cover, not pile order or Used/history state. Keep the displayed card and selection independent of the right-hand Document reader.
+
+### Show all overlay: compact two-row card tray
+- Header: pile title on the left; **three clearly labeled drop targets** for **Other pile**, **Session Cards**, and **Used cards** on the same top row as **Close**. Responsive wrapping is allowed when needed. Do **not** show a card count, pile rename form, or other management controls in the overlay.
+- Display cards in a responsive grid designed for approximately **2 rows of 4–5 cards** at suitable desktop widths, preserving card proportions. Use a bounded scrollable card tray if there are more cards; do not shrink cards into illegibility or grow the entire dialog without limit. Empty visual slots are presentation only, not persistent pile positions.
+- Users may click cards to **read/select** them, drag them to reorder within the pile, or drag to any of the three labeled header destinations. There is **no cover selection in Show all**: remove Display cover, Earlier/Later, Move card/select destination and Reorder card controls.
+- Preserve the current displayed card after reordering if still present; if it leaves the pile, use the existing next-card-with-wrap rule. Drag/drop ordering must be deterministic in a wrapped grid; closed-pile drops still append.
+- When the overlay is open, its destination drop targets must be usable without relying on drop zones hidden behind the native modal dialog. Keep keyboard movement alternatives and save/retry/reload conflict treatment available through an unobtrusive, accessible action or status surface.
+
+### Notes panel information architecture
+- Keep the outer **Notes / Document** mode switch, the existing complete frozen document reader and its explicit selection semantics.
+- Inside **Notes**, use three clearly differentiated views:
+  1. **Live notes** (initial view): compact new/edit PlayNote composer with scene context, optional resource association, Save/Discard and a short recent-notes list below. Editing/pinned status and failure/retry feedback appear contextually.
+  2. **Preparation**: read-only Session/Selected Item preparation notes, using the established Preparation vocabulary and presentation. It must never imply that preparation notes are live writable PlayNotes.
+  3. **History**: full PlayNote session chronology, pinned/history navigation, edit/review and explicit reload/recovery tools. Retain access to resource and Scene histories.
+- Switching any view or switching Notes/Document must preserve unsaved PlayNote text, captured Scene association, resource choice, edit context, and the last selected document. View changes must not silently save, discard or change note association. Scene changes still honor captured context/conflict guards.
+- Keep the existing distinct Preparation and PlayNotes stores, chronological rules, operation idempotency, uncertain-delivery handling, navigation protections and archive behavior. UI relocation does not authorize a new notes domain or persistence schema.
+
+### Refinement acceptance scenarios
+1. Click, flip and open-document actions remain distinct from direct drag in pile, Session Cards and Used; dragging a displayed pile card transfers only that card.
+2. Header rename and Show all, overlaid arrows and a decorative stack work with 0, 1, 2 and many cards while maintaining the Scene slot's aligned footprint.
+3. Show all opens a two-row-style responsive tray, with accessible labeled header destinations and Close; move/reorder using mouse, touch where supported and keyboard alternative; no exposed cover-selection feature.
+4. Reordering an open pile does not change its displayed card; moving that card out shows the next with wrap. Cancelled drops and save failures do not lose state.
+5. Live note draft survives switching Live/Preparation/History, Notes/Document, card reading and pile cover changes; note resource/Scene context remains stable.
+6. Previously recorded notes, pinned notes, histories, readable preparation references and all failure/conflict recovery actions remain available after reorganizing the panel.
+7. Layout review at 1280×800, 1440×900 and narrower widths; browser-based pointer/keyboard and accessibility checks are required before owner visual acceptance.
