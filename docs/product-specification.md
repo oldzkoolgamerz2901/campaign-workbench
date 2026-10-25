@@ -866,3 +866,15 @@ Exclusions remain unchanged: no combat automation, extra piles, card backs, free
 - Apply the same non-fitting-side state to oversized working previews, captured Sources and historical recovery previews, retaining their existing editability and authority restrictions.
 
 Acceptance evidence must cover flipping in every full card representation, no internal scrolling on either side, the specified resets, animation and reduced motion, keyboard access, overflow feedback without lost text, and preservation through save/reload, export/capture, preparation, replacement, session archives and Writing recovery. Include oversized historical cards and complete external access to front metadata and back text. Architecture must resolve how fit is enforced consistently across session-addition paths and card sizes.
+
+## Play tabletop — approved UX refinement — 2026-10-25
+
+The owner approved the interaction and presentation refinements detailed in [Play tabletop UX design](play-tabletop-ux-design.md#owner-approved-play-interaction-refinement--2026-10-25). These requirements override older conflicting drag-handle, Show all and Play Notes presentation requirements **only**; previous scene, identity, placement, ordering, read, save, versioning and archive semantics remain authoritative.
+
+- **Direct manipulation:** Press-and-drag movable card surfaces rather than separate Move/Reorder buttons; preserve click-to-read, flip, card actions, keyboard move/reorder alternatives, and cancelled/invalid-drop safety.
+- **Focus piles:** Header-level small rename and Show all controls, card count, decorative stack for multi-card piles, and Previous/Next arrows on the sides of the displayed card. Retain the same basic Scene/pile footprint and canonical 243:420 card ratio.
+- **Show all:** A bounded responsive grid targeting two rows of four to five cards, with clearly labeled **Other pile / Session Cards / Used cards** drop targets on the **same header row as Close**. No overlay card count, renaming, Display cover, Earlier/Later, Move card selector or Reorder card button. Clicking reads/selects; dragging moves/reorders. Reordering alone preserves the displayed cover.
+- **Notes:** Preserve Notes/Document switching and establish **Live notes / Preparation / History** subviews inside Notes. Live notes prioritizes capture and recent notes; Preparation exposes existing read-only Session/Selected Item notes; History contains chronology, pinned notes, historical context, edit and recovery operations. Switching views preserves unsaved note/draft/resource/scene association and reader selection; the PlayNotes and Preparation persistence models remain distinct.
+- **Acceptance:** Existing behavior and save/conflict protections must be regressed alongside browser-verified card gestures, wrapped-grid ordering, overlay drop targets, responsive layout, keyboard access, and draft retention. UI approval is still pending.
+
+No new pile types, card copies, changes to Scene activation, or note schema are authorized by this refinement.
