@@ -8,10 +8,13 @@ import {
   viewChild,
   ElementRef,
   afterRenderEffect,
+  afterNextRender,
+  Injector,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
-import { DragDropModule, CdkDragDrop } from '@angular/cdk/drag-drop';
+import { DragDropModule, CdkDragDrop, CDK_DRAG_CONFIG } from '@angular/cdk/drag-drop';
+import { CdkScrollable } from '@angular/cdk/scrolling';
 import { MatMenuModule } from '@angular/material/menu';
 import { PreparedItemData, MoveCard, SceneMovement, PileData } from '../../api/generated';
 import { PreparedArtwork } from '../preparation/artwork-sources';
@@ -22,11 +25,25 @@ type Location = MoveCard.DestinationEnum;
 type Pile = 'PILE_1' | 'PILE_2';
 @Component({
   selector: 'play-tabletop',
-  imports: [FormsModule, NgTemplateOutlet, PlayingCard, DragDropModule, MatMenuModule],
+  imports: [
+    FormsModule,
+    NgTemplateOutlet,
+    PlayingCard,
+    DragDropModule,
+    MatMenuModule,
+    CdkScrollable,
+  ],
+  providers: [
+    {
+      provide: CDK_DRAG_CONFIG,
+      useValue: { dragStartThreshold: 8, dragStartDelay: { mouse: 0, touch: 180 } },
+    },
+  ],
   templateUrl: './tabletop.html',
   styleUrl: './tabletop.css',
 })
 export class Tabletop {
+  private readonly injector = inject(Injector);
   readonly state = inject(PlayWorkspaceState);
   readonly artwork = inject(PreparedArtwork);
   readonly campaign = input('');
@@ -53,10 +70,16 @@ export class Tabletop {
       this.state.overviewLoading(),
   );
   readonly filtered = computed(() => !!this.query().trim() || !!this.group());
+  readonly dragging = signal(false);
   readonly usedOpen = signal(false);
   readonly openedPile = signal<Pile>('PILE_1');
   readonly pileViewGeneration = signal(0);
   readonly pileName = signal('');
+  readonly renaming = signal<Pile | null>(null);
+  private pileOpener?: HTMLElement;
+  private renameOpener?: HTMLElement;
+  private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('pileNameInput');
+  private readonly pileClose = viewChild<ElementRef<HTMLButtonElement>>('pileClose');
   readonly sceneChoice = signal('');
   readonly customize = signal(false);
   readonly choices = signal<Record<string, Location | ''>>({});
@@ -84,6 +107,10 @@ export class Tabletop {
   });
   private readonly sessionShelf = viewChild<ElementRef<HTMLElement>>('sessionShelf');
   constructor() {
+    afterRenderEffect(() => {
+      this.renaming();
+      this.nameInput()?.nativeElement.focus();
+    });
     afterRenderEffect(() => {
       const selected = this.selected();
       this.sessionCards();
@@ -131,6 +158,26 @@ export class Tabletop {
       }
     );
   }
+  otherPile(slot: Pile): Pile {
+    return slot === 'PILE_1' ? 'PILE_2' : 'PILE_1';
+  }
+  renamePile(slot: Pile, event: Event) {
+    this.renameOpener = event.currentTarget as HTMLElement;
+    this.pileName.set(this.pile(slot).name ?? '');
+    this.renaming.set(slot);
+  }
+  cancelRename() {
+    this.renaming.set(null);
+    this.renameOpener?.focus();
+  }
+  async savePileName(slot: Pile) {
+    if (this.locked()) return;
+    if (await this.state.rename(slot, this.pileName().trim() || null)) this.cancelRename();
+  }
+  closeCardActions(event: Event, leaving = false) {
+    (event.currentTarget as HTMLElement).closest<HTMLElement>('[popover]')?.hidePopover();
+    if (leaving) this.pileClose()?.nativeElement.focus();
+  }
   pileTitle(slot: Pile) {
     return this.pile(slot).name ?? (slot === 'PILE_1' ? 'Pile 1' : 'Pile 2');
   }
@@ -171,10 +218,27 @@ export class Tabletop {
       to = at + delta;
     if (at < 0 || to < 0 || to >= ids.length || this.locked()) return;
     [ids[at], ids[to]] = [ids[to], ids[at]];
-    void this.state.reorder(location, ids);
+    return this.state.reorder(location, ids);
+  }
+  async shiftInTray(event: Event, id: string, delta: number) {
+    const dialog = this.pileDialog()?.nativeElement;
+    const panel = (event.currentTarget as HTMLElement).closest<HTMLElement>('[popover]');
+    const trigger = dialog?.querySelector<HTMLButtonElement>(`[popovertarget="${panel?.id}"]`);
+    this.closeCardActions(event, true);
+    if (await this.shift(id, this.openedPile(), delta)) {
+      afterNextRender(
+        () => {
+          if (dialog?.open && trigger?.isConnected && !this.locked())
+            trigger.focus({ preventScroll: true });
+        },
+        { injector: this.injector },
+      );
+    }
   }
   drop(event: CdkDragDrop<any>, destination: Location, precise = false) {
-    if (!event.isPointerOverContainer || this.locked()) return;
+    // CDK emits a dropped event for touchcancel as well as a deliberate release.
+    if (event.event.type === 'touchcancel' || !event.isPointerOverContainer || this.locked())
+      return;
     if (
       this.filtered() &&
       (destination === 'SESSION_CARDS' ||
@@ -186,14 +250,17 @@ export class Tabletop {
     if (item === this.state.current()?.activeSceneItemId) return;
     this.move(item, destination, precise ? event.currentIndex : undefined);
   }
-  showPile(slot: Pile) {
+  showPile(slot: Pile, event: Event) {
+    this.pileOpener = event.currentTarget as HTMLElement;
     this.pileViewGeneration.update((value) => value + 1);
     this.openedPile.set(slot);
-    this.pileName.set(this.pile(slot).name ?? '');
     this.pileDialog()?.nativeElement.showModal();
   }
   closePile() {
-    this.pileDialog()?.nativeElement.close();
+    const dialog = this.pileDialog()?.nativeElement;
+    if (!dialog?.open) return;
+    dialog.close();
+    this.pileOpener?.focus();
   }
   read(id: string) {
     this.closePile();

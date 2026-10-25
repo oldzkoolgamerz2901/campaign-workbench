@@ -12,6 +12,14 @@ async function panel(page: Page, mode: 'Notes' | 'Document') {
     .click();
 }
 
+async function notesView(page: Page, name: 'Live notes' | 'Preparation' | 'History') {
+  await page
+    .locator('play-notes')
+    .getByRole('navigation', { name: 'Notes views', exact: true })
+    .getByRole('button', { name, exact: true })
+    .click();
+}
+
 test('PlayNotes retain drafts across tabletop interactions, recover Scene context and round-trip pinned history', async ({
   page,
   request,
@@ -82,6 +90,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     await expect(text).toHaveValue('**The NPC escaped.**');
     await notes.getByRole('button', { name: 'Refresh and use current Scene', exact: true }).click();
     await notes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await notesView(page, 'History');
     const chronology = notes.getByRole('region', { name: 'PlayNote chronology' });
     await expect(chronology.locator('strong')).toHaveText('The NPC escaped.');
     await expect(text).toHaveValue('');
@@ -92,6 +101,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     await notes.getByRole('button', { name: 'Edit / pin note', exact: true }).click();
     await notes.getByLabel('Pinned', { exact: true }).check();
     await notes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await notesView(page, 'History');
     await expect(notes.getByRole('region', { name: 'Pinned PlayNotes' })).toContainText(
       'The NPC escaped.',
     );
@@ -99,6 +109,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     await notes.getByRole('button', { name: 'Edit / pin note', exact: true }).click();
     await notes.getByRole('button', { name: 'Clear primary association', exact: true }).click();
     await notes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await notesView(page, 'History');
     await expect(chronology).toContainText('Resource: None');
     // Lost create response: retry the same operation; no duplicate capture.
     let dropped = false;
@@ -109,6 +120,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
         await route.abort('failed');
       } else await route.continue();
     });
+    await notesView(page, 'Live notes');
     await text.fill('Second capture');
     await notes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
     await expect(
@@ -116,6 +128,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     ).toBeVisible();
     await expect(text).toHaveValue('Second capture');
     await notes.getByRole('button', { name: 'Retry PlayNote save', exact: true }).click();
+    await notesView(page, 'History');
     await expect(chronology.locator('article')).toHaveCount(2);
     await page.unroute('**/play-notes');
     const saved = await (await request.get(`${endpoint}/play-notes`)).json();
@@ -123,6 +136,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     expect(saved.notes[1].createdAt).toBe(original.notes[0].createdAt);
     expect(saved.notes[1].pinned).toBe(true);
     // Leaving can be cancelled without dropping the draft or its association.
+    await notesView(page, 'Live notes');
     await text.fill('Keep local draft');
     page.once('dialog', (d) => d.dismiss());
     await page.getByRole('button', { name: 'Library', exact: true }).first().click();
@@ -142,6 +156,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     expect(imported.ok(), await imported.text()).toBe(true);
     const restored = (await imported.json()).sessions[0].id;
     await page.goto(`/?campaign=${campaign.id}&session=${restored}&mode=play&view=prepare`);
+    await notesView(page, 'History');
     await expect(chronology.locator('article')).toHaveCount(2);
     await expect(notes.getByRole('region', { name: 'Pinned PlayNotes' })).toBeVisible();
     const after = await (
@@ -151,6 +166,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
     expect(after.notes[1].scene).toEqual(saved.notes[1].scene);
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.screenshot({ path: '/tmp/p5-laptop.png', fullPage: true });
+    await notesView(page, 'Live notes');
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(text).toBeVisible();
     expect(

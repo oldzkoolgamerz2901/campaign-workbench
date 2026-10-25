@@ -94,6 +94,10 @@ test('cross-session history paginates pins and context without changing drafts, 
     await expect(text).toBeEnabled();
     await text.fill('Preserve this independent draft');
     await panel.getByLabel('Primary resource', { exact: true }).selectOption(current.items[0].id);
+    await panel
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'History', exact: true })
+      .click();
     await panel.getByRole('button', { name: 'Card history across sessions', exact: true }).click();
     const history = panel.getByRole('region', { name: 'Cross-session card history', exact: true });
     await history.getByLabel('History prepared copy').selectOption(current.items[0].id);
@@ -122,7 +126,9 @@ test('cross-session history paginates pins and context without changing drafts, 
     await chronology.getByRole('link', { name: 'Open session: Previous session' }).click();
     await expect(text).toHaveValue('Preserve this independent draft');
     await expect(page).toHaveURL(new RegExp(`session=${current.id}`));
-    await history.getByRole('heading', { name: 'Card history across sessions', exact: true }).scrollIntoViewIfNeeded();
+    await history
+      .getByRole('heading', { name: 'Card history across sessions', exact: true })
+      .scrollIntoViewIfNeeded();
     await page.screenshot({ path: '/tmp/p6-laptop.png', fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(history.getByLabel('History association')).toBeVisible();
@@ -150,6 +156,10 @@ test('cross-session history paginates pins and context without changing drafts, 
       ).ok(),
     ).toBe(true);
     await page.reload();
+    await panel
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'History', exact: true })
+      .click();
     await expect(panel.getByRole('region', { name: 'PlayNote chronology' })).toContainText(
       'Scene-only event',
     );

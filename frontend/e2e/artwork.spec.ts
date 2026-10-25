@@ -251,9 +251,17 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
       .selectOption(frozen.items[0].id);
     await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
     await expect(playNotes.getByLabel('PlayNote Markdown', { exact: true })).toHaveValue('');
+    await playNotes
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'History', exact: true })
+      .click();
     await playNotes.getByRole('button', { name: 'Edit / pin note', exact: true }).click();
     await playNotes.getByLabel('Pinned', { exact: true }).check();
     await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await playNotes
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'History', exact: true })
+      .click();
     await expect(playNotes.getByRole('region', { name: 'Pinned PlayNotes' })).toContainText(
       'P8 illustrated outcome',
     );

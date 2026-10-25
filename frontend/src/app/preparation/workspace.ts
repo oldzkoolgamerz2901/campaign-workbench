@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { PreparedArtwork } from '../preparation/artwork-sources';
 import {
   Component,
@@ -35,6 +36,7 @@ import { MarkdownView } from './markdown-view';
     MarkdownView,
     ScenePlanning,
     PreparationLibrary,
+    NgTemplateOutlet,
     CampaignControls,
     SessionContents,
     PlayingCard,

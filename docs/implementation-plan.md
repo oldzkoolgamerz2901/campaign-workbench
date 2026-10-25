@@ -605,22 +605,22 @@ P1–P4 runtime ownership and accepted behavior remain. P4R implementation/verif
 
 </details>
 
-## Proposed Play UX polish implementation sequence — 2026-10-25 (not authorized to implement)
+## Play UX polish implementation sequence — 2026-10-25
 
-**Status:** Preparation proposal only. Owner approved the UX requirements in [the Play UX refinement](play-tabletop-ux-design.md#owner-approved-play-interaction-refinement--2026-10-25), **not** code execution. Each named increment requires its own approval under `AGENTS.md` and `.agents/development-workflow.md`. Reuse the reconciled Play placement/command architecture and prior T1/T2 verification baseline; do not replace the workspace service or note stores for presentation concerns.
+**Status:** The owner-approved UX requirements are in [the Play UX refinement](play-tabletop-ux-design.md#owner-approved-play-interaction-refinement--2026-10-25). PUX-1 is an accepted bounded implementation plan; PUX-2 is also an accepted bounded increment; PUX-3 is also an accepted bounded increment. Each increment retains its own execution gate under `AGENTS.md` and `.agents/development-workflow.md`. Reuse the reconciled Play placement/command architecture and prior T1/T2 verification baseline; do not replace the workspace service or note stores for presentation concerns.
 
-### PUX-1 — Direct card gestures (proposed first increment)
+### PUX-1 — Direct card gestures (accepted bounded increment)
 - **Targets:** `frontend/src/app/playthroughs/tabletop.html`, `tabletop.ts`, `tabletop.css`, shared `playing-card` only if interaction event ownership demands it; Play E2E tests.
 - Remove visible external CDK handles; make movable card surface draggable; keep nested flip/menu/read actions operable, apply sensible drag thresholds, accessible keyboard move/reorder alternatives, and clear valid/invalid drop affordances. Confirm drag previews do not clip or alter card dimensions.
 - **Completion evidence:** click/read vs pointer-drag vs flip/menu E2E checks; movable card routes and protected active Scene; cancelled/invalid drops, filter-disabled drag, saving/locked states and keyboard alternative. Inspect hover and touch behavior. No new placement or persistence API.
 
-### PUX-2 — Focus piles and Show all tray
+### PUX-2 — Focus piles and Show all tray (accepted bounded increment)
 - **Targets:** Play tabletop template/styles/component and targeted browser tests.
 - Compact focus headers; rename, card count, Show all and decorative stacked-card layers; embedded side arrows. Render Show all as a responsive wrapped card grid with bounded scrolling, accessible header **Other pile / Session Cards / Used cards** drop targets and Close. Remove obsolete overlay form, list rows and cover-selection controls. Reuse `PlayWorkspaceState` move/reorder/cover operations.
 - **Critical investigation before implementation:** establish how Angular CDK `cdkDropList` works with the native modal dialog, wrapped grid and connected outside locations. Map card index from actual two-dimensional drop order; ensure overlay targets work while modal is open. No simulated or duplicate cards.
 - **Completion evidence:** 0/1/2/10+ cards, two-row desktop layouts, narrow viewport scroll, precise reorder, every destination, displayed-card retention and removal fallback, failure/retry, focus return and keyboard move. Manual inspect 1280×800 and 1440×900 plus narrower width.
 
-### PUX-3 — Notes panel information architecture
+### PUX-3 — Notes panel information architecture (accepted bounded increment)
 - **Targets:** `frontend/src/app/playthroughs/play-notes.ts`, `play-notes-state.ts` only if state retention reveals a genuine gap, `frontend/src/app/preparation/workspace.html` and associated styles; existing `play-history` component and focused PlayNotes E2E tests.
 - Present Live notes, read-only Preparation and History as subviews **inside** Notes. Keep Notes/Document at its current workspace ownership boundary. Avoid duplicating preparation editor or the full Markdown reader. Keep the live composer and compact recent notes together; relocate complete chronology, pins, resource history and recovery tools to History without deleting functionality.
 - **Completion evidence:** drafts across all mode transitions, captured Scene/resource association, document reader selection, note edit/retry/context-conflict/uncertain-delivery behavior, history chronology and pin access, read-only preparation references, accessibility and responsive overflow.
@@ -629,4 +629,102 @@ P1–P4 runtime ownership and accepted behavior remain. P4R implementation/verif
 - Implementation order: **PUX-1 → PUX-2 → PUX-3**. Validate CDK gesture integration before reworking drag/drop geometry. Run relevant unit and Playwright checks at each increment; formally verify only under separate authorization.
 - Preserve the placement and ordering invariants, Scene activation, frozen card metadata and 243:420 rendering, archive compatibility, existing save/retry semantics and the current Notes/Document state ownership.
 - Exclude backend schema/API changes, new note persistence, new pile domains, general component refactoring, or changes to Preparation authoring behavior unless an investigated blocker is presented for separate approval.
-- **Gate:** Review and approve PUX-1 scope explicitly before code changes. This plan is a proposal, not a claim of implemented or tested functionality.
+- **Gate:** PUX-1 scope is accepted. PUX-2 scope is accepted; PUX-3 scope is accepted; formal verification and owner visual acceptance remain separate.
+
+
+## PUX-1 — implementation and developer handover — 2026-10-25
+
+Delivered direct surface dragging for movable Session Cards, pile covers, Used cards and Show all cards. The PlayingCard host is the CDK handle; the four external Move/Reorder handles are removed. The existing drag roots, connected drop lists and `PlayWorkspaceState` move/reorder commands retain placement ownership. A tabletop-scoped CDK configuration uses an 8px start threshold and a 180ms touch hold. Active Scene protection, filtered collection locks and saving/failure locks remain in place. Receiving destinations have green outlines, the current drag container has a gold outline, and Scene/disabled destinations have red outlines during a drag.
+
+Shared PlayingCard owns propagation guards for its projected action controls and complete-side reader button, matching its existing flip/document guards. Controls remain operable without starting a surface drag. Removed the forced 220px preview width so CDK preserves source geometry, including the existing parent-contained preview in the native pile dialog. Existing keyboard/menu movement and pile ordering controls remain; Used now also exposes Move earlier/Move later in its card menu. Updated the user guide. No new API, schema, archive format, dependency or workspace/note store.
+
+Developer checks:
+
+- Version/catalog checks, **134 frontend unit tests in 15 files**, production build and **58/58 Chromium browser journeys** passed (`/tmp/pux1-all.log`). The build retains existing bundle/stylesheet budget warnings.
+- After removing redundant cursor CSS, the production build passed again (`/tmp/pux1-build-final.log`) and all **10/10 tabletop journeys** passed on the final sources (`/tmp/pux1-browser.log`).
+- Gesture coverage includes click with small pointer jitter, nested flip/menu/document controls, dragging from a back, movement through both piles/Used/Session Cards, unchanged read-panel mode after dragging, protected active Scene, outside/invalid drops, filter/save/failure locks, keyboard Used ordering, precise Show all reorder with displayed-cover retention, and preview dimensions in both the tabletop and modal. Existing save/conflict/navigation and flip/note regressions also pass.
+- Chromium touch emulation distinguishes tap, immediate swipe and held drag. A new regression first reproduced CDK committing a move on `touchcancel`; the tabletop drop handler now ignores that event. The corrected journey confirms cancellation preserves the committed workspace.
+- Inspected desktop and narrow screenshots generated at 1280×800, 1440×900 and 390×844, plus the active drag preview. Card proportions and controls remain intact without external drag buttons. Browser services used the existing backend artifact and isolated smoke database; backend tests and the unchanged layout-engine fixture were not rerun.
+
+Limits and handoff: physical touch hardware and owner visual acceptance remain unverified; formal verification requires separate authorization. Existing CDK placeholder relocation can move destination regions during dragging, so pointer checks follow their live bounds. PUX-2 retains the planned responsibility for focus-pile/tray geometry and native-modal destination integration; PUX-3 remains proposed. No later increment was implemented.
+
+
+## V-PUX1-01 — accepted correction and developer handover — 2026-10-25
+
+Accepted corrective scope: isolate the complete-side reader's drag-start events within shared PlayingCard, preserving native text selection, scrolling, closing and focus restoration. Add mouse/touch browser regressions showing reader interaction leaves the workspace unchanged and ordinary surface dragging still works. Existing product requirements and placement/persistence architecture remain authoritative; no PUX-2 work is included.
+
+The reader dialog now stops propagation of `pointerdown`, `mousedown` and `touchstart`, matching the card's existing control isolation. It does not call `preventDefault`, so native reader interactions remain available. Only the shared template and tabletop browser tests changed among application/test/configuration files compared with the PUX-1 verification candidate. The fixture accepts optional back text so the touch journey can open an actual oversized historical back rather than substituting a mock layout contract.
+
+
+Developer evidence for the correction:
+
+- Both new reader journeys first failed against the uncorrected implementation, each observing an unexpected card drag preview (`/tmp/pux1-v1-red.log`).
+- Both focused journeys pass with the dialog guards (`/tmp/pux1-v1-focused.log`). Mouse selection produces selected text; movement within Close does not drag; pointer and keyboard close restore flip-button focus; workspace state stays unchanged. A subsequent deliberate surface drag moves the card normally.
+- The touch journey uses a historical back containing 100 lines. Held-touch scrolling increases the native dialog scroll position, retains the complete text, creates no drag preview and leaves the workspace unchanged. Held movement within Close also stays outside CDK dragging, and tapping Close retains focus restoration. Touch-session cleanup only cancels an active touch.
+- Final stable-candidate developer checks passed version/catalog checks, **134 unit tests in 15 files**, the production build and **60/60 Chromium journeys**, including **12/12 tabletop journeys** (`/tmp/pux1-v1-all.log`). Existing bundle/stylesheet budget warnings remain. The previously intermittent UW5 research-return journey passes in this run; its earlier observation and unestablished cause are not erased.
+- No backend contract, layout engine or rendering geometry changed, so backend tests and the standalone layout-engine fixture were not rerun for this correction. Owned test services were stopped and isolated test data retained. `git diff --check` passed.
+
+**Handoff:** V-PUX1-01 is corrected at the implementation/developer-check level. The original failed formal assessment remains preserved in `docs/verification.md`; formal re-verification requires separate authorization. Physical touch hardware and owner visual acceptance remain unverified. No unrelated reliability fix or later PUX increment was implemented.
+
+
+## PUX-2 — accepted implementation approach — 2026-10-25
+
+Retain the native pile dialog, with a local CDK drop-list group containing the actual card grid and three header destinations. Use the installed CDK mixed-orientation sorting strategy for wrapped DOM order; feed its actual item index into the existing workspace movement command. Keep previews inside the modal and validate grid sorting/header transfers before broad presentation checks. Use a native per-card action popover inside the modal for keyboard move/reorder alternatives, avoiding a body-level menu behind the modal. Preserve the V-PUX1-01 reader event guards.
+
+Move rename into an inline editor opened from the focus header. Keep card count and Show all in that header, with decorative stack layers and side Previous/Next controls. The bounded scrolling tray has no renaming, count or cover-selection controls. Existing move/reorder/cover/rename commands retain all persistence and conflict responsibilities. Expected edits are the tabletop component/template/styles, browser tests, user guide and implementation/verification evidence. Test 0/1/2/10+ cards, wrapped ordering and all destinations, displayed-cover retention/removal fallback, keyboard and focus return, failed command/retry, touch and laptop/narrow layouts. PUX-3 remains outside scope.
+
+
+## PUX-2 — implementation and developer handover — 2026-10-25
+
+Delivered compact focus headers with inline rename, counts and Show all; side cover arrows and decorative non-card stack layers. The Scene/pile card areas align. Closed-pile drop lists now belong to their fixed card frames and their drag placeholders are positioned within those frames, removing the prior placeholder-driven movement of surrounding destinations.
+
+Show all is a bounded, independently scrolling responsive grid, with Other pile / Session Cards / Used cards drop targets beside Close (wrapping at narrow widths). A local CDK group keeps modal targets connected within the native dialog; installed mixed-orientation sorting supplies the actual DOM index to the existing move command. Previews remain in the modal. Native per-card popovers provide keyboard ordering/movement, with no displayed cover selector, rename form, overlay count or permanent per-card management rows. Existing failed-action retry/reload controls remain available within the modal. Close/Escape restores Show all focus. No backend/API/schema/store/dependency changes; PUX-3 remains outside scope.
+
+Developer checks: the first modal integration journey passed cross-row reorder, all three destinations, retained cover and keyboard popover interaction (`/tmp/pux2-integration.log`). Final **17/17 tabletop journeys** passed (`/tmp/pux2-tabletop.log`), covering 0/1/2/12 cards, desktop/narrow bounded scrolling, rename/cancel, cover cycling/fallback, pointer and touch transfer/reorder/cancel, keyboard movement, retained failures/retry, read/flip/Scene/note regressions and focus return. One initial failure was a test locator matching the new hidden tray's Used target; it was scoped to the main collection heading, with no application change needed for that failure.
+
+Version checks passed (`/tmp/pux2-versions.log`), **134 frontend tests in 15 files** passed (`/tmp/pux2-unit.log`) and the production build passed (`/tmp/pux2-build-final.log`). Existing bundle/stylesheet warnings remain, and the expanded tabletop stylesheet now also exceeds the 4 kB component-style warning budget; budgets were not relaxed. Inspected focus-pile and tray captures at 1280×800, 1440×900 and 390×844, including two desktop rows of five cards and bounded phone scrolling. Touch coverage uses Chromium emulation; physical hardware and owner visual acceptance remain unverified. Formal verification is recorded separately.
+
+
+### PUX-2 in-scope focus corrections after initial formal checks
+
+Supplemental formal checks found V-PUX2-01 (reading after a closed tray scrolled back to its retained opener) and V-PUX2-02 (a successful keyboard reorder lost focus when its trigger was disabled during saving). The corrections remain owned by Tabletop: `closePile` restores its opener only for an open dialog, and tray ordering holds focus on Close during saving, then restores the retained card's action trigger after Angular's next render if the dialog/card still exist and are unlocked. Existing workspace reorder commands and error retention are unchanged.
+
+Both new persistent regressions pass in focused developer execution (`/tmp/pux2-focus-corrections.log`): page position stays fixed while the document receives focus, and repeated earlier/later commands retain action focus and cover identity. No backend, persistence or product-scope change accompanied these fixes. Formal re-assessment follows separately within the authorized PUX-2 verification.
+
+
+### PUX-2 fitting-back correction and final developer checks
+
+The last visual regression exposed V-PUX2-03: side arrows overlapped four lines of a canonically fitting back. Scene/pile regions now reserve small equal side gutters, and arrow offsets scale with the card width so controls stay outside the printed text bounds. This preserves Scene/pile alignment and the 243:420 renderer; no authored text, font metrics or fit profile changed.
+
+All **8 affected PUX-2 journeys** passed after the gutter correction (`/tmp/pux2-final-developer.log`); **134 unit tests** and production build passed again (`/tmp/pux2-final-unit.log`, `/tmp/pux2-final-build.log`). The settled-flip text/control-intersection check additionally passes at 1280×800, 1440×900, 1024×768, 800×900 and 390×844 (`/tmp/pux2-arrow-text.log`). Formal re-assessment uses the final corrected sources and is recorded separately.
+
+
+### PUX-2 final formal handover
+
+The corrected candidate passes the [PUX-2 formal assessment and PUX-1 re-verification](verification.md#pux-2--corrected-formal-assessment-and-pux-1-re-verification--2026-10-25). V-PUX2-01/02/03 and the earlier V-PUX1-01 are resolved within the assessed scope. Evidence includes the fresh unchanged-backend **103 tests**, final **134 frontend tests**, production build, **68 browser journeys**, **4 supplemental probes** and **4 layout-fixture journeys**, plus isolated database restart preservation. The complete final run retained all 374 snapshotted source/test/configuration/asset files unchanged. The new 5.99 kB tabletop stylesheet warning is nonblocking and its budget remains unchanged. Physical touch hardware and owner visual acceptance remain separate.
+
+
+## PUX-3 — accepted implementation approach — 2026-10-25
+
+PlayNotesPanel owns transient Live notes / Preparation / History navigation inside the workspace-owned Notes mode. Keep its composer and existing PlayHistory component mounted while hidden, so subview/Document changes retain draft/edit state and cross-session history. Use the existing PlayNotesState and PlayHistoryState without new persistence; reset only local subview/pagination on a different session identity.
+
+Project the workspace's existing Preparation notes template into the Preparation subview and reuse that template for ordinary Prepare authoring, preserving rendering/editor ownership and read-only Play behavior. Live notes shows the composer, contextual errors/retry/Scene recovery and five compact recent notes. History keeps complete chronology, pins, cross-session resource/Scene queries, history reload and saved-revision recovery. Explicit Edit returns to the composer only after the existing selection guard accepts it; subview changes alone never invoke save/discard or alter associations.
+
+Expected changes: PlayNotesPanel, workspace template/imports and any necessary styles, focused PlayNotes/History and affected integration journeys, user guide and developer/formal evidence. Existing stores change only if a demonstrated retention gap requires it. Check view/draft/edit/document/context retention, guarded history selection, pending/failed/uncertain saves, explicit Scene conflict and stale-revision recovery, chronological/pinned/history access, keyboard focus and responsive scrolling. No new backend/API/schema/store, Preparation-authoring behavior or unrelated refactoring.
+
+
+## PUX-3 — implementation and developer handover — 2026-10-25
+
+Delivered Live notes / Preparation / History navigation inside the existing Notes mode. The composer, history component and provider stay mounted across subviews and Notes/Document transitions. Local navigation/pagination resets only for a different campaign/session identity. Live notes holds the composer, contextual recovery and five compact recent-note entries; History retains full chronology, pins, cross-session browsing, reload and saved-revision recovery. Explicit Edit honors the existing unsaved-edit guard before opening/focusing the composer. Late history responses cannot scroll a different subview, session or target. Resource-only drafts now display their captured Scene rather than a subsequently changed active Scene.
+
+The workspace's existing Preparation template is projected into the Preparation view and reused in ordinary Prepare mode. No preparation editor or Markdown reader was duplicated. PlayNotesState, PlayHistoryState and persistence/API/schema remain unchanged. Shared error feedback remains visible across subviews, with a route back to Live notes for failed/uncertain captures. Existing integration journeys now explicitly select History or Preparation where those capabilities moved.
+
+Developer checks: **6/6 focused Notes/History journeys** pass (`/tmp/pux3-notes.log`), including four new PUX-3 cases covering mounted-view draft/resource/document retention, read-only preparation/unchanged session data, seven-entry full history/five recent entries, pinned access, resource-only captured Scene and explicit conflict recovery, lost-response exact-operation retry, guarded edit cancellation, stale revision review with local text/pin preservation, delayed history/focus safety and responsive/keyboard behavior. Existing cross-session history and archive/idempotency journeys also pass. Two initial failures were corrected test expectations (snapshot fields and a combined save-status label that correctly remained unsaved for a pending note), not product defects.
+
+Version checks (`/tmp/pux3-versions.log`), **134 frontend unit tests in 15 files** (`/tmp/pux3-unit.log`) and production build (`/tmp/pux3-build-final.log`) pass with the existing bundle/style warnings. No new warning budget was relaxed. Formal verification follows separately within the authorized scope.
+
+### PUX-3 integration correction and final formal handover
+
+The initial formal run passed all new PUX-3 journeys but exposed an outdated authored-preparation test path: it tried to select the inner Preparation view after card reading had selected outer Document. The test now explicitly selects Notes → Preparation and checks visible read-only references. Both affected integration journeys passed as developer checks (`/tmp/pux3-affected.log`); application source needed no correction.
+
+The [PUX-3 formal assessment](verification.md#pux-3--notes-subviews-formal-assessment--2026-10-25) passes on the final candidate: fresh unchanged-backend **103 tests in 29 suites**, final **134 frontend tests in 15 files**, live client generation/version checks, production build, **72/72 browser journeys**, **4/4 layout-fixture journeys** and isolated database installation preservation across restart. All 375 snapshotted source/test/configuration/asset files stayed unchanged during the final full execution. The initial 71/72 run and test correction remain recorded. Existing build warnings remain; no new persistence/API/store or later increment was introduced. Owner functional/visual acceptance, other browsers and physical touch hardware remain separate.

@@ -25,7 +25,13 @@
       (checked)="status.set($event)"
     />
   }
-  <div class="card-actions" data-card-actions (click)="$event.stopPropagation()">
+  <div
+    class="card-actions"
+    data-card-actions
+    (mousedown)="$event.stopPropagation()"
+    (touchstart)="$event.stopPropagation()"
+    (click)="$event.stopPropagation()"
+  >
     <ng-content select="[cardActions]" />
   </div>
   <button
@@ -52,7 +58,13 @@
               : 'Card layout unavailable.'
         }}
       </p>
-      <button type="button" [disabled]="disabled()" (click)="readSide($event)">
+      <button
+        type="button"
+        [disabled]="disabled()"
+        (mousedown)="$event.stopPropagation()"
+        (touchstart)="$event.stopPropagation()"
+        (click)="readSide($event)"
+      >
         Read all {{ side() }} text
       </button>
     </div>
@@ -74,6 +86,9 @@
 <dialog
   #sideReader
   aria-label="Complete card side text"
+  (pointerdown)="$event.stopPropagation()"
+  (mousedown)="$event.stopPropagation()"
+  (touchstart)="$event.stopPropagation()"
   (click)="$event.stopPropagation()"
   (keydown)="$event.stopPropagation()"
 >

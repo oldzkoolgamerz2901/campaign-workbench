@@ -491,58 +491,64 @@
         aria-label="Working notes"
       >
         @if (state.current(); as session) {
+          <ng-template #preparationNotes>
+            <p class="eyebrow">
+              {{ reading() ? 'PREPARATION REFERENCES · READ ONLY' : 'YOUR PREPARATION' }}
+            </p>
+            <div class="note-tabs">
+              <button
+                matButton
+                [attr.aria-pressed]="notesScope() === 'session'"
+                (click)="sessionNotes()"
+              >
+                Session</button
+              ><button
+                matButton
+                [attr.aria-pressed]="notesScope() === 'item'"
+                [disabled]="!item()"
+                (click)="notesScope.set('item'); state.selectItem(state.selectedItem())"
+              >
+                Selected item
+              </button>
+            </div>
+            @if (notesScope() === 'item' && item(); as prepared) {
+              <h3>Item notes</h3>
+              <p class="note-context">{{ prepared.title }}</p>
+              @if (!reading()) {
+                <label
+                  >Item Markdown notes<textarea
+                    rows="9"
+                    [ngModel]="prepared.notes"
+                    (ngModelChange)="state.editItemNotes(prepared.id, $event)"
+                  ></textarea>
+                </label>
+                <h4>Preview</h4>
+              }
+              <prepared-markdown [content]="state.previews()[prepared.id] ?? null" />
+              @if (!prepared.notes) {
+                <p class="muted">No notes for this item.</p>
+              }
+            } @else {
+              <h3>Session notes</h3>
+              @if (!reading()) {
+                <label
+                  >Session Markdown notes<textarea
+                    rows="9"
+                    [ngModel]="session.notes"
+                    (ngModelChange)="state.edit({ notes: $event })"
+                  ></textarea>
+                </label>
+                <h4>Preview</h4>
+              }
+              <prepared-markdown [content]="state.previews()['session'] ?? null" />
+            }
+          </ng-template>
           @if (reading()) {
-            <play-notes [session]="session" />
-          }
-          <p class="eyebrow">
-            {{ reading() ? 'PREPARATION REFERENCES · READ ONLY' : 'YOUR PREPARATION' }}
-          </p>
-          <div class="note-tabs">
-            <button
-              matButton
-              [attr.aria-pressed]="notesScope() === 'session'"
-              (click)="sessionNotes()"
-            >
-              Session</button
-            ><button
-              matButton
-              [attr.aria-pressed]="notesScope() === 'item'"
-              [disabled]="!item()"
-              (click)="notesScope.set('item'); state.selectItem(state.selectedItem())"
-            >
-              Selected item
-            </button>
-          </div>
-          @if (notesScope() === 'item' && item(); as prepared) {
-            <h3>Item notes</h3>
-            <p class="note-context">{{ prepared.title }}</p>
-            @if (!reading()) {
-              <label
-                >Item Markdown notes<textarea
-                  rows="9"
-                  [ngModel]="prepared.notes"
-                  (ngModelChange)="state.editItemNotes(prepared.id, $event)"
-                ></textarea>
-              </label>
-              <h4>Preview</h4>
-            }
-            <prepared-markdown [content]="state.previews()[prepared.id] ?? null" />
-            @if (!prepared.notes) {
-              <p class="muted">No notes for this item.</p>
-            }
+            <play-notes [session]="session">
+              <div preparationNotes><ng-container *ngTemplateOutlet="preparationNotes" /></div>
+            </play-notes>
           } @else {
-            <h3>Session notes</h3>
-            @if (!reading()) {
-              <label
-                >Session Markdown notes<textarea
-                  rows="9"
-                  [ngModel]="session.notes"
-                  (ngModelChange)="state.edit({ notes: $event })"
-                ></textarea>
-              </label>
-              <h4>Preview</h4>
-            }
-            <prepared-markdown [content]="state.previews()['session'] ?? null" />
+            <ng-container *ngTemplateOutlet="preparationNotes" />
           }
           @if (!reading()) {
             <details class="session-details" [open]="!session.items.length">
