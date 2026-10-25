@@ -12,7 +12,7 @@ import java.util.UUID
 internal data class FrontMatter(val bodyStart: Int = 0, val classification: SourceClassification = SourceClassification(), val declaredPurpose: String? = null, val declaredId: UUID? = null, val data: Map<*, *>? = null)
 
 /** Decode data only. Raw source and all offsets remain owned by the Markdown capture. */
-internal class WorkbenchFrontMatter {
+internal class WorkbenchFrontMatter(private val interpretation: Int = 2) {
     private val settings = LoadSettings.builder().setSchema(JsonSchema()).setAllowDuplicateKeys(false)
         .setAllowRecursiveKeys(false).setAllowNonScalarKeys(false).setMaxAliasesForCollections(0)
         .setCodePointLimit(65_536).build()
@@ -121,9 +121,13 @@ internal class WorkbenchFrontMatter {
         val tags = if (!fields.containsKey("tags")) emptyList() else if (rawTags !is List<*> || rawTags.size > 32 || rawTags.any { it !is String || it.isBlank() || it.length > 64 }) {
             issue("tags", "Expected at most 32 nonblank strings of at most 64 characters."); emptyList()
         } else rawTags.map { (it as String).trim().lowercase(Locale.ROOT) }.distinct()
-        val known = setOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary")
+        val rawBack = fields["backText"]
+        val backText = if (interpretation == 1 || !fields.containsKey("backText")) "" else if (rawBack !is String || rawBack.length > 65_536) {
+            issue("backText", "Expected plain text within the front-matter limit."); ""
+        } else rawBack
+        val known = setOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary") + if (interpretation == 2) setOf("backText") else emptySet()
         fields.keys.filter { it !in known }.forEach { issues += ClassificationIssue("metadata.unknown-field", it?.toString(), "Unknown Workbench field is ignored.", "warning") }
-        val metadata = if (issues.none { it.severity == "error" }) CardMetadata(1, id!!, title!!, type!!, purpose!!, status!!, tags, summary) else null
+        val metadata = if (issues.none { it.severity == "error" }) CardMetadata(1, id!!, title!!, type!!, purpose!!, status!!, tags, summary, backText) else null
         return FrontMatter(bodyStart, SourceClassification(metadata, issues), purpose, id, root)
     }
 }

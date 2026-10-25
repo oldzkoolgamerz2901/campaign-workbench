@@ -142,7 +142,7 @@ class CardTableIntegrationTest : StringSpec({
             w = play.cover(campaign, s.id, ChooseCover(w.revision, PileSlot.PILE_1, second)).getOrNull()!!
             s = p.save(campaign, s.id, SaveSession(s.revision, s.title, "", s.notes, s.items.filter { it.id != second }.map { ItemNotes(it.id, "") })).getOrNull()!!
             val archive = archives.manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-            archive.version shouldBe 10
+            archive.version shouldBe 11
             archive.workspaces.single().workspace!!.sessionCards shouldBe emptyList()
             archive.workspaces.single().workspace!!.activeSceneItemId shouldBe first
             archive.workspaces.single().workspace!!.pile1.items shouldBe listOf(third)

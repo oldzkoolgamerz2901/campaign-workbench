@@ -390,6 +390,18 @@
       [type]="metadata(item)?.type ?? ''"
       [summary]="metadata(item)?.summary ?? ''"
       [tags]="metadata(item)?.tags ?? []"
+      [backText]="metadata(item)?.backText ?? ''"
+      [context]="
+        session() +
+        ':' +
+        item.id +
+        ':' +
+        item.provenance.contentHash +
+        ':' +
+        location +
+        ':' +
+        (inOverlay ? pileViewGeneration() : 0)
+      "
       [selectable]="true"
       [selectionLabel]="item.title"
       [selected]="selected() === item.id"

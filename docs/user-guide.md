@@ -16,6 +16,14 @@ Choose the current session explicitly. The route carries it between workspaces; 
 
 Create and edit durable Drafts with independent **Document / Card** editing tabs. The supporting panel has **Preview / Library** modes and one hide/show control; Preview independently chooses Card or Document. Reference results use available panel height and scroll independently from the editor.
 
+**Card back text** is separately authored plain text with line breaks, independent of the summary and Markdown body. Open **Check physical card fit** in Preview to inspect static front/back text layouts. Fit warnings identify text that needs shortening or characters unavailable in the card font. You can still save and export oversized Drafts within the existing export safety limits; adding a new session card or applying a newer revision requires both sides to fit. Fit feedback is cleared while the current text is being checked.
+
+Back text travels with the saved revision, Markdown export and frozen prepared copy. Editing it later leaves existing sessions unchanged until **Use latest version**. Use **Flip to back / Flip to front** on any full card, including Library references, Writing recovery and every Play location. Flipping is temporary and does not select, move or activate the card. Content, selection, reopened views and location changes restore the front; unrelated saves leave the side being read alone. Flips use a brief animation, with immediate changes for reduced motion.
+
+Both card sides remain scroll-free. If a side does not fit or its layout/fonts are unavailable, **Read all front text / Read all back text** opens the complete side in an external reading dialog. Front reading includes title, type, summary and every tag. **Open full document** remains on the front. Historical cards remain intact; edit a working Draft and explicitly replace its prepared revision to change frozen text.
+
+Markdown stores this optional text in `workbench.backText` front matter; export preserves its line breaks. Session exports use format v11 and can read the preceding v10 format. Writing JSON recovery uses v5 and illustrated ZIP manifests use v6; readers also accept the preceding v3/v4 formats. Missing historical back text means an empty back. Older retained Markdown and hashes stay unchanged. If an old Draft already retained an unknown metadata key named `backText`, export reports the collision rather than overwriting that evidence; a fresh Draft can author the new field separately.
+
 Opening a full reference saves successfully before navigating to Library. **Return to Write** or browser Back restores the originating Draft, tabs, panel and reference search. Cursor and scroll restoration are best effort. Save failures retain local work and guard departure.
 
 Local artwork is shown in the shared card preview and frozen with prepared content. Replacing or removing live Draft artwork does not rewrite existing prepared artwork. **Export to campaign** downloads reviewed Markdown for manual placement; explicitly refresh Sources afterward. Export inspection warns when linked Draft content is not reproduced by captured campaign files. AI assistance remains future work.
@@ -28,7 +36,7 @@ Prepare owns ordered frozen session material and preparation notes. Open **Add m
 
 Prepared material opens in **Read**. Valid prepared Scenes also offer **Scene planning** for explicit links to already-prepared cards. Inspect a linked card and use **Back to scene**; session notes stay selected while item notes follow the selected prepared item.
 
-**Use latest version** explicitly accepts a newer valid saved revision of the same type. Replacement preserves item identity, order, notes, Scene associations and runtime arrangement. Invalid metadata or changed type blocks replacement. Removal confirms affected Scene associations and prunes only the removed runtime membership; removing the active Scene clears its slot.
+**Use latest version** explicitly accepts a newer valid saved revision of the same type whose front and back text fit. Replacement preserves item identity, order, notes, Scene associations and runtime arrangement. Invalid metadata, changed type or non-fitting card text blocks replacement. Existing oversized/historical prepared content remains readable and portable. Removal confirms affected Scene associations and prunes only the removed runtime membership; removing the active Scene clears its slot.
 
 ## Play
 

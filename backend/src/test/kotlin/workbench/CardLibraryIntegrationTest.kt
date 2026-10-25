@@ -264,7 +264,7 @@ class CardLibraryIntegrationTest : StringSpec({
         val codec = context!!.getBean(RecoveryCodec::class.java)
         val bytes = recovery().backup(campaign).getOrNull()!!
         val archive = codec.read(bytes)
-        archive.version shouldBe 3
+        archive.version shouldBe 5
         archive.associations shouldBe associations.list(campaign)
         val workspace = recovery().restore(bytes).getOrNull()!!
         codec.read(recovery().archive(workspace.id).getOrNull()!!) shouldBe archive
@@ -272,7 +272,7 @@ class CardLibraryIntegrationTest : StringSpec({
         val zip = portable.backup(campaign).getOrNull()!!.use { download -> download.input().use { it.readAllBytes() } }
         val imported = portable.restore(zip.inputStream()).getOrNull()!!
         recovery().workspace(imported.id).getOrNull()!!.associations shouldBe archive.associations
-        recovery().workspace(imported.id).getOrNull()!!.version shouldBe 4
+        recovery().workspace(imported.id).getOrNull()!!.version shouldBe 6
         val reexport = portable.archive(imported.id).getOrNull()!!.use { download -> download.input().use { it.readAllBytes() } }
         portable.restore(reexport.inputStream()).isRight() shouldBe true
         val before = associations.list(campaign)

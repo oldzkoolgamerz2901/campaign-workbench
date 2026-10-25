@@ -85,7 +85,7 @@ class TypedPreparationIntegrationTest : StringSpec({
         val rendered = p.view(campaign, old.id).getOrNull()!!.items.single().source
         rendered.html shouldContain "old unparsed envelope"
         val v2 = p.export(campaign, ExportSessions(listOf(old.id))).getOrNull()!!
-        v2.version shouldBe 10
+        v2.version shouldBe 11
         val tree = mapper().valueToTree<ObjectNode>(v2)
         tree.put("version", 1)
         (tree.path("sessions")[0] as ObjectNode).remove("table")
@@ -153,7 +153,7 @@ class TypedPreparationIntegrationTest : StringSpec({
         Files.list(root).use { it.forEach(Files::delete) }
         sources.refresh(campaign).isRight() shouldBe true
         typedArchive = context!!.getBean(workbench.sessionarchives.application.PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(saved.id))).getOrNull()!!
-        typedArchive!!.version shouldBe 10
+        typedArchive!!.version shouldBe 11
         val oldWire = mapper().valueToTree<ObjectNode>(typedArchive)
         oldWire.put("version", 2)
         oldWire.path("sessions").forEach { session -> (session as ObjectNode).remove("table"); session.path("items").forEach { item ->
@@ -211,7 +211,7 @@ class TypedPreparationIntegrationTest : StringSpec({
             mutate { _, item, _ -> item.put("markdown", "Tampered") },
             mutate { _, item, _ -> item.put("notes", "x".repeat(2 * 1024 * 1024 + 1)) },
             mapper().writeValueAsString(archive) + "{}",
-            mapper().writeValueAsString(archive).replaceFirst("\"version\":10", "\"version\":10,\"version\":1")
+            mapper().writeValueAsString(archive).replaceFirst("\"version\":11", "\"version\":11,\"version\":1")
         )
         invalid.forEachIndexed { index, json ->
             val response = post(other, json)

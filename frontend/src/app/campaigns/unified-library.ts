@@ -22,6 +22,7 @@ import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workb
 import { ResearchContext } from '../writing/research-context';
 import { NavigationContext } from '../shared/navigation-context';
 import { ArtworkImage, ArtworkSource } from '../shared/artwork/artwork-image';
+import { CardFitFeedback } from '../shared/card-layout/card-fit-feedback';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { ReaderPresentation } from '../shared/reader/reader-presentation';
 import { ReaderControls } from '../shared/reader/reader-controls';
@@ -39,6 +40,7 @@ import { LibraryAdventure } from './library-adventure';
     WorkbenchHeader,
     ArtworkImage,
     PlayingCard,
+    CardFitFeedback,
     ReaderPresentation,
     ReaderControls,
     DraftReader,

@@ -24,13 +24,13 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
             ensure(capturedNotes.size + next.size <= 10000) { Failure.Invalid("sessions.archive-size", "Select sessions containing at most 10,000 PlayNotes in total.") }
             capturedNotes.addAll(next)
         }
-        val result = SessionTransfer(10, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) }, capturedNotes)
+        val result = SessionTransfer(11, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) }, capturedNotes)
         val encoded = try { codec.writeTransfer(result) } catch (_: Exception) { raise(Failure.Invalid("sessions.archive-size", "Session manifest exceeds 20 MiB; select fewer sessions.")) }
         ensure(encoded.size <= 20 * 1024 * 1024) { invalid() }
         result
     } }
     fun validate(archive: SessionTransfer, illustrated: Boolean): Either<Failure, Unit> = either {
-        ensure(archive.version == 10) { invalid() }
+        ensure(archive.version in 10..11) { invalid() }
         preparation.validateContents(Archive(archive.version, archive.sessions), illustrated).bind()
         ensure(archive.notes.size <= 10000 && archive.notes.map { it.id }.distinct().size == archive.notes.size) { invalid() }
         val sessionById = archive.sessions.associateBy { it.id }

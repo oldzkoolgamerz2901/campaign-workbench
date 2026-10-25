@@ -29,10 +29,10 @@ class WritingExportService(private val campaigns: Campaigns, private val store: 
         ensure(store.list(campaign).size < 1000) { invalid("This campaign has reached the 1,000 draft limit.") }
         val id = UUID.randomUUID()
         val origin = DraftOrigin(campaign, request.capture, request.path, decoded.card, selected.markdown,
-            selected.documentHash, decoded.retainedEnvelope, decoded.issues)
+            selected.documentHash, decoded.retainedEnvelope, decoded.issues, 2)
         val parent = request.path.substringBeforeLast('/', "").let { if (it.isEmpty()) "" else "$it/" }
         val name = request.path.substringAfterLast('/').substringBeforeLast('.')
-        val draft = Draft(id, campaign, UUID.randomUUID(), 0, if (decoded.legacy) selected.title else decoded.title, type!!, "draft", decoded.tags, decoded.summary, decoded.body, "$parent$name-draft-$id.md", origin)
+        val draft = Draft(id, campaign, UUID.randomUUID(), 0, if (decoded.legacy) selected.title else decoded.title, type!!, "draft", decoded.tags, decoded.summary, decoded.body, "$parent$name-draft-$id.md", origin, backText = decoded.backText, encoding = 2)
         ensure(withinWorkingLimits(draftData(draft).fields)) { invalid("Source fields exceed working draft limits; resolve them before copying.") }
         store.put(draft); draftData(draft)
     } }
@@ -46,7 +46,7 @@ class WritingExportService(private val campaigns: Campaigns, private val store: 
     } }
 
     private fun report(draft: Draft, resolved: CardLibraryService.LinkResolution): ExportInspection {
-        val encoded = authoring.encode(AuthoredDocument(draft.card, draft.title, draft.type, draft.status, draft.tags, draft.summary, draft.body), draft.origin?.retainedEnvelope.orEmpty())
+        val encoded = authoring.encode(AuthoredDocument(draft.card, draft.title, draft.type, draft.status, draft.tags, draft.summary, draft.body, draft.backText, draft.encoding), draft.origin?.retainedEnvelope.orEmpty())
         val targets = store.list(draft.campaign)
         val links = resolved.links
         val errors = encoded.errors + exportPathErrors(draft.path) +

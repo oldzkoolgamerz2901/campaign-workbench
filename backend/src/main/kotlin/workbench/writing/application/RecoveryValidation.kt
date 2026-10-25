@@ -8,9 +8,9 @@ import java.util.UUID
 
 /** No live source lookup: old links and hashes are historical evidence, not restored authority. */
 internal class RecoveryValidation(private val authoring: Authoring) {
-    fun encoded(d: DraftData) = d.fields.let { authoring.encode(AuthoredDocument(d.card, it.title, it.type, it.status, it.tags, it.summary, it.body), d.origin?.retainedEnvelope.orEmpty()) }
+    fun encoded(d: DraftData) = d.fields.let { authoring.encode(AuthoredDocument(d.card, it.title, it.type, it.status, it.tags, it.summary, it.body, it.backText, d.encoding), d.origin?.retainedEnvelope.orEmpty()) }
     fun validate(a: WritingArchive) {
-        require(a.format == "workbench-writing-recovery" && a.version in setOf(3, 4))
+        require(a.format == "workbench-writing-recovery" && a.version in setOf(3, 4, 5, 6))
         require(a.name.isNotBlank() && a.name.length <= 200)
         time(a.savedAt)
         require(a.drafts.size <= 1000 && a.approved.size + a.exports.size + a.associations.size <= 10000)
@@ -24,14 +24,15 @@ internal class RecoveryValidation(private val authoring: Authoring) {
         require(a.exports.map { it.id }.distinct().size == a.exports.size)
         require(a.exports.groupingBy { it.snapshot.id }.eachCount().values.all { it <= 1000 })
         val snapshots = a.drafts + a.approved.map { it.snapshot } + a.exports.map { it.snapshot }
-        require(a.version == 4 || snapshots.all { it.image == null })
+        require(a.version in setOf(4, 6) || snapshots.all { it.image == null })
+        require(a.version >= 5 || snapshots.all { it.encoding == 1 && it.fields.backText.isEmpty() && (it.origin == null || it.origin.interpretation == 1) })
         snapshots.distinct().forEach { d ->
-            require(d.campaign == a.campaign && d.revision >= 0 && withinWorkingLimits(d.fields))
+            require(d.encoding in 1..2 && (d.encoding == 2 || d.fields.backText.isEmpty()) && d.campaign == a.campaign && d.revision >= 0 && withinWorkingLimits(d.fields))
             d.recovery?.let { require(it.revision >= 0) }
             d.origin?.let { o ->
-                require(o.interpretation == 1 && text(o.raw, 2 * 1024 * 1024) && o.hash == contentHash(o.raw) && text(o.retainedEnvelope, 65536))
+                require(o.interpretation in 1..2 && text(o.raw, 2 * 1024 * 1024) && o.hash == contentHash(o.raw) && text(o.retainedEnvelope, 65536))
                 require(o.path.isNotBlank() && o.path.length <= 4096 && o.issues.size <= 4096 && o.issues.all { text(it, 65536) })
-                val decoded = authoring.decode(o.raw)
+                val decoded = authoring.decode(o.raw, o.interpretation)
                 require(decoded.errors.isEmpty() && decoded.retainedEnvelope == o.retainedEnvelope && decoded.card == o.card)
             }
         }

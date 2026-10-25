@@ -11,7 +11,7 @@ async function fixture(request: APIRequestContext, related = false) {
   for (const [index, name] of names.entries()) {
     await writeFile(
       join(root, `${name}.md`),
-      `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${name}\n  type: ${index === 0 || index === 3 ? 'scene' : index === 1 ? 'npc' : 'item'}\n  purpose: session\n  status: current\n  summary: Frozen reference for ${name}.\n  tags: [focus-fixture]\n---\n# Full ${name}\nComplete frozen ${name} document. [Visit Fourth](Fourth.md) [Visit NPC](NPC.md) [Visit Scene](Scene.md) ${related ? '[Again](./NPC.md) [Section](NPC.md#background) [Extra](Extra.md) [Missing](Missing.md) [Unsafe](javascript:alert)' : ''}\n\n## Background\nReference background for ${name}.`,
+      `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${name}\n  type: ${index === 0 || index === 3 ? 'scene' : index === 1 ? 'npc' : 'item'}\n  purpose: session\n  status: current\n  summary: Frozen reference for ${name}.\n  tags: [focus-fixture]\n  backText: Back of ${name}.\n---\n# Full ${name}\nComplete frozen ${name} document. [Visit Fourth](Fourth.md) [Visit NPC](NPC.md) [Visit Scene](Scene.md) ${related ? '[Again](./NPC.md) [Section](NPC.md#background) [Extra](Extra.md) [Missing](Missing.md) [Unsafe](javascript:alert)' : ''}\n\n## Background\nReference background for ${name}.`,
     );
   }
   const campaign = await (
@@ -538,6 +538,85 @@ test('Play → Prepare → Play reconciles additions/removals and preserves read
     expect(after.activeSceneItemId).toBe(scene);
     expect(after.pile1.items).toEqual([]);
     expect(after.sessionCards).toEqual([relic, fourth]);
+  } finally {
+    await rm(f.root, { recursive: true, force: true });
+  }
+});
+
+test('flips preserve Play actions and notes across all locations and reset reopened pile views', async ({
+  page,
+  request,
+}, info) => {
+  const f = await fixture(request);
+  try {
+    await page.goto(f.url);
+    const table = page.locator('play-tabletop');
+    const card = (name: string) =>
+      table
+        .locator('playing-card')
+        .filter({ has: page.getByRole('article', { name: `Read: ${name}`, exact: true }) });
+    const flipBack = async (target: ReturnType<typeof card>, name: string) => {
+      await expect(
+        target.getByRole('img', { name: `Card front: ${name}`, exact: true }),
+      ).toBeVisible();
+      await target.getByRole('button', { name: 'Flip to back' }).press('Enter');
+      await expect(target.locator('article')).toHaveClass(/flipping/);
+      expect(
+        await target.locator('article').evaluate((el) => getComputedStyle(el).animationDuration),
+      ).toBe('0.23s');
+      await expect(
+        target.getByRole('img', { name: `Card back: ${name}`, exact: true }),
+      ).toBeVisible();
+      await expect(target.locator('svg')).toContainText(`Back of ${name}.`);
+    };
+    const before = await (await request.get(`${f.endpoint}/workspace`)).json();
+    await flipBack(card('NPC'), 'NPC');
+    expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(before);
+    await expect(card('NPC').locator('article')).not.toHaveClass(/selected/);
+    const notes = page.locator('play-notes');
+    await notes
+      .getByLabel('PlayNote Markdown', { exact: true })
+      .fill('A note while reading the back.');
+    await notes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(notes.getByLabel('PlayNote Markdown', { exact: true })).toHaveValue('');
+    await expect(card('NPC').locator('article')).toHaveAttribute('data-side', 'back');
+    await page.getByRole('searchbox', { name: 'Find in session', exact: true }).fill('NPC');
+    await expect(card('NPC').locator('article')).toHaveAttribute('data-side', 'back');
+    await page.getByRole('searchbox', { name: 'Find in session', exact: true }).clear();
+    await action(page, 'NPC', 'Move to Pile 1');
+    await saved(page);
+    await expect(card('NPC').locator('article')).toHaveAttribute('data-side', 'front');
+    await flipBack(card('NPC'), 'NPC');
+    await page.getByRole('button', { name: 'Show all: Pile 1', exact: true }).click();
+    const pile = page.getByRole('dialog', { name: 'Pile 1 · Show all', exact: true });
+    const overlay = pile.locator('playing-card');
+    await flipBack(overlay, 'NPC');
+    await page.screenshot({ path: info.outputPath('pile-back.png'), fullPage: true });
+    await pile.getByRole('button', { name: 'Close pile', exact: true }).click();
+    await page.getByRole('button', { name: 'Show all: Pile 1', exact: true }).click();
+    await expect(overlay.locator('article')).toHaveAttribute('data-side', 'front');
+    await expect(overlay.getByRole('img', { name: 'Card front: NPC', exact: true })).toBeVisible();
+    await pile.getByRole('button', { name: 'Close pile', exact: true }).click();
+    // Opening an overlay does not reset the still-visible pile cover.
+    await expect(card('NPC').locator('article')).toHaveAttribute('data-side', 'back');
+    await action(page, 'NPC', 'Move to Pile 2');
+    await saved(page);
+    await flipBack(card('NPC'), 'NPC');
+    await action(page, 'NPC', 'Mark used');
+    await saved(page);
+    await table.getByRole('button', { name: 'Used cards (1)', exact: true }).click();
+    await flipBack(card('NPC'), 'NPC');
+    await action(page, 'Scene', 'Activate Scene');
+    const sceneDialog = page.getByRole('dialog', { name: 'Activate / Change Scene', exact: true });
+    await sceneDialog.getByRole('button', { name: 'Keep current piles', exact: true }).click();
+    await saved(page);
+    await flipBack(card('Scene'), 'Scene');
+    await expect(card('NPC').locator('article')).toHaveAttribute('data-side', 'back');
+    await card('Scene').getByRole('button', { name: 'Flip to front' }).click();
+    await expect(card('Scene').getByRole('button', { name: 'Open full document' })).toBeVisible();
+    await card('Scene').getByRole('button', { name: 'Open full document' }).click();
+    await expect(page.locator('.source-page')).toContainText('Complete frozen Scene document.');
+    expect((await (await request.get(`${f.endpoint}/play-notes`)).json()).notes).toHaveLength(1);
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }

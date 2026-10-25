@@ -272,11 +272,53 @@ class SessionLibraryIntegrationTest : StringSpec({
         view.items.first().source.links.single().target shouldBe "@$aItem#a"
         s.items.first().provenance.authored!!.revision shouldBe b2.revision
         val manifest = context!!.getBean(PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-        manifest.version shouldBe 10
+        manifest.version shouldBe 11
         manifest.workspaces.single().workspace shouldBe null
         val archiveService = context!!.getBean(PortableSessionService::class.java)
         val imported = archiveService.restore(campaign, manifest).getOrNull()!!.sessions.single().id
         prep().view(campaign, imported).getOrNull()!!.items.last().source.links.single().unavailable shouldBe true
+    }
+
+    "stale no-op replacement is an HTTP revision conflict and exact no-op ignores readiness without mutation" {
+        val (campaign, _) = fresh("noop-conflict")
+        val created = writing().create(campaign, CreateDraft("npc", false)).getOrNull()!!
+        val draft = writing().save(campaign, created.id, SaveDraft(created.revision,
+            created.fields.copy(title = "Mira", summary = "Harbour keeper.", body = "# Mira"))).getOrNull()!!
+        val session = prep().create(campaign, CreateSession("No-op conflict", "")).getOrNull()!!
+        val added = service().add(campaign, session.id, request(campaign, session)).getOrNull()!!
+        val command = request(campaign, added.session)
+        val item = added.items.single()
+        val port = (context as WebServerApplicationContext).webServer!!.port
+        val mapper = context!!.getBean(ObjectMapper::class.java)
+        val client = HttpClient.newHttpClient()
+        fun replace(payload: AddLibraryCard): HttpResponse<String> = client.send(
+            HttpRequest.newBuilder(URI("http://127.0.0.1:$port/api/campaigns/$campaign/sessions/${session.id}/library/$item"))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(mapper.writeValueAsBytes(payload))).build(),
+            HttpResponse.BodyHandlers.ofString())
+        val retainedCounts = counts(campaign)
+        for (stale in listOf(command.copy(draftRevision = draft.revision - 1), command.copy(draft = UUID.randomUUID()))) {
+            val response = replace(stale)
+            response.statusCode() shouldBe 409
+            mapper.readTree(response.body()).path("code").asString() shouldBe "writing.stale-revision"
+            prep().open(campaign, session.id).getOrNull() shouldBe added.session
+            counts(campaign) shouldBe retainedCounts
+        }
+        val exact = replace(command)
+        exact.statusCode() shouldBe 200
+        mapper.readValue(exact.body(), SessionData::class.java) shouldBe added.session
+        counts(campaign) shouldBe retainedCounts
+        // Historical content can remain prepared even when today's fit/readiness policy blocks new use.
+        val blocked = object : CardLibraries by library() {
+            override fun list(campaign: UUID, query: String, filter: SourceFilter) = library().list(campaign, query, filter).map { catalogue ->
+                catalogue.copy(entries = catalogue.entries.map { it.copy(ready = false) })
+            }
+        }
+        val unchanged = SessionLibraryService(context!!.getBean(Campaigns::class.java), blocked, prep(), context!!.getBean(Transactions::class.java))
+            .replace(campaign, session.id, item, command)
+        unchanged.getOrNull() shouldBe added.session
+        prep().open(campaign, session.id).getOrNull() shouldBe added.session
+        counts(campaign) shouldBe retainedCounts
     }
 
     "HTTP contracts expose destination status, bounded commands, explicit replacement and actionable errors" {

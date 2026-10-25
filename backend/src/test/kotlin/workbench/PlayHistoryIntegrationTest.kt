@@ -20,10 +20,13 @@ class PlayHistoryIntegrationTest : StringSpec({
         db.start()
         val root = Files.createTempDirectory("p6-history-")
         val args = arrayOf("--server.port=0", "--spring.datasource.url=${db.jdbcUrl}", "--spring.datasource.username=${db.username}", "--spring.datasource.password=${db.password}")
-        var c = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run(*args, "--spring.flyway.target=20")
+        var c = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run(*args, "--spring.flyway.target=20", "--spring.jpa.hibernate.ddl-auto=none")
         try {
             val campaigns = c.getBean(CampaignService::class.java)
             val campaign = campaigns.register(RegisterCampaign("History", root.toString())).getOrNull()!!.id
+            // The legacy bootstrap uses no Writing service before V22 exists. Seed a real pre-V22 row for the additive migration check.
+            val legacyDraft = UUID.randomUUID()
+            c.getBean(JdbcTemplate::class.java).update("INSERT INTO writing.draft(id,campaign,card,revision,title,type,status,tags,summary,body,path) VALUES (?,?,?,0,'Legacy','npc','draft','[]','','# Old body','legacy.md')", legacyDraft, campaign, UUID.randomUUID())
             val other = campaigns.register(RegisterCampaign("Other", Files.createDirectory(root.resolve("other")).toString())).getOrNull()!!.id
             val preparation = c.getBean(PreparationService::class.java)
             val first = preparation.create(campaign, CreateSession("First session", "")).getOrNull()!!
@@ -49,6 +52,9 @@ class PlayHistoryIntegrationTest : StringSpec({
             c.close()
             // V21 indexes the unchanged P5 records, including extreme Instant years and nanos.
             c = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run(*args)
+            val migrated = c.getBean(workbench.writing.application.WritingService::class.java).open(campaign, legacyDraft).getOrNull()!!
+            migrated.fields.backText shouldBe ""
+            migrated.encoding shouldBe 1
             val api = c.getBean(PlayNotes::class.java)
             fun history(scene: Boolean = false, pins: Boolean = false, limit: Int = 50, time: Instant? = null, id: UUID? = null) =
                 api.history(campaign, ref, scene, pins, limit, time, id).getOrNull()!!

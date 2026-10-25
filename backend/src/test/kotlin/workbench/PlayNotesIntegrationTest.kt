@@ -130,7 +130,7 @@ class PlayNotesIntegrationTest : StringSpec({
             Files.delete(root.resolve("scene.md")); c.getBean(SourceService::class.java).refresh(campaign)
             notes.list(campaign, s.id).getOrNull()!!.notes.first { it.id == edited.id } shouldBe edited
             val archive = archives.manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-            archive.version shouldBe 10
+            archive.version shouldBe 11
             codec.readTransfer(codec.writeTransfer(archive)).getOrNull() shouldBe archive
             val restoredId = archives.restore(other, archive).getOrNull()!!.sessions.single().id
             val restored = notes.list(other, restoredId).getOrNull()!!.notes

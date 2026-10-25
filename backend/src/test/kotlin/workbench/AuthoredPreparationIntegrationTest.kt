@@ -91,7 +91,7 @@ class AuthoredPreparationIntegrationTest : StringSpec({
         prep.open(campaign, session.id).getOrNull() shouldBe session
         prep.view(campaign, session.id).getOrNull() shouldBe before
         val archive = prep.export(campaign, ExportSessions(listOf(session.id))).getOrNull()!!
-        archive.version shouldBe 10
+        archive.version shouldBe 11
         val mapper = context!!.getBean(ObjectMapper::class.java)
         val reader = context!!.getBean(SessionArchiveReader::class.java)
         reader.read(mapper.writeValueAsBytes(archive)).getOrNull() shouldBe archive

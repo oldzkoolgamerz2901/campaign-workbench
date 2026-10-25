@@ -21,6 +21,8 @@ import { SourceControllerService, CheckedLink, LibraryEntry } from '../../api/ge
 import { WritingExportPanel } from './writing-export-panel';
 import { LibraryState } from '../campaigns/library-state';
 import { CampaignControls } from '../campaigns/campaign-controls';
+import { CardFitPreview } from '../shared/card-layout/card-fit-preview';
+import { CardFitFeedback } from '../shared/card-layout/card-fit-feedback';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { DraftReader } from './draft-reader';
 import { LibraryReferences } from '../campaigns/library-references';
@@ -38,6 +40,8 @@ import { WritingState } from './writing-state';
     WorkbenchHeader,
     CampaignControls,
     PlayingCard,
+    CardFitPreview,
+    CardFitFeedback,
     DraftReader,
     WritingExportPanel,
     LibraryReferences,
@@ -46,6 +50,7 @@ import { WritingState } from './writing-state';
   styleUrl: './writing-workspace.css',
 })
 export class WritingWorkspace implements OnDestroy {
+  readonly fitPreviewOpen = signal(false);
   readonly research = inject(ResearchContext);
   readonly references = inject(REFERENCE_LIBRARY_STATE);
   readonly editorTab = this.research.editorTab;

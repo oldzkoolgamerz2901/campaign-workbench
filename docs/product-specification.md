@@ -845,3 +845,24 @@ Required evidence includes associated typed/untyped Source/Draft pairs, true ide
 Exclusions remain unchanged: no combat automation, extra piles, card backs, freeform canvas, discovery/world-state engine, authored Scene relationship editing in Play, automatic source changes, mandatory review or new AI behavior.
 
 **Delivery priority approved in the reconciliation:** tabletop foundation and UI, then P5, revised P7, P6 and P8. This is ordering direction, not an accepted detailed increment plan or implementation authorization.
+
+## Flippable cards — accepted requirements — 2026-10-24
+
+**Status: ACCEPTED, including refinements.** The owner approved the original requirements following investigation, then approved scroll-free fronts, the detailed flip animation and overflow handling below. This supersedes the tabletop reconciliation's exclusion of card backs and the existing scrollable-front presentation; other exclusions remain. Architecture and subsequent phases retain their separate approval gates.
+
+- Each card has optional separately authored plain-text back text, with line breaks, independent of its summary and Markdown body. Existing cards have an empty back.
+- Both sides retain the existing card dimensions and have no internal scrolling, automatic truncation or automatic font shrinking. The front's title, type, summary and tags must fit alongside its controls. The back uses its available area for plain text plus a flip control, without artwork. Preserve text during editing and show a clear fit warning. Fit must account for consistent typography and usable card sizes; a character limit alone is insufficient.
+- Every full card representation supports an explicit flip control on either side, including contextual Library references, Writing recovery and all Play locations. Thumbnails and catalogue rows remain unchanged. Flipping does not open the document, select or move a card, activate a Scene or change note context.
+- Newly opened views show the front. Orientation is temporary and is not persisted across application restarts. Reset to the front when displayed content changes, selection changes, a view reopens or the card moves between Play locations. Unrelated note saves, filters and workspace updates do not reset a card being read.
+- Back text belongs to the card revision. Markdown export and Source capture preserve it; preparation freezes it; explicit revision replacement updates it. Session archives and Writing recovery retain it independently of live campaign files.
+- Preserve the illustrated front, authored summary and full-document reader. Back text is not interpreted as rich Markdown.
+- Deliberate flips have a small visual animation.
+
+### Accepted fit, animation and historical-content refinements
+
+- Extend the approved back-fit approval gate to both sides: allow saving and exporting oversized working Drafts with visible fit feedback, but block new session addition or explicit prepared replacement until both sides fit. Reuse of an already-prepared card does not become a blocked new addition.
+- Use a brief vertical-axis flip, approximately 200–250 ms, without changing surrounding layout. Respect reduced-motion preferences with an immediate side change. Automatic resets to the front happen immediately.
+- Existing frozen prepared cards remain usable and are never automatically rewritten, shortened, removed or replaced. If a side cannot fit, show a clear non-fitting-side state with an action to read all of that side's text outside the card, rather than showing clipped text. The front fallback must expose title, type, summary and every tag; the back fallback must expose all back text. Do not assume the existing full-document reader includes these fields. The external reading surface may scroll; neither card side may scroll. Retain flipping and existing Play actions. Correcting a working Draft affects the frozen card only through explicit replacement, which must satisfy both-side fit.
+- Apply the same non-fitting-side state to oversized working previews, captured Sources and historical recovery previews, retaining their existing editability and authority restrictions.
+
+Acceptance evidence must cover flipping in every full card representation, no internal scrolling on either side, the specified resets, animation and reduced motion, keyboard access, overflow feedback without lost text, and preservation through save/reload, export/capture, preparation, replacement, session archives and Writing recovery. Include oversized historical cards and complete external access to front metadata and back text. Architecture must resolve how fit is enforced consistently across session-addition paths and card sizes.

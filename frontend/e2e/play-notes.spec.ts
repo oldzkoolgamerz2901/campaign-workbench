@@ -134,7 +134,7 @@ test('PlayNotes retain drafts across tabletop interactions, recover Scene contex
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(10);
+    expect(archive.version).toBe(11);
     expect(archive.notes).toHaveLength(2);
     const imported = await request.post(`/api/campaigns/${campaign.id}/sessions/import`, {
       data: archive,

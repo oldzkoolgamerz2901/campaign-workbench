@@ -13,7 +13,7 @@ data class LibrarySourceState(val path: String, val capture: UUID?, val declared
 data class LibraryEntry(
     val key: String, val card: UUID?, val draft: UUID?, val revision: Long?, val title: String,
     val classification: SourceClassification, val image: ImageMetadata?, val sources: List<LibrarySourceState>,
-    val conflicts: List<String>, val ready: Boolean
+    val conflicts: List<String>, val ready: Boolean, val fitIssues: List<workbench.sources.api.CardFitIssue> = emptyList()
 )
 data class CardLibrary(val campaign: UUID, val capture: UUID?, val entries: List<LibraryEntry>)
 data class AdventureChoice(val destination: String, val entry: LibraryEntry?, val problem: String?)

@@ -1,0 +1,94 @@
+<article
+  class="card"
+  [class.selectable]="selectable()"
+  [class.selected]="selected()"
+  [class.flipping]="animating()"
+  [attr.data-side]="side()"
+  [attr.aria-label]="
+    selectable() ? 'Read: ' + (selectionLabel() || title()) : 'Playing card preview'
+  "
+  [attr.tabindex]="selectable() && !disabled() ? 0 : null"
+  [attr.aria-current]="selectable() && selected() ? 'true' : null"
+  [attr.aria-disabled]="disabled() ? 'true' : null"
+  (click)="selectCard($event)"
+  (keydown)="activate($event)"
+>
+  @if (side() === 'front') {
+    <artwork-image [source]="artwork()" [local]="localArtwork()" />
+  }
+  @if (layout(); as geometry) {
+    <card-layout-renderer
+      [layout]="geometry"
+      [side]="side()"
+      [showStatus]="false"
+      [label]="side() === 'front' ? 'Card front: ' + title() : 'Card back: ' + title()"
+      (checked)="status.set($event)"
+    />
+  }
+  <div class="card-actions" data-card-actions (click)="$event.stopPropagation()">
+    <ng-content select="[cardActions]" />
+  </div>
+  <button
+    #flipButton
+    class="flip"
+    type="button"
+    [disabled]="disabled()"
+    [attr.aria-label]="side() === 'front' ? 'Flip to back' : 'Flip to front'"
+    (pointerdown)="$event.stopPropagation()"
+    (mousedown)="$event.stopPropagation()"
+    (touchstart)="$event.stopPropagation()"
+    (click)="flip($event)"
+  >
+    ↻
+  </button>
+  @if (status() !== 'ready') {
+    <div class="fallback" [class.front]="side() === 'front'">
+      <p role="status">
+        {{
+          status() === 'checking'
+            ? 'Checking card layout…'
+            : status() === 'non-fitting' || status() === 'overflow'
+              ? 'This side does not fit.'
+              : 'Card layout unavailable.'
+        }}
+      </p>
+      <button type="button" [disabled]="disabled()" (click)="readSide($event)">
+        Read all {{ side() }} text
+      </button>
+    </div>
+  }
+  @if (side() === 'front') {
+    <button
+      class="document"
+      type="button"
+      [disabled]="disabled()"
+      (pointerdown)="$event.stopPropagation()"
+      (mousedown)="$event.stopPropagation()"
+      (touchstart)="$event.stopPropagation()"
+      (click)="document($event)"
+    >
+      Open full document <span aria-hidden="true">↗</span>
+    </button>
+  }
+</article>
+<dialog
+  #sideReader
+  aria-label="Complete card side text"
+  (click)="$event.stopPropagation()"
+  (keydown)="$event.stopPropagation()"
+>
+  <button type="button" (click)="closeReader()">Close card text</button>
+  @if (readingSide() === 'front') {
+    <h3>{{ title() || 'Untitled card' }}</h3>
+    <p>{{ type() || 'Untyped' }}</p>
+    <p class="plain">{{ summary() }}</p>
+    <ul aria-label="Card tags">
+      @for (tag of tags(); track $index) {
+        <li>{{ tag }}</li>
+      }
+    </ul>
+  } @else {
+    <h3>Card back</h3>
+    <p class="plain">{{ backText() || 'No back text.' }}</p>
+  }
+</dialog>

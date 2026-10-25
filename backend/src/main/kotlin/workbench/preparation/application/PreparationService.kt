@@ -89,7 +89,7 @@ class PreparationService(private val campaigns: Campaigns, private val store: Se
             approved.links.map { FrozenLink(it.destination, it.kind, it.path, it.anchor, it.section,
                 if (it.kind == "source") approved.capture else null, it.draft, it.revision) })
         val classification = CapturedClassification(CapturedCard(metadata.schema, metadata.id, metadata.title, metadata.type,
-            metadata.purpose, metadata.status, metadata.tags, metadata.summary), emptyList())
+            metadata.purpose, metadata.status, metadata.tags, metadata.summary, metadata.backText), emptyList())
         PreparedItem(UUID.randomUUID(), metadata.title, approved.markdown,
             Provenance(campaign, null, d.fields.path, null, approved.hash, approved.hash, "authored", authored),
             approved.preview.anchors.keys.associateWith { it }, "", CapturedSource(1, bodyStart, classification, emptyList()), d.image)
@@ -108,13 +108,13 @@ class PreparationService(private val campaigns: Campaigns, private val store: Se
         campaigns.configuration(campaign).bind()
         ensure(request.sessions.isNotEmpty() && request.sessions.size <= 100 && request.sessions.distinct().size == request.sessions.size) { invalid("Select between 1 and 100 distinct sessions.") }
         ensure(store.archiveBytes(campaign, request.sessions) <= 20L * 1024 * 1024) { invalid("Session text exceeds the 20 MiB manifest limit; select fewer sessions.") }
-        val archive = Archive(10, request.sessions.map { data(load(campaign, it).bind()) })
+        val archive = Archive(11, request.sessions.map { data(load(campaign, it).bind()) })
         ensure(illustrated || archive.sessions.all { s -> s.items.all { it.image == null } }) { invalid("Artwork requires portable ZIP export.") }
         ensure(archive.sessions.sumOf { it.items.size } <= 1000) { invalid("An archive may contain at most 1,000 items.") }
         archive
     } }
     fun validateArchive(archive: Archive, illustrated: Boolean = false): Either<Failure, Unit> = either {
-        ensure(archive.version == 10 && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
+        ensure(archive.version in 10..11 && archive.sessions.isNotEmpty() && archive.sessions.size <= 100 && archive.sessions.sumOf { it.items.size } <= 1000 &&
             archive.sessions.map { it.id }.distinct().size == archive.sessions.size &&
             archive.sessions.flatMap { it.items }.let { items -> items.map { it.id }.distinct().size == items.size } && archive.sessions.all(::valid)) { invalid("Invalid or unsupported session contents. No sessions imported.") }
         ensure(illustrated || archive.sessions.all { s -> s.items.all { it.image == null } }) { invalid("Artwork requires a portable archive.") }

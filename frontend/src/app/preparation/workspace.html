@@ -379,6 +379,12 @@
           @if (!sourceHasTitle()) {
             <h3>{{ prepared.title }}</h3>
           }
+          @if (prepared.capturedSource?.classification?.metadata?.backText; as back) {
+            <details>
+              <summary>Card back text</summary>
+              <p style="white-space: pre-wrap; overflow-wrap: anywhere">{{ back }}</p>
+            </details>
+          }
           <details class="provenance">
             <summary>{{ prepared.provenance.path }}</summary>
             @if (prepared.provenance.authored; as authored) {
@@ -432,6 +438,10 @@
                 [type]="card.type ?? ''"
                 [tags]="card.tags ?? []"
                 [summary]="card.summary ?? ''"
+                [backText]="card.backText ?? ''"
+                [context]="
+                  state.current()!.id + ':' + prepared.id + ':' + prepared.provenance.contentHash
+                "
                 (openDocument)="cardOpen.set(false)"
               />
             }
@@ -484,7 +494,9 @@
           @if (reading()) {
             <play-notes [session]="session" />
           }
-          <p class="eyebrow">{{ reading() ? 'PREPARATION REFERENCES · READ ONLY' : 'YOUR PREPARATION' }}</p>
+          <p class="eyebrow">
+            {{ reading() ? 'PREPARATION REFERENCES · READ ONLY' : 'YOUR PREPARATION' }}
+          </p>
           <div class="note-tabs">
             <button
               matButton

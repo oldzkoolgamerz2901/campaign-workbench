@@ -19,7 +19,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
         fields(tree, "version", "sessions", "workspaces", "notes")
-        integer(tree.path("version")); require(tree.path("version").intValue() == 10)
+        integer(tree.path("version")); require(tree.path("version").intValue() in 10..11)
         val notes = tree.path("notes")
         require(notes.isArray && notes.size() <= 10000)
         val counts = mutableMapOf<String, Int>()
@@ -94,7 +94,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version == 10)
+        require(version in 10..11)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
@@ -138,7 +138,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
                 }
                 strings(p, "path", "documentHash", "contentHash")
                 nullableString(p.path("section"))
-                if (!item.path("capturedSource").isNull) captured(item.path("capturedSource"))
+                if (!item.path("capturedSource").isNull) captured(item.path("capturedSource"), version)
             }
         }
         Either.Right(mapper.treeToValue(tree, Archive::class.java))
@@ -161,10 +161,10 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             require(revision.isNull || (revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0))
         }
     }
-    private fun captured(node: JsonNode) {
+    private fun captured(node: JsonNode, version: Int) {
         fields(node, "interpretation", "bodyStart", "classification", "relationships")
         integer(node.path("interpretation")); integer(node.path("bodyStart"))
-        classification(node.path("classification"))
+        classification(node.path("classification"), version)
         require(node.path("relationships").isArray)
         for (r in node.path("relationships")) {
             fields(r, "key", "originSection", "destination", "target", "classification", "sceneCandidate")
@@ -174,14 +174,15 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             fields(target, "document", "section", "external", "missing")
             listOf("document", "section", "external").forEach { nullableString(target.path(it)) }
             require(target.path("missing").isBoolean)
-            if (!r.path("classification").isNull) classification(r.path("classification"))
+            if (!r.path("classification").isNull) classification(r.path("classification"), version)
         }
     }
-    private fun classification(node: JsonNode) {
+    private fun classification(node: JsonNode, version: Int) {
         fields(node, "metadata", "issues")
         val metadata = node.path("metadata")
         if (!metadata.isNull) {
-            fields(metadata, "schema", "id", "title", "type", "purpose", "status", "tags", "summary")
+            fields(metadata, *(arrayOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary") + if (version == 11) arrayOf("backText") else emptyArray()))
+            if (version == 11) string(metadata.path("backText"))
             integer(metadata.path("schema")); uuid(metadata.path("id"))
             strings(metadata, "title", "type", "purpose", "status"); nullableString(metadata.path("summary"))
             val tags = metadata.path("tags")

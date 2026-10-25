@@ -55,6 +55,7 @@ export class Tabletop {
   readonly filtered = computed(() => !!this.query().trim() || !!this.group());
   readonly usedOpen = signal(false);
   readonly openedPile = signal<Pile>('PILE_1');
+  readonly pileViewGeneration = signal(0);
   readonly pileName = signal('');
   readonly sceneChoice = signal('');
   readonly customize = signal(false);
@@ -186,6 +187,7 @@ export class Tabletop {
     this.move(item, destination, precise ? event.currentIndex : undefined);
   }
   showPile(slot: Pile) {
+    this.pileViewGeneration.update((value) => value + 1);
     this.openedPile.set(slot);
     this.pileName.set(this.pile(slot).name ?? '');
     this.pileDialog()?.nativeElement.showModal();

@@ -41,7 +41,7 @@ class ArtworkController(private val writing: WritingService, private val artwork
             require(tree.isObject && tree.properties().map { it.key }.toSet() == setOf("revision", "fields", "imageAction"))
             require(tree.path("revision").isIntegralNumber && tree.path("revision").canConvertToLong() && tree.path("revision").longValue() >= 0)
             val fields = tree.path("fields")
-            val strings = setOf("title", "type", "status", "summary", "body", "path")
+            val strings = setOf("title", "type", "status", "summary", "body", "path") + if (fields.has("backText")) setOf("backText") else emptySet()
             require(fields.isObject && fields.properties().map { it.key }.toSet() == strings + "tags")
             require(strings.all { fields.path(it).isString } && fields.path("tags").isArray && fields.path("tags").all { it.isString })
             require(tree.path("imageAction").isString)

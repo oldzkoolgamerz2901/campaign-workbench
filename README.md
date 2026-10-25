@@ -5,11 +5,11 @@ A local laptop workspace for discovering campaign material, writing Markdown, pr
 The Angular frontend and Kotlin/Spring modular backend provide four workspaces:
 
 - **Library:** search captured Sources and saved Drafts, read full documents, edit associated material and explicitly Add a whole card to a chosen session.
-- **Write:** edit durable Drafts, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
+- **Write:** edit durable Drafts with separate card-back text, check physical front/back text fit, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
 - **Prepare:** assemble ordered frozen items, edit preparation notes, plan explicit Scene associations and accept same-type revision replacements.
 - **Play:** arrange Session Cards, two covered piles, Used and an explicit active Scene; read frozen documents and record independent PlayNotes with pins and cross-session history.
 
-T1/T2 and P5–P8 have delivery and formal evidence. The latest P8 assessment passed 91 backend tests, 131 frontend tests and 51 Chromium journeys. Owner functional/visual acceptance remains separate. AI assistance, authority assignments and general source history remain future work.
+T1/T2, P5–P8 and FC1–FC3 have delivery and formal evidence. Full cards now flip between canonical scroll-free fronts and plain-text backs, with complete external reading when a side cannot fit. The latest FC3 assessment passed 103 backend tests, 134 frontend tests, 55 Chromium journeys and four layout journeys. Owner functional/visual acceptance of FC3 remains separate. AI assistance, authority assignments and general source history remain future work.
 
 ## Reading map
 
