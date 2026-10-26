@@ -362,7 +362,9 @@ export class ShareWorkspace implements OnDestroy {
       this.pairing.set(result);
       this.pairState.set('pending');
       this.now.set(Date.now());
-      const QR = await import('qrcode');
+      const qrModule = await import('qrcode');
+      // CommonJS interop exposes only the default export in the development build.
+      const QR = qrModule.default ?? qrModule;
       const data = await QR.toDataURL(this.link(), {
         width: 320,
         margin: 4,

@@ -1,6 +1,30 @@
 # Verification evidence
 
-Current outcomes: **G2, G1, PUX-1, PUX-2, PUX-3, P8, FC2 and FC3 pass within their assessed scopes**. The corrected PUX-2 assessment resolves V-PUX1-01 and V-PUX2-01–03; the FC2-V1 follow-up resolves the earlier FC2 finding. Verification is evidence, not owner functional/visual acceptance or execution authorization. Browser, accessibility, concurrency and performance limits are explicit in each assessment.
+Current outcomes: **G3.1, G2, G1, PUX-1, PUX-2, PUX-3, P8, FC2 and FC3 pass within their assessed scopes**. The corrected PUX-2 assessment resolves V-PUX1-01 and V-PUX2-01–03; the FC2-V1 follow-up resolves the earlier FC2 finding. Verification is evidence, not owner functional/visual acceptance or execution authorization. Browser, accessibility, concurrency and performance limits are explicit in each assessment.
+
+## G3.1 — Roster and tablet onboarding formal assessment — 2026-10-26
+
+### QR encoder interoperability follow-up — 2026-10-26
+
+**PASS for the separately authorized bounded fix.** An owner report exposed an encoder-loading defect in the running development server: the lazy module had only a `default` export, leaving the former named `toDataURL` undefined. The caller now resolves `default` with a namespace fallback. This qualifies the original assessment: its browser evidence did not cover this observed module-export shape, even though the normal Playwright configuration also uses the development server.
+
+The production Angular build passed (`/tmp/qr-fix-build.log`). Separate Chromium checks exercised the actual running development UI and the final compiled production files (served through browser request interception, with real API requests passed through the existing development server). Both generated visible QR images, independently decoded with jsQR to exactly the displayed pairing link, with zero page errors. Each check issued one temporary invitation for the existing active player, closed its modal and did not redeem it or create a device. No backend change or broad backend rerun was needed. Physical-tablet camera acceptance remains separate. The code change is limited to import normalization and its explanatory comment; the existing persistent onboarding journey already asserts QR visibility and decoded-link equality.
+
+**Assessment: PASS within the accepted bounded G3.1 scope.** Separately authorized execution and source review by the implementing agent, not an independent reviewer. Assessed against the [accepted increment](implementation-plan.md#g31--accepted-bounded-increment-roster-and-tablet-onboarding) and approved onboarding requirements. Owner functional/visual acceptance remains separate.
+
+### Execution and evidence
+
+- Fresh `./gradlew test bootJar checkDevStartup --rerun-tasks` passed **133 backend tests in 33 suites**, zero failures/errors/skips, and all 11 actionable tasks executed (`/tmp/g31-formal-backend.log`). Startup checks cover two launches, cancellation, occupied-port ownership, generation/player-build failure cleanup and retained database state.
+- Final `WORKBENCH_CHECK_FRONTEND_PORT=4201 ./scripts/check-setup.sh` regenerated clients from live OpenAPI, checked dependency versions, passed **135 frontend tests in 15 suites**, DM/player production builds and **76/76 Chromium journeys**. PostgreSQL installation state survived restart and owned services were cleaned up (`/tmp/g31-formal-integration-final.log`).
+- The initial full integration run also passed 76/76 (`/tmp/g31-formal-integration.log`). Supplementary layout inspection then found **G3.1-V1: device-dialog focus did not return to its temporarily disabled invoker**. The authorized correction restores focus after rendering enables controls, with a heading fallback. A persistent browser assertion now passes in the final full run. Only the Share component/template and onboarding browser test changed; unchanged backend/startup evidence remains applicable.
+- The supplementary real-HTTP matrix passed **1/1** after correction (`/tmp/g31-matrix.log`): six players, three devices, long display name, laptop widths 1440/1280/550 and tablet width 390, no horizontal overflow and restored dialog focus. Images are in `/tmp/g31-matrix/`.
+- Onboarding journeys decode actual QR pixels with a separate decoder and match the advertised LAN address, port and fragment. They exercise replacement/replay, fragment removal before HTTP, interrupted exchange retry, origin/campaign credential retention, reload/navigation, offline recovery, rename/deactivation/reactivation/revocation, stale modal/address responses and guarded Writing departure. Served player JavaScript excludes DM API clients; private resources remain denied.
+- Backend tests preserve V23 credentials/pending invitations through V24, exercise atomic redemption/replacement and invitation status, and deny all **83 private OpenAPI operations** on the LAN connector. Asset checks reject incomplete manifests, unknown assets, aliases and unsafe filesystem paths. Sharing retains domain/application/persistence ownership; Gateway owns listener admission and resource/HTTP translation. No card-distribution or Play-state dependency was introduced.
+- All **368 snapshotted source/configuration files** match `/tmp/g31-formal-inputs.json` after final execution. `git diff --check` passed. Temporary ports 18080/4201/8081 were closed; only the pre-existing development database remained running. No campaign-source edits, development database reset, commit or merge occurred.
+
+### Limits
+
+G3.1-V1 is resolved. Physical-tablet camera/touch and owner visual acceptance remain unverified for this increment. Browser viewport and real-LAN HTTP checks do not prove compatibility with every router/tablet. Distribution, piles, shared-card rendering/artwork retention, font fallback and complete session packaging remain future increments. Trusted-LAN HTTP and persistent credentials retain their accepted limitations; this is not an independent security audit. Existing CSS budget/CommonJS warnings and baseline npm advisories remain; the newly added QR packages were not reported by the audit. Logs/screenshots under `/tmp` are temporary evidence. Restart through the normal development launcher to load the implementation and migration.
 
 ## G2 — Player identity and pairing backend formal assessment — 2026-10-26
 
