@@ -72,6 +72,24 @@
                   "output": "fixtures"
                 }
               ]
+            },
+            "player": {
+              "browser": "player/main.ts",
+              "index": "player/index.html",
+              "tsConfig": "player/tsconfig.json",
+              "baseHref": "/player/",
+              "outputPath": "dist/player",
+              "optimization": true,
+              "sourceMap": false,
+              "outputHashing": "all",
+              "assets": [],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"

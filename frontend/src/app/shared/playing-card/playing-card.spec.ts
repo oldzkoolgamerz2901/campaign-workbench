@@ -31,6 +31,15 @@ describe('Playing card', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('keeps the DM document action by default and permits a document-free card surface', async () => {
+    const fixture=TestBed.createComponent(PlayingCard);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('button.document')).not.toBeNull();
+    fixture.componentRef.setInput('documentAvailable',false);fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('button.document')).toBeNull();
+    expect(fixture.nativeElement.querySelector('button.flip')).not.toBeNull();
+  });
+
   it('exposes complete escaped overflow text outside the card and separates flip, read and select', async () => {
     const fixture = TestBed.createComponent(PlayingCard);
     const summary = '<script>secret</script>' + ' Long summary.'.repeat(60);

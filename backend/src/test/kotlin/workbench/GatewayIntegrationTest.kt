@@ -60,6 +60,7 @@ class GatewayProbeConfiguration {
 class GatewayIntegrationTest : StringSpec({
     val database=PostgreSQLContainer("postgres:${System.getProperty("workbench.postgres.version")}")
     val root=Files.createTempDirectory("gateway-integration")
+    val assets=Files.createTempDirectory("gateway-assets")
     var context: ConfigurableApplicationContext?=null
     var dm=0
     lateinit var first: UUID
@@ -83,9 +84,12 @@ class GatewayIntegrationTest : StringSpec({
         gateway().enable().isRight() shouldBe true
     }
     beforeSpec {
+        Files.writeString(assets.resolve("index.html"),"<html>PLAYER_BOOTSTRAP</html>")
+        Files.writeString(assets.resolve("main.js"),"PLAYER_SCRIPT")
+        Files.writeString(assets.resolve("player-manifest.json"),"{\"files\":{\"index.html\":${Files.size(assets.resolve("index.html"))},\"main.js\":${Files.size(assets.resolve("main.js"))}}}")
         database.start()
         context=SpringApplicationBuilder(CampaignWorkbenchApplication::class.java,GatewayProbeConfiguration::class.java).run(
-            "--server.port=0","--server.address=0.0.0.0","--workbench.gateway.port=0","--workbench.gateway.drain-timeout-ms=300",
+            "--workbench.gateway.player-assets=$assets","--server.port=0","--server.address=0.0.0.0","--workbench.gateway.port=0","--workbench.gateway.drain-timeout-ms=300",
             "--spring.datasource.url=${database.jdbcUrl}","--spring.datasource.username=${database.username}","--spring.datasource.password=${database.password}")
         dm=(context as WebServerApplicationContext).webServer!!.port
         val campaigns=context!!.getBean(CampaignService::class.java)
@@ -93,7 +97,7 @@ class GatewayIntegrationTest : StringSpec({
         val other=Files.createDirectory(root.resolve("other"))
         second=campaigns.register(RegisterCampaign("Second",other.toString())).getOrNull()!!.id
     }
-    afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively() }
+    afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively(); assets.toFile().deleteRecursively() }
     "default disabled; private controls and legacy selection contract; safe content type" {
         gateway().status().enabled shouldBe false
         http(dm,"/api/gateway/enable","POST").statusCode() shouldBe 409
@@ -199,6 +203,21 @@ class GatewayIntegrationTest : StringSpec({
             closed(port) shouldBe true
             http(dm,"/api/status").statusCode() shouldBe 200
         } finally { occupied.close(); listener.close() }
+    }
+    "only completed manifest assets and known entry routes cross LAN; partial builds fail closed" {
+        startPlayer(); val port=gateway().status().port!!
+        http(port,"/player/group").let { it.statusCode() shouldBe 200; it.body().contains("PLAYER_BOOTSTRAP") shouldBe true }
+        http(port,"/player/main.js").body() shouldBe "PLAYER_SCRIPT"
+        Files.writeString(assets.resolve("unlisted.js"),"PRIVATE_UNLISTED")
+        listOf("/player/unlisted.js","/player/main.js.map","/player/player-manifest.json","/player/unknown","/player/../application.properties","/player/%6dain.js").forEach {
+            (raw(port,it).first in listOf(400,404)) shouldBe true
+        }
+        Files.delete(assets.resolve("main.js"))
+        http(port,"/player/group").statusCode() shouldBe 404
+        http(dm,"/api/gateway/access").body().contains("\"playerAssetsReady\":false") shouldBe true
+        Files.writeString(assets.resolve("main.js"),"PLAYER_SCRIPT")
+        http(port,"/player/group").statusCode() shouldBe 200
+        http(port,"/api/gateway/access").statusCode() shouldBe 404
     }
     "successful real HTTP drain completes before selection and leaves gateway disabled" {
         startPlayer()

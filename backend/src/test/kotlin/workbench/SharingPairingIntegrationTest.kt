@@ -235,6 +235,46 @@ class SharingPairingIntegrationTest : StringSpec({
             gateway().status().enabled shouldBe false
         } finally { release.countDown(); clock().beforeNow=null; pool.shutdownNow() }
     }
+    "rename and roster counts preserve credentials and exclude revoked devices even for inactive players" {
+        val p=player(); val one=pair(p.id); val two=pair(p.id)
+        service().rename(a,p.id,RenameCampaignPlayer("New name")).isRight() shouldBe true
+        service().identify(a,one.credential).getOrNull()!!.displayName shouldBe "New name"
+        service().players(a).getOrNull()!!.players.single { it.id==p.id }.pairedDevices shouldBe 2
+        service().activate(a,p.id,false)
+        service().players(a).getOrNull()!!.players.single { it.id==p.id }.pairedDevices shouldBe 2
+        service().revoke(a,two.identity.device)
+        service().players(a).getOrNull()!!.players.single { it.id==p.id }.pairedDevices shouldBe 1
+        service().rename(b,p.id,RenameCampaignPlayer("Wrong")).isLeft() shouldBe true
+        service().rename(a,p.id,RenameCampaignPlayer(" ")).isLeft() shouldBe true
+    }
+    "replacement invalidates only selected invitation and preserves used devices and unrelated codes" {
+        val p=player(); val old=invitation(p.id); val other=invitation(p.id)
+        service().invitationStatus(a,p.id,old.id).getOrNull()!!.state shouldBe "pending"
+        service().invitationStatus(b,p.id,old.id).isLeft() shouldBe true
+        val fresh=service().replaceInvitation(a,p.id,old.id).getOrNull()!!
+        service().redeem(a,old.token).isLeft() shouldBe true
+        service().invitationStatus(a,p.id,old.id).getOrNull()!!.state shouldBe "replaced"
+        service().replaceInvitation(a,p.id,old.id).isLeft() shouldBe true
+        service().redeem(a,other.token).isRight() shouldBe true
+        val device=service().redeem(a,fresh.token).getOrNull()!!
+        service().invitationStatus(a,p.id,fresh.id).getOrNull()!!.state shouldBe "used"
+        service().replaceInvitation(a,p.id,fresh.id).isRight() shouldBe true
+        service().identify(a,device.credential).isRight() shouldBe true
+    }
+    "redeem and replacement race is serialized without revoking a winning device" {
+        val p=player(); val old=invitation(p.id); val go=CountDownLatch(1); val pool=Executors.newFixedThreadPool(2)
+        try {
+            val redeem=pool.submit<Either<Failure,PairingResult>> { go.await(); service().redeem(a,old.token) }
+            val replace=pool.submit<workbench.sharing.api.PairingInvitationData?> { go.await(); service().replaceInvitation(a,p.id,old.id).getOrNull() }
+            go.countDown()
+            val original=redeem.get(5,TimeUnit.SECONDS).getOrNull()
+            val fresh=replace.get(5,TimeUnit.SECONDS)!!
+            if(original!=null) service().identify(a,original.credential).isRight() shouldBe true
+            service().redeem(a,old.token).isLeft() shouldBe true
+            service().redeem(a,fresh.token).isRight() shouldBe true
+            service().devices(a,p.id).getOrNull()!!.devices.size shouldBe if(original==null) 1 else 2
+        } finally { pool.shutdownNow() }
+    }
     "devices persist across backend restart while gateway returns to disabled" {
         val p=player(); val device=pair(p.id); val revoked=pair(p.id)
         service().revoke(a,revoked.identity.device)

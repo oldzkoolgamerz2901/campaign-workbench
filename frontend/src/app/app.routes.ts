@@ -17,6 +17,8 @@ const protectWorkingSession: CanActivateFn = (route) => {
   return state.allowLeave();
 };
 export const routes: Routes = [
+  { path: 'share', loadComponent: () => import('./sharing/share-workspace').then(m => m.ShareWorkspace),
+    canActivate: [() => { const sessions=inject(SessionState),writing=inject(WritingState);return sessions.allowLeave().then(ok=>ok&&writing.allowLeave()); }], runGuardsAndResolvers:'always' },
   {
     path: 'library',
     loadComponent: () => import('./campaigns/unified-library').then((m) => m.UnifiedLibrary),

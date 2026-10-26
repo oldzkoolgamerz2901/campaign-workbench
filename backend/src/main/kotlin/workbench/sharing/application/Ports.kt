@@ -6,6 +6,9 @@ import java.util.UUID
 
 interface SharingStore {
     fun players(campaign: UUID): List<CampaignPlayer>
+    fun deviceCounts(campaign: UUID): Map<UUID, Int>
+    fun invitationById(campaign: UUID, player: UUID, id: UUID): PairingInvitation?
+    fun invalidate(campaign: UUID, id: UUID, now: Instant): Boolean
     fun player(campaign: UUID, id: UUID): CampaignPlayer?
     fun put(player: CampaignPlayer)
     fun put(invitation: PairingInvitation)

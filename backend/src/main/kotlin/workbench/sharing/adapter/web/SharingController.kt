@@ -47,4 +47,19 @@ class SharingController(private val sharing: SharingService) {
     @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = DeviceData::class))])
     @PostMapping("/devices/{device}/revoke", consumes = ["application/json"])
     fun revoke(@PathVariable campaign: UUID, @PathVariable device: UUID) = sharing.revoke(campaign, device).response(noStore = true)
+    @Operation(operationId = "renameCampaignPlayer")
+    @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = CampaignPlayerData::class))])
+    @PutMapping("/players/{player}/name", consumes = ["application/json"])
+    fun rename(@PathVariable campaign: UUID, @PathVariable player: UUID, @RequestBody request: RenameCampaignPlayer) = sharing.rename(campaign,player,request).response(noStore=true)
+
+    @Operation(operationId = "getPlayerPairingStatus")
+    @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = PairingStatus::class))])
+    @GetMapping("/players/{player}/pairing/{id}")
+    fun invitation(@PathVariable campaign: UUID, @PathVariable player: UUID, @PathVariable id: UUID) = sharing.invitationStatus(campaign,player,id).response(noStore=true)
+
+    @Operation(operationId = "replacePlayerPairing")
+    @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = PairingInvitationData::class))])
+    @PostMapping("/players/{player}/pairing/{id}/replace", consumes = ["application/json"])
+    fun replace(@PathVariable campaign: UUID, @PathVariable player: UUID, @PathVariable id: UUID) = sharing.replaceInvitation(campaign,player,id).response(noStore=true)
+
 }

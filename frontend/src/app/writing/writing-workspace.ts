@@ -280,7 +280,8 @@ export class WritingWorkspace implements OnDestroy {
     this.researchRequest++;
     if (mode === 'library') {
       void this.router.navigate(['/library'], { queryParams: this.route.snapshot.queryParams });
-    } else if (mode !== 'write') void this.prepare(mode);
+    } else if(mode==='share') void this.router.navigate(['/share'],{queryParams:this.route.snapshot.queryParams});
+    else if (mode !== 'write') void this.prepare(mode);
   }
   reviewExport() {
     this.exportOpen.set(true);

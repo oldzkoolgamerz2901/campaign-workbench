@@ -346,6 +346,7 @@ export class Workspace implements OnDestroy {
     });
   }
   changeMode(mode: WorkbenchMode) {
+    if(mode==='share'){this.pendingPlay=false;void this.router.navigate(['/share'],{queryParams:this.route.snapshot.queryParams});return;}
     if (mode === 'prepare') {
       this.planning.set(false);
       this.inspectedScene.set(null);

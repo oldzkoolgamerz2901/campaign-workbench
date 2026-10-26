@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.web.bind.annotation.*
-import workbench.gateway.adapter.tomcat.PlayerRoutes
+import workbench.gateway.adapter.http.PlayerRoutes
 import workbench.gateway.application.GatewayService
 import workbench.platform.api.*
 import workbench.sharing.api.*

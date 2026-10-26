@@ -1,0 +1,186 @@
+:host {
+  display: block;
+}
+.share-desk {
+  max-width: 1500px;
+  margin: auto;
+  padding: 1.2rem;
+}
+h1 {
+  margin: 0.2rem 0 1rem;
+}
+.share-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+aside,
+.cards-workspace {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 0;
+}
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.8rem;
+}
+.section-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.section-title h2 {
+  margin: 0;
+}
+.muted,
+small {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.address {
+  overflow-wrap: anywhere;
+  color: var(--accent);
+}
+label {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.8rem 0;
+}
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+button,
+summary {
+  min-height: 40px;
+  cursor: pointer;
+}
+.player-row {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.player-row strong {
+  overflow-wrap: anywhere;
+}
+small {
+  display: block;
+  margin-top: 0.2rem;
+}
+.player-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  align-items: center;
+}
+details {
+  position: relative;
+}
+summary {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+.menu {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  min-width: 170px;
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.3rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 22px #0008;
+}
+.source-tray {
+  display: flex;
+  gap: 1rem;
+  overflow: auto;
+  padding: 1rem 0;
+  align-items: start;
+  min-height: 120px;
+}
+.source-tray playing-card {
+  flex: 0 0 320px;
+  width: 320px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+dialog {
+  width: min(560px, calc(100vw - 2rem));
+  max-height: 90vh;
+  box-sizing: border-box;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 1.5rem;
+}
+dialog::backdrop {
+  background: #0009;
+}
+.pair-dialog {
+  text-align: center;
+}
+.qr {
+  max-width: 100%;
+  height: auto;
+  background: white;
+  display: block;
+  margin: 1rem auto;
+}
+.pair-link {
+  width: 100%;
+  height: 5rem;
+  font: 12px monospace;
+}
+.device-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.8rem 0;
+  overflow-wrap: anywhere;
+}
+.error {
+  color: var(--mat-sys-error);
+}
+@media (max-width: 850px) {
+  .share-layout {
+    grid-template-columns: 1fr;
+  }
+  aside {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 550px) {
+  aside {
+    grid-template-columns: 1fr;
+  }
+  .share-desk {
+    padding: 0.8rem;
+  }
+  .source-tray playing-card {
+    flex-basis: 220px;
+    width: 220px;
+  }
+}

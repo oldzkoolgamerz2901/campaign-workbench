@@ -13,7 +13,8 @@ class SharingService(private val campaigns: Campaigns, private val store: Sharin
     init { require(!invitationLifetime.isNegative && !invitationLifetime.isZero) }
     fun players(campaign: UUID) = tx.run { either {
         campaigns.configuration(campaign).bind()
-        CampaignPlayers(store.players(campaign).map { it.data() })
+        val counts = store.deviceCounts(campaign)
+        CampaignPlayers(store.players(campaign).map { it.data().copy(pairedDevices = counts[it.id] ?: 0) })
     } }
     fun add(campaign: UUID, request: AddCampaignPlayer) = tx.run { either {
         campaigns.configuration(campaign).bind()
@@ -24,17 +25,45 @@ class SharingService(private val campaigns: Campaigns, private val store: Sharin
     fun activate(campaign: UUID, player: UUID, active: Boolean) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val current = ensureNotNull(store.player(campaign, player)) { missing() }
-        current.copy(active = active).also(store::put).data()
+        current.copy(active = active).also(store::put).data().copy(pairedDevices=store.deviceCounts(campaign)[player] ?: 0)
     } }
     fun invite(campaign: UUID, player: UUID) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val current = ensureNotNull(store.player(campaign, player)) { missing() }
         ensure(current.active) { inactive() }
+        issue(campaign, player)
+    } }
+    private fun issue(campaign: UUID, player: UUID): PairingInvitationData {
         val now = clock.now()
         val token = secrets.generate()
         val invitation = PairingInvitation(campaign, player, requireNotNull(secrets.hash(token)), now, now.plus(invitationLifetime), null)
         store.put(invitation)
-        PairingInvitationData(token, invitation.expiresAt.toString())
+        return PairingInvitationData(token, invitation.expiresAt.toString(), invitation.id)
+    }
+    fun rename(campaign: UUID, player: UUID, request: RenameCampaignPlayer) = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val name=request.displayName.trim()
+        ensure(name.isNotEmpty() && name.length<=200) { Failure.Invalid("sharing.player-name", "Enter a player name of 1–200 characters.") }
+        ensureNotNull(store.player(campaign,player)) { missing() }.copy(displayName=name).also(store::put).data().copy(pairedDevices=store.deviceCounts(campaign)[player] ?: 0)
+    } }
+    fun invitationStatus(campaign: UUID, player: UUID, id: UUID) = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val invitation=ensureNotNull(store.invitationById(campaign,player,id)) { missing() }
+        val state=when {
+            invitation.consumedAt!=null -> "used"
+            invitation.invalidatedAt!=null -> "replaced"
+            !clock.now().isBefore(invitation.expiresAt) -> "expired"
+            else -> "pending"
+        }
+        PairingStatus(id,state,invitation.expiresAt.toString())
+    } }
+    fun replaceInvitation(campaign: UUID, player: UUID, id: UUID) = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val current=ensureNotNull(store.player(campaign,player)) { missing() }
+        ensure(current.active) { inactive() }
+        ensureNotNull(store.invitationById(campaign,player,id)) { missing() }
+        ensure(store.invalidate(campaign,id,clock.now())) { Failure.Conflict("sharing.invitation-replaced", "This code was already replaced. Generate a fresh invitation.") }
+        issue(campaign,player)
     } }
     override fun redeem(campaign: UUID, token: String) = tx.run { either {
         val hash = ensureNotNull(secrets.hash(token)) { unauthorized() }

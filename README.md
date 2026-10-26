@@ -2,12 +2,13 @@
 
 A local laptop workspace for discovering campaign material, writing Markdown, preparing frozen sessions and running play. Independent campaign directories retain authoritative content; the backend never rewrites their sources. PostgreSQL owns application state.
 
-The Angular frontend and Kotlin/Spring modular backend provide four workspaces:
+The Angular frontend and Kotlin/Spring modular backend provide four content workspaces and a Share onboarding surface:
 
 - **Library:** search captured Sources and saved Drafts, read full documents, edit associated material and explicitly Add a whole card to a chosen session.
 - **Write:** edit durable Drafts with separate card-back text, check physical front/back text fit, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
 - **Prepare:** assemble ordered frozen items, edit preparation notes, plan explicit Scene associations and accept same-type revision replacements.
 - **Play:** arrange Session Cards, two covered piles, Used and an explicit active Scene; read frozen documents and record independent PlayNotes with pins and cross-session history.
+- **Share:** manage campaign players, enable LAN sharing and pair tablets by QR into separate Group/My Cards shells. Distribution and populated collections remain subsequent increments.
 
 T1/T2, P5–P8 and FC1–FC3 have delivery and formal evidence. Full cards now flip between canonical scroll-free fronts and plain-text backs, with complete external reading when a side cannot fit. The latest FC3 assessment passed 103 backend tests, 134 frontend tests, 55 Chromium journeys and four layout journeys. Owner functional/visual acceptance of FC3 remains separate. AI assistance, authority assignments and general source history remain future work.
 
@@ -55,17 +56,17 @@ cd backend
 
 In IntelliJ, open the repository root and link `backend/build.gradle.kts` as a Gradle project. Select the shared **Campaign Workbench** run configuration and click Run, or run **application → dev** in the Gradle panel. Ensure IntelliJ's environment can find `docker`, `node`, and `npm` on `PATH`.
 
-The task loads `.env`, starts/waits for PostgreSQL, starts Spring, generates the API client from its live OpenAPI contract, then starts Angular. Open **http://127.0.0.1:4200** when the console prints `[dev] Ready`. Logs have service prefixes. Ports 8080 and 4200 must be available; existing unrelated processes are never terminated to free them.
+The task loads `.env`, starts/waits for PostgreSQL, starts Spring, generates the API client from its live OpenAPI contract, builds the compiled player application, then starts Angular for the DM. Open **http://127.0.0.1:4200** when the console prints `[dev] Ready`. Logs have service prefixes. Ports 8080 and 4200 must be available; existing unrelated processes are never terminated to free them.
 
 Press Ctrl-C or IntelliJ's Stop button to stop the owned backend/frontend processes. Startup failures also clean up owned processes. PostgreSQL remains running and its data is preserved; stop it separately from the repository root with `docker compose stop database`. The automated lifecycle check exercises Gradle Tooling API cancellation; the IntelliJ GUI itself has not been manually tested.
 
 Run-configuration/environment variables override `.env`. The launcher accepts `KEY=value`, optional `export`, quoted values, and comments; it treats values as data and does not execute shell commands or expand variables. Missing configuration/dependencies produce startup errors. Initial dependency installation remains `npm ci` in `frontend/`. Backend-only development remains available through `scripts/backend-dev.sh` with PostgreSQL already running; ordinary `bootRun` is unchanged.
 
-Startup lifecycle checks: `cd backend && ./gradlew checkDevStartup`. This opt-in task uses the separate `campaign-workbench-startup-check` Compose project/database volume on port 55433 and the usual server ports 8080/4200. It tests occupied-port failure, real startup and proxy connectivity, cancellation/relaunch, database preservation, and cleanup after client-generation failure. It stops its isolated database afterward. It is not part of ordinary `test` or `build`.
+Startup lifecycle checks: `cd backend && ./gradlew checkDevStartup`. This opt-in task uses the separate `campaign-workbench-startup-check` Compose project/database volume on port 55433 and the usual server ports 8080/4200. It tests occupied-port failure, real startup and proxy connectivity, cancellation/relaunch, database preservation, and cleanup after client-generation and player-build failure. It stops its isolated database afterward. It is not part of ordinary `test` or `build`.
 
 Backend checks: `cd backend && ./gradlew test bootJar`. Frontend checks after client generation: `cd frontend && npm run check:versions && npm test && npm run build`. The `test:e2e` command expects an isolated backend on port 18080; prefer the complete setup script.
 
-Session-use packaging, serving frontend assets through Spring, a session-use launcher, backup/restore and the player tablet interface remain future work. The current development startup is not the session-use distribution.
+Session-use packaging, a session-use launcher, backup/restore and populated player card collections remain future work. Spring serves the separately compiled player onboarding assets; the current development startup is not the session-use distribution.
 
 ### Local gateway foundation (G1)
 
@@ -90,7 +91,7 @@ Switching to a different campaign disables the gateway. Admitted synchronous req
 
 ### Player identity and pairing backend (G2)
 
-G2 adds backend APIs only. After restarting Workbench, Flyway V23 adds Sharing-owned player, invitation and device tables. Existing content and archives are unchanged; session/Writing archives do not back up Sharing records or credentials. There is no Share tab, QR display or player interface yet.
+G2 provides the identity backend; G3.1 adds the Share/onboarding UI described below. Flyway V23 adds Sharing-owned player, invitation and device tables, and V24 adds invitation identity/replacement state without replacing existing credentials. Existing content and archives are unchanged; session/Writing archives do not back up Sharing records or credentials.
 
 Private operations use the laptop API under `/api/campaigns/<campaign>/sharing`:
 
@@ -98,13 +99,26 @@ Private operations use the laptop API under `/api/campaigns/<campaign>/sharing`:
 | --- | --- | --- |
 | GET / POST | `/players` | List players / create with `{"displayName":"Mira"}` |
 | PUT | `/players/<player>/active` | Set `{"active":false}` or `true` |
+| PUT | `/players/<player>/name` | Rename with `{"displayName":"Mira"}`; identity and credentials remain |
 | POST | `/players/<player>/pairing` | Issue a one-use token and its expiry |
+| GET | `/players/<player>/pairing/<id>` | Inspect non-secret invitation status |
+| POST | `/players/<player>/pairing/<id>/replace` | Replace that invitation without revoking devices |
 | GET | `/players/<player>/devices` | Inspect devices without exposing credentials or hashes |
 | POST | `/devices/<device>/revoke` | Permanently revoke that device |
 
 Send `Content-Type: application/json` for mutations, including bodyless pairing issuance and revocation. Enable the gateway for the selected campaign before using its player port. `POST /player-api/pair` accepts `{"token":"<invitation-token>"}` and returns a new `credential` plus the paired identity. `GET /player-api/me` requires `Authorization: Bearer <credential>`. Do not place secrets in query strings. Issuance/redemption responses are not cached, and only credential hashes are persisted. A lost redemption response requires a new invitation; replay cannot recover the credential.
 
 Invitations expire after 300 seconds by default (`workbench.sharing.invitation-lifetime-seconds`). Device credentials have no automatic expiry; they survive restart and gateway disable/re-enable for the same campaign until revoked. Inactive players are denied without deleting their devices; reactivation restores access for non-revoked devices. Wrong-campaign, expired, consumed or revoked credentials return 401; an inactive authenticated player returns 403. All management routes remain unreachable through the LAN listener. Trusted-LAN HTTP remains unencrypted.
+
+### Share tab and tablet onboarding (G3.1)
+
+Run the normal `./gradlew dev` task after installing dependencies. Startup generates the client from live Spring, builds the separate player application, then starts the private DM frontend. Open **Share** in the existing navigation. Select a campaign/session to inspect its prepared card fronts/backs; distribution and populated collections are subsequent increments.
+
+Add a player using a display name. Adding a player does not enable sharing. Click **Enable sharing**, select the correct local address (Wi-Fi is commonly `en0` on this laptop), then choose **Pair device** for an active player. The modal shows a real QR and matching selectable link with expiry. Scan with the tablet's normal camera on the same Wi-Fi. No browser-camera permission, registration or second DM approval is required. Successful pairing opens Group Cards with the player's name; My Cards is separate. Both collections are empty shells in G3.1; no cards or piles are fabricated.
+
+Rename/deactivate and device management are in the player's contextual menu. Device counts exclude revoked devices; inactive players retain their pairings. Regenerate invalidates the displayed invitation but never revokes a device that already paired. Closing the modal makes no pairing-success claim. Temporary tokens stay in URL fragments until player bootstrap removes them, then travel in the exchange body. Permanent credentials stay in origin/campaign-scoped localStorage and Authorization headers. Reload reconnects at the same origin; changing LAN IP/port can require re-pairing. Denied access hides identity/collections; unknown network loss retains stale in-memory information while reconnecting.
+
+Player assets come only from the completed `frontend/dist/player/browser` build manifest through Spring; the Angular dev server and DM assets remain private. Missing/partial builds disable QR readiness. For backend-only startup, build the player after generating the client (`cd frontend && npm run build:player`) and set `workbench.gateway.player-assets` to that directory's absolute path if the working directory is not the repository root. Full session-use packaging remains future work.
 
 ### Optional development database reset
 

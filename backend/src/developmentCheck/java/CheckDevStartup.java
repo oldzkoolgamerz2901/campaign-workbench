@@ -55,7 +55,14 @@ class CheckDevStartup {
                     awaitClosed(8080); awaitClosed(4200);
                     databaseState();
                 } finally { process.destroy(); }
-                System.out.println("PASS: occupied-port failure, two real stack launches, proxied API, Tooling API cancellation, released ports, generation-failure cleanup and retained database state.");
+                environment.put("WORKBENCH_DEV_PLAYER_BUILD_SCRIPT", "missing-player-build");
+                try {
+                    var failed = launch(connection, "player-build-failure");
+                    if (failed.done.get(120, TimeUnit.SECONDS) == null) throw new AssertionError("Expected player build failure");
+                    if (!failed.log.text().contains("Player build failed")) throw new AssertionError(failed.log.text());
+                    awaitClosed(8080); awaitClosed(4200); databaseState();
+                } finally { environment.remove("WORKBENCH_DEV_PLAYER_BUILD_SCRIPT"); }
+                System.out.println("PASS: occupied-port failure, two real stack launches, proxied API, Tooling API cancellation, released ports, generation/player-build failure cleanup and retained database state.");
             } finally {
                 var stop = new ProcessBuilder("docker", "compose", "stop", "database").directory(root.toFile());
                 stop.environment().putAll(environment);

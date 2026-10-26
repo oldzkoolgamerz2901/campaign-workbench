@@ -31,6 +31,10 @@ commonmark = "0.30.0"
 snakeyaml-engine = "3.1.1" # Increment 3A: restricted YAML 1.2 front matter.
 twelvemonkeys = "3.15.3" # Increment 6A: pure-Java WebP decoding.
 
+qrcode = "1.5.4"
+qrcode-types = "1.5.6"
+jsqr = "1.4.0"
+
 [libraries]
 imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "twelvemonkeys" }
 snakeyaml-engine = { module = "org.snakeyaml:snakeyaml-engine", version.ref = "snakeyaml-engine" }

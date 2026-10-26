@@ -1,0 +1,246 @@
+<workbench-header
+  [campaign]="campaign()"
+  [campaigns]="campaigns()"
+  mode="share"
+  [disabled]="busy()"
+  (selectCampaign)="selectCampaign($event)"
+  (selectMode)="navigate($event)"
+/>
+<main class="share-desk">
+  <h1 #shareHeading tabindex="-1">Share</h1>
+  @if (error()) {
+    <p class="error" role="alert">
+      {{ error() }} <button matButton type="button" (click)="refresh(true)">Retry</button>
+    </p>
+  }
+  @if (!campaign()) {
+    <p>Select a campaign to share with players.</p>
+  } @else {
+    <div class="share-layout">
+      <aside>
+        <section class="panel">
+          <h2>LAN sharing</h2>
+          <p role="status">{{ access()?.gateway?.enabled ? 'Enabled' : 'Disabled' }}</p>
+          @if (access()?.gateway?.enabled) {
+            <button matButton type="button" [disabled]="busy()" (click)="disable()">
+              Disable sharing
+            </button>
+          } @else {
+            <button matButton type="button" [disabled]="busy()" (click)="enable()">
+              Enable sharing
+            </button>
+          }
+          @if (access()?.gateway?.enabled) {
+            <label
+              >Local address
+              <select
+                aria-label="Local address"
+                [ngModel]="address()"
+                (ngModelChange)="endPairing(); address.set($event)"
+              >
+                @for (candidate of access()?.addresses || []; track candidate.address) {
+                  <option [value]="candidate.address">
+                    {{ candidate.address }} · {{ candidate.label }}
+                  </option>
+                }
+              </select></label
+            >
+            @if (address()) {
+              <p class="address">http://{{ address() }}:{{ access()?.gateway?.port }}</p>
+            }
+            <p class="muted">
+              Connect tablets to the same home Wi-Fi. A running server does not prove a tablet can
+              reach it.
+            </p>
+            @if (!access()?.playerAssetsReady) {
+              <p role="status">
+                The player interface is not ready. Restart the application and retry.
+              </p>
+            }
+          }
+        </section>
+        <section class="panel">
+          <div class="section-title">
+            <h2>Players</h2>
+            <button matButton type="button" [disabled]="busy()" (click)="openName()">
+              Add player
+            </button>
+          </div>
+          @for (player of players(); track player.id) {
+            <div class="player-row">
+              <div>
+                <strong>{{ player.displayName }}</strong
+                ><small
+                  >{{ player.active ? 'Active' : 'Inactive' }} · {{ player.pairedDevices }} paired
+                  devices</small
+                >
+              </div>
+              <div class="player-actions">
+                <button
+                  matButton
+                  type="button"
+                  [disabled]="busy() || !canPair() || !player.active"
+                  (click)="pair(player)"
+                >
+                  Pair device
+                </button>
+                <details>
+                  <summary [attr.aria-label]="'Manage ' + player.displayName">Manage</summary>
+                  <div class="menu">
+                    <button matButton type="button" [disabled]="busy()" (click)="openName(player)">
+                      Rename</button
+                    ><button matButton type="button" [disabled]="busy()" (click)="activate(player)">
+                      {{ player.active ? 'Deactivate' : 'Reactivate' }}</button
+                    ><button matButton type="button" [disabled]="busy()" (click)="manage(player)">
+                      Manage devices
+                    </button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          } @empty {
+            <p class="muted">Add a player using their display name.</p>
+          }
+        </section>
+      </aside>
+      <div class="cards-workspace">
+        <section class="panel sources">
+          <div class="section-title">
+            <h2>Prepared session cards</h2>
+            <label
+              >Find card
+              <input
+                [ngModel]="filter()"
+                (ngModelChange)="filter.set($event)"
+                placeholder="Search titles"
+            /></label>
+          </div>
+          <div class="source-tray">
+            @for (item of visibleItems(); track item.id) {
+              @let card = source(item);
+              <playing-card
+                [title]="card.title"
+                [type]="card.type"
+                [summary]="card.summary"
+                [tags]="card.tags"
+                [backText]="card.backText"
+                [artwork]="artwork(item)"
+                [context]="item.id"
+                [documentAvailable]="false"
+              />
+            } @empty {
+              <p class="muted">
+                {{
+                  items().length
+                    ? 'No matching cards.'
+                    : 'Choose a prepared session above to see its cards.'
+                }}
+              </p>
+            }
+          </div>
+        </section>
+        <section class="panel">
+          <div class="section-title">
+            <h2>Collections</h2>
+            <select
+              aria-label="Collection"
+              [ngModel]="collection()"
+              (ngModelChange)="collection.set($event)"
+            >
+              <option value="group">Group</option>
+              @for (player of players(); track player.id) {
+                <option [value]="player.id">{{ player.displayName }}</option>
+              }
+            </select>
+          </div>
+          <h3>Unsorted</h3>
+          <p class="muted">Shared cards will appear here.</p>
+        </section>
+      </div>
+    </div>
+  }
+</main>
+<dialog
+  #nameDialog
+  (close)="dialogClosed()"
+  aria-labelledby="player-name-title"
+  class="name-dialog"
+>
+  <form (ngSubmit)="saveName()">
+    <h2 id="player-name-title">{{ editing() ? 'Rename player' : 'Add player' }}</h2>
+    <label
+      >Display name <input name="displayName" [(ngModel)]="name" maxlength="200" required autofocus
+    /></label>
+    <div class="dialog-actions">
+      <button matButton type="button" (click)="nameDialog.close()">Cancel</button
+      ><button matButton type="submit" [disabled]="busy() || !name.trim()">
+        {{ editing() ? 'Save name' : 'Add player' }}
+      </button>
+    </div>
+  </form>
+</dialog>
+<dialog #devicesDialog (close)="dialogClosed()" aria-labelledby="player-devices-title">
+  <h2 id="player-devices-title">Devices · {{ managed()?.displayName }}</h2>
+  @for (device of devices(); track device.id) {
+    <div class="device-row">
+      <span
+        >Device {{ device.id.slice(0, 8)
+        }}<small
+          >{{ device.revokedAt ? 'Revoked' : 'Paired' }} · Last seen {{ device.lastSeenAt }}</small
+        ></span
+      >
+      @if (!device.revokedAt) {
+        <button matButton type="button" [disabled]="busy()" (click)="revoke(device)">
+          Revoke device
+        </button>
+      }
+    </div>
+  } @empty {
+    <p>No paired devices.</p>
+  }
+  <button matButton type="button" (click)="devicesDialog.close()">Close</button>
+</dialog>
+<dialog #pairDialog aria-labelledby="player-pair-title" class="pair-dialog" (close)="pairClosed()">
+  <h2 id="player-pair-title">Pair device · {{ pairPlayer()?.displayName }}</h2>
+  <p>Scan with your tablet camera on the same home Wi-Fi.</p>
+  @if (qr()) {
+    <img class="qr" [src]="qr()" alt="Pairing QR code" width="320" height="320" />
+  }
+  <p role="status">
+    {{
+      pairState() === 'used'
+        ? 'Device paired'
+        : pairState() === 'failed'
+          ? 'Pairing unavailable'
+          : pairState() === 'preparing'
+            ? 'Preparing code…'
+            : pairState() === 'replaced'
+              ? 'Code replaced'
+              : seconds() <= 0
+                ? 'Code expired'
+                : 'Expires in ' + seconds() + ' seconds'
+    }}
+  </p>
+  @if (link()) {
+    <label
+      >Pairing link
+      <textarea
+        class="pair-link"
+        readonly
+        [value]="link()"
+        (focus)="$any($event.target).select()"
+      ></textarea>
+    </label>
+  }
+  <div class="dialog-actions">
+    <button matButton type="button" (click)="endPairing()">Close</button
+    ><button
+      matButton
+      type="button"
+      [disabled]="busy() || !pairing()"
+      (click)="pair(pairPlayer()!, true)"
+    >
+      Regenerate code
+    </button>
+  </div>
+</dialog>

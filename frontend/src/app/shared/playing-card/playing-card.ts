@@ -21,6 +21,7 @@ import { CardLayoutRenderer, LayoutStatus } from '../card-layout/card-layout-ren
   styleUrl: './playing-card.css',
 })
 export class PlayingCard implements OnDestroy {
+  readonly documentAvailable = input(true);
   readonly artwork = input<ArtworkSource | null>(null);
   readonly localArtwork = input<string | null>(null);
   readonly title = input('');
