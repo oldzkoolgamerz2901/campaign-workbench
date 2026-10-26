@@ -115,7 +115,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await expect(page.getByRole('button', { name: 'Prepare', exact: true })).toBeVisible();
     await expect(
       page
-        .locator('read-card-table .entry')
+        .locator('play-tabletop .entry')
         .first()
         .getByRole('article', { name: 'Read: Lower chamber', exact: true }),
     ).toBeVisible();
@@ -126,12 +126,16 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     ).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('folio-1280.png') });
     await page
+      .getByRole('navigation', { name: 'Play supporting panel' })
+      .getByRole('button', { name: 'Document', exact: true })
+      .click();
+    await page
       .locator('.source-page')
       .getByRole('link', { name: 'Back to observatory', exact: true })
       .click();
     await expect(page.locator('.source-page')).toContainText('outside the captured');
     await page
-      .locator('read-card-table')
+      .locator('play-tabletop')
       .getByRole('article', { name: 'Read: observatory.md', exact: true })
       .click();
     await page
@@ -145,7 +149,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await expect(page.locator('.source-page img')).toHaveCount(0);
     expect(await page.evaluate(() => 'preparedInjected' in window)).toBe(false);
     await page
-      .locator('read-card-table')
+      .locator('play-tabletop')
       .getByRole('article', { name: 'Read: observatory.md', exact: true })
       .click();
     await expect(page.locator('.notes-page strong')).toHaveText('brass key');
@@ -159,7 +163,7 @@ test('prepares frozen material, autosaves both note levels, reads and imports po
     await page.reload();
     await expect(page.getByRole('button', { name: 'Prepare', exact: true })).toBeVisible();
     await page
-      .locator('read-card-table')
+      .locator('play-tabletop')
       .getByRole('article', { name: 'Read: observatory.md', exact: true })
       .click();
     await expect(page.locator('.source-page')).toContainText('Original telescope clue.');

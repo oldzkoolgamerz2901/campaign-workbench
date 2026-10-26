@@ -10,7 +10,7 @@ import tools.jackson.databind.node.ObjectNode
 import workbench.campaigns.api.RegisterCampaign
 import workbench.campaigns.application.CampaignService
 import workbench.playthroughs.api.Playthroughs
-import workbench.playthroughs.api.SaveWorkspace
+import workbench.playthroughs.api.*
 import workbench.preparation.api.CreateSession
 import workbench.preparation.application.PreparationService
 import workbench.sources.application.SourceService
@@ -22,7 +22,7 @@ import java.nio.file.Files
 import java.util.UUID
 
 class WorkspaceHttpIntegrationTest : StringSpec({
-    "HTTP workspace saves require the scene field while explicit null clears only the scene" {
+    "HTTP commands protect the Scene slot, require nullable fields and retire whole-state writes" {
         val database = PostgreSQLContainer("postgres:${System.getProperty("workbench.postgres.version")}")
         val root = Files.createTempDirectory("workspace-http-")
         database.start()
@@ -48,34 +48,35 @@ class WorkspaceHttpIntegrationTest : StringSpec({
                 val client = HttpClient.newHttpClient()
                 val base = "http://127.0.0.1:$port"
                 val endpoint = "$base/api/campaigns/$campaign/sessions/${session.id}/workspace"
-                fun put(body: ObjectNode) = client.send(HttpRequest.newBuilder(URI(endpoint))
-                    .header("Content-Type", "application/json")
-                    .PUT(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build(),
-                    HttpResponse.BodyHandlers.ofString())
-                fun body(revision: Long, scene: UUID?) = mapper.valueToTree<ObjectNode>(
-                    SaveWorkspace(revision, listOf(second), listOf(first), scene, listOf(second, first)))
-
-                // Activate a Used Scene through the real HTTP binding, preserving focus order.
-                put(body(initial.revision, first)).statusCode() shouldBe 200
+                fun post(suffix: String, body: String) = client.send(HttpRequest.newBuilder(URI("$endpoint/$suffix"))
+                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body)).build(), HttpResponse.BodyHandlers.ofString())
+                fun scene(revision: Long, item: UUID?) = mapper.writeValueAsString(TransitionScene(revision, session.revision, item))
+                post("move", "{\"item\":\"$first\",\"destination\":\"USED\"}").statusCode() shouldBe 400
+                post("scene", "{\"revision\":${initial.revision},\"scene\":\"$first\"}").statusCode() shouldBe 400
+                post("scene", scene(initial.revision, first)).statusCode() shouldBe 200
                 val active = play.open(campaign, session.id).getOrNull()!!
                 active.activeSceneItemId shouldBe first
-                active.focusedItemIds shouldBe listOf(second, first)
-                active.revision shouldBe initial.revision + 1
-                val omitted = body(active.revision, first).also { it.remove("activeSceneItemId") }
-                val rejected = put(omitted)
-                rejected.statusCode() shouldBe 400
-                (rejected.headers().firstValue("Content-Type").orElse("").substringBefore(';') in setOf("application/json", "application/problem+json")) shouldBe true
-                mapper.readTree(rejected.body()).path("code").asString() shouldBe "request.invalid"
+                active.sessionCards shouldBe listOf(second)
+                post("move", mapper.writeValueAsString(MoveCard(active.revision, first, CardLocation.USED))).statusCode() shouldBe 400
+                post("scene", "{\"revision\":${active.revision},\"preparationRevision\":${session.revision}}").statusCode() shouldBe 400
+                post("rename-pile", "{\"revision\":${active.revision},\"pile\":\"PILE_1\"}").statusCode() shouldBe 400
+                post("move", "{\"revision\":${active.revision},\"item\":\"$second\",\"destination\":\"ACTIVE_SCENE\"}").statusCode() shouldBe 400
                 play.open(campaign, session.id).getOrNull() shouldBe active
-                preparation.open(campaign, session.id).getOrNull() shouldBe session
-
-                put(body(active.revision, null)).statusCode() shouldBe 200
+                post("scene", scene(active.revision - 1, second)).statusCode() shouldBe 409
+                post("scene", scene(active.revision, null)).statusCode() shouldBe 200
                 val cleared = play.open(campaign, session.id).getOrNull()!!
-                cleared shouldBe active.copy(revision = active.revision + 1, activeSceneItemId = null)
-                put(body(cleared.revision, second)).statusCode() shouldBe 200
+                cleared.activeSceneItemId shouldBe null
+                cleared.sessionCards shouldBe listOf(first, second)
+                post("move", mapper.writeValueAsString(MoveCard(cleared.revision, first, CardLocation.PILE_1))).statusCode() shouldBe 200
+                val piled = play.open(campaign, session.id).getOrNull()!!
+                post("scene", scene(piled.revision, first)).statusCode() shouldBe 200
                 val selected = play.open(campaign, session.id).getOrNull()!!
-                selected shouldBe cleared.copy(revision = cleared.revision + 1, activeSceneItemId = second)
+                selected.pile1.items shouldBe emptyList()
+                selected.pile1.cover shouldBe null
                 preparation.open(campaign, session.id).getOrNull() shouldBe session
+                val retired = client.send(HttpRequest.newBuilder(URI(endpoint)).header("Content-Type", "application/json")
+                    .PUT(HttpRequest.BodyPublishers.ofString("{}")).build(), HttpResponse.BodyHandlers.ofString())
+                retired.statusCode() shouldBe 405
 
                 val contract = client.send(HttpRequest.newBuilder(URI("$base/v3/api-docs")).GET().build(),
                     HttpResponse.BodyHandlers.ofString())
@@ -89,13 +90,17 @@ class WorkspaceHttpIntegrationTest : StringSpec({
                     retired.statusCode() shouldBe 404
                     preparation.open(campaign, session.id).getOrNull() shouldBe session
                 }
-                val schema = mapper.readTree(contract.body()).path("components").path("schemas").path("SaveWorkspace")
+                Files.writeString(java.nio.file.Path.of("build/t1-openapi.json"), contract.body())
+                paths.path("/api/campaigns/{campaign}/sessions/{session}/workspace").has("put") shouldBe false
+                val schemas = mapper.readTree(contract.body()).path("components").path("schemas")
+                schemas.has("SaveWorkspace") shouldBe false
+                val schema = schemas.path("TransitionScene")
                 val required = mutableSetOf<String>()
                 for (field in schema.path("required")) required.add(field.asString())
-                required.contains("activeSceneItemId") shouldBe true
-                val sceneTypes = mutableSetOf<String>()
-                for (type in schema.path("properties").path("activeSceneItemId").path("type")) sceneTypes.add(type.asString())
-                sceneTypes shouldBe setOf("string", "null")
+                required shouldBe setOf("revision", "preparationRevision", "scene")
+                val types = mutableSetOf<String>()
+                for (type in schema.path("properties").path("scene").path("type")) types.add(type.asString())
+                types shouldBe setOf("string", "null")
             }
         } finally { database.stop(); root.toFile().deleteRecursively() }
     }

@@ -15,6 +15,7 @@ describe('Preparation recovery in the current workspace', () => {
     open: ReturnType<typeof vi.fn>;
     reload: ReturnType<typeof vi.fn>;
     initializeTable: ReturnType<typeof vi.fn>;
+    playNotes: { open: ReturnType<typeof vi.fn> };
     play: {
       hasUnsaved: ReturnType<typeof vi.fn>;
       expandedItemId: ReturnType<typeof signal<string | null>>;
@@ -27,6 +28,7 @@ describe('Preparation recovery in the current workspace', () => {
       open: vi.fn(),
       reload: vi.fn().mockResolvedValue(true),
       initializeTable: vi.fn().mockResolvedValue(undefined),
+      playNotes: { open: vi.fn().mockResolvedValue(undefined) },
       play: {
         hasUnsaved: vi.fn().mockReturnValue(false),
         expandedItemId: signal<string | null>(null),

@@ -4,7 +4,7 @@ import workbench.preparation.api.*
 import workbench.preparation.domain.*
 internal fun CapturedSource.data(): CapturedSourceData {
     fun CapturedClassification.data() = CapturedClassificationData(metadata?.let {
-        CapturedCardData(it.schema, it.id, it.title, it.type, it.purpose, it.status, it.tags, it.summary)
+        CapturedCardData(it.schema, it.id, it.title, it.type, it.purpose, it.status, it.tags, it.summary, it.backText)
     }, issues.map { CapturedIssueData(it.code, it.field, it.message, it.severity) })
     return CapturedSourceData(interpretation, bodyStart, classification.data(), relationships.map {
         CapturedRelationshipData(it.key, it.originSection, it.destination,
@@ -15,7 +15,7 @@ internal fun CapturedSource.data(): CapturedSourceData {
 
 internal fun CapturedSourceData.model(): CapturedSource {
     fun CapturedClassificationData.model() = CapturedClassification(metadata?.let {
-        CapturedCard(it.schema, it.id, it.title, it.type, it.purpose, it.status, it.tags, it.summary)
+        CapturedCard(it.schema, it.id, it.title, it.type, it.purpose, it.status, it.tags, it.summary, it.backText)
     }, issues.map { CapturedIssue(it.code, it.field, it.message, it.severity) })
     return CapturedSource(interpretation, bodyStart, classification.model(), relationships.map {
         CapturedRelationship(it.key, it.originSection, it.destination,

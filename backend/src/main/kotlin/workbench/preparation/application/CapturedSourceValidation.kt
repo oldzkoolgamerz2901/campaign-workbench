@@ -11,7 +11,7 @@ internal fun validCapture(item: PreparedItemData): Boolean {
         val card = value.metadata
         return value.issues.size <= 4096 && value.issues.all {
             it.code.isNotBlank() && text(it.code, 256) && (it.field == null || text(it.field, 65_536)) && text(it.message, 65_536) && it.severity in setOf("warning", "error")
-        } && (card == null || (card.schema == 1 && card.title.isNotBlank() && card.title.length <= 200 &&
+        } && (card == null || (card.schema == 1 && text(card.backText, 65_536) && card.title.isNotBlank() && card.title.length <= 200 &&
             card.type in setOf("npc", "location", "faction", "item", "scene", "adventure", "handout", "reference") &&
             card.purpose in setOf("session", "guidance", "tooling") && card.status in setOf("draft", "current", "superseded") &&
             // The authored limit is 64 UTF-16 units; Unicode lowercasing can expand that value.

@@ -14,11 +14,11 @@ import java.util.Locale
 
 @Component
 class CommonmarkMarkdown : Markdown {
-    private val frontMatter = WorkbenchFrontMatter()
     private val extensions = listOf(TablesExtension.create())
     private val parser = Parser.builder().extensions(extensions).includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES).build()
-    override fun parse(text: String): ParsedDocument {
-        val envelope = frontMatter.extract(text)
+    override fun parse(text: String): ParsedDocument = parse(text, 2)
+    fun parse(text: String, interpretation: Int): ParsedDocument {
+        val envelope = WorkbenchFrontMatter(interpretation).extract(text)
         val root = parser.parse(text.substring(envelope.bodyStart))
         val links = mutableListOf<ParsedLink>()
         var sectionId = "start"

@@ -83,6 +83,7 @@ describe('Writing generated-client transport', () => {
   });
 });
 const preview = (): DraftPreview => ({
+  layout: null,
   preview: { classification: { metadata: null, issues: [] }, sections: [], anchors: {}, links: [] },
   pathIssues: [],
 });
@@ -140,7 +141,7 @@ describe('Writing working edits', () => {
     state.selectArtwork(file);
     expect(state.localArtwork()).toBe('blob:pending');
     const saving = state.flush();
-    state.edit({ body: 'Text entered during upload' });
+    state.edit({ body: 'Text entered during upload', backText: 'Back entered during upload' });
     const image = { hash: 'saved-image' };
     upload.next({ ...draft(), revision: 1, image });
     upload.complete();
@@ -148,9 +149,14 @@ describe('Writing working edits', () => {
     await Promise.resolve();
     expect(state.current()?.image).toEqual(image);
     expect(state.current()?.fields.body).toBe('Text entered during upload');
+    expect(state.current()?.fields.backText).toBe('Back entered during upload');
     expect(state.pendingArtwork()).toBe('keep');
     expect(revoke).toHaveBeenCalledWith('blob:pending');
-    expect(api.saveDraft.mock.calls[0][2]).toMatchObject({ revision: 1, imageAction: 'keep' });
+    expect(api.saveDraft.mock.calls[0][2]).toMatchObject({
+      revision: 1,
+      imageAction: 'keep',
+      fields: { backText: 'Back entered during upload' },
+    });
     text.next({ ...draft(), revision: 2, image });
     text.complete();
     expect(await saving).toBe(true);

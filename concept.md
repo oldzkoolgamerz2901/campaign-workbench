@@ -1,5 +1,7 @@
 # campaign-workbench 2.0
 
+Historical exploratory concept, preserved for future discussion. This is not an approved requirements list; current accepted behavior is in [the specification](docs/product-specification.md), and open proposals are indexed in [future work](docs/future-work.md).
+
 The campaign workbench is a way to help DM's create their campaigns. World-building, session preparation, session playing, and player handouts
 
 
@@ -42,4 +44,4 @@ The campaign workbench is a way to help DM's create their campaigns. World-build
 - MD's as basics with tags
 - Images as assets
 - A session can be started. MD's with matching images will be turned into HTML cards
-- These cards can be picked up, dragged and stacked to designated places on the screen. 
+- These cards can be picked up, dragged and stacked to designated places on the screen.

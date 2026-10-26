@@ -12,7 +12,7 @@ data class CardMetadata(
     val purpose: String,
     val status: String,
     val tags: List<String>,
-    @field:Schema(nullable = true) val summary: String?
+    @field:Schema(nullable = true) val summary: String?, val backText: String = ""
 )
 
 data class ClassificationIssue(val code: String, val field: String?, val message: String, val severity: String = "error")

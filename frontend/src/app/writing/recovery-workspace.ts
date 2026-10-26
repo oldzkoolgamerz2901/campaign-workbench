@@ -160,12 +160,20 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
               }
             </details>
           }
+          <details>
+            <summary>Card back text</summary>
+            <p style="white-space: pre-wrap; overflow-wrap: anywhere">
+              {{ d.snapshot.fields.backText || 'No back text.' }}
+            </p>
+          </details>
           <playing-card
             [artwork]="artwork.recovered(state.index()!.workspace.id, d.record.key, d.snapshot)"
             [title]="d.snapshot.fields.title"
             [type]="d.snapshot.fields.type"
             [tags]="d.snapshot.fields.tags"
             [summary]="d.snapshot.fields.summary"
+            [backText]="d.snapshot.fields.backText ?? ''"
+            [context]="state.index()!.workspace.id + ':' + d.record.key + ':' + d.snapshot.revision"
             (openDocument)="full.set(true)"
           />
           <button (click)="full.set(!full())">

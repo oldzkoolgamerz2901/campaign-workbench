@@ -405,6 +405,8 @@ export class WritingState {
     if (this.deleting()) return;
     clearTimeout(this.previewTimer);
     const request = ++this.previewNumber;
+    this.preview.set(null);
+    this.previewError.set('');
     this.previewTimer = setTimeout(() => void this.loadPreview(request), 200);
   }
   private async loadPreview(request: number) {

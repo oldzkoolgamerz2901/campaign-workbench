@@ -202,7 +202,9 @@ class SessionLibraryIntegrationTest : StringSpec({
         frozen = prep().association(campaign, session.id, first.id, frozen.items.last().id, ChangeSceneAssociation(frozen.revision, true)).getOrNull()!!
         val old = frozen
         val initial = play().open(campaign, session.id).getOrNull()!!
-        val workspace = play().save(campaign, session.id, SaveWorkspace(initial.revision, listOf(frozen.items.last().id), listOf(first.id), first.id, listOf(first.id))).getOrNull()!!
+        val sceneWorkspace = play().transition(campaign, session.id, TransitionScene(initial.revision, frozen.revision, first.id)).getOrNull()!!
+        val pileWorkspace = play().move(campaign, session.id, MoveCard(sceneWorkspace.revision, frozen.items.last().id, CardLocation.PILE_2)).getOrNull()!!
+        val workspace = play().rename(campaign, session.id, RenamePile(pileWorkspace.revision, PileSlot.PILE_2, "Reference")).getOrNull()!!
         val edited = writing().save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(title = "New scene", body = "# New\nSafe <script>evil</script>"))).getOrNull()!!
         val illustrated = writing().replaceImage(campaign, d.id, SaveDraft(edited.revision, edited.fields, "replace"), ImageFixtures.png(13, 9).inputStream()).getOrNull()!!
         prep().open(campaign, session.id).getOrNull() shouldBe old
@@ -233,9 +235,12 @@ class SessionLibraryIntegrationTest : StringSpec({
         restored.items.map { it.notes } shouldBe replaced.items.map { it.notes }
         restored.sceneLinks shouldBe listOf(SceneAssociation(restored.items.first().id, restored.items.last().id))
         val restoredPlay = play().open(campaign, imported).getOrNull()!!
-        restoredPlay.used shouldBe listOf(restored.items.first().id)
+        restoredPlay.used shouldBe emptyList()
         restoredPlay.activeSceneItemId shouldBe restored.items.first().id
-        restoredPlay.focusedItemIds shouldBe listOf(restored.items.first().id)
+        restoredPlay.sessionCards shouldBe emptyList()
+        restoredPlay.pile2.items shouldBe listOf(restored.items.last().id)
+        restoredPlay.pile2.cover shouldBe restored.items.last().id
+        restoredPlay.pile2.name shouldBe "Reference"
         val differentType = writing().save(campaign, d.id, SaveDraft(illustrated.revision, illustrated.fields.copy(type = "npc"))).getOrNull()!!
         differentType.fields.type shouldBe "npc"
         service().list(campaign, session.id).getOrNull()!!.entries.single().matches.all { !it.canUpdate } shouldBe true
@@ -267,11 +272,53 @@ class SessionLibraryIntegrationTest : StringSpec({
         view.items.first().source.links.single().target shouldBe "@$aItem#a"
         s.items.first().provenance.authored!!.revision shouldBe b2.revision
         val manifest = context!!.getBean(PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-        manifest.version shouldBe 8
+        manifest.version shouldBe 11
         manifest.workspaces.single().workspace shouldBe null
         val archiveService = context!!.getBean(PortableSessionService::class.java)
         val imported = archiveService.restore(campaign, manifest).getOrNull()!!.sessions.single().id
         prep().view(campaign, imported).getOrNull()!!.items.last().source.links.single().unavailable shouldBe true
+    }
+
+    "stale no-op replacement is an HTTP revision conflict and exact no-op ignores readiness without mutation" {
+        val (campaign, _) = fresh("noop-conflict")
+        val created = writing().create(campaign, CreateDraft("npc", false)).getOrNull()!!
+        val draft = writing().save(campaign, created.id, SaveDraft(created.revision,
+            created.fields.copy(title = "Mira", summary = "Harbour keeper.", body = "# Mira"))).getOrNull()!!
+        val session = prep().create(campaign, CreateSession("No-op conflict", "")).getOrNull()!!
+        val added = service().add(campaign, session.id, request(campaign, session)).getOrNull()!!
+        val command = request(campaign, added.session)
+        val item = added.items.single()
+        val port = (context as WebServerApplicationContext).webServer!!.port
+        val mapper = context!!.getBean(ObjectMapper::class.java)
+        val client = HttpClient.newHttpClient()
+        fun replace(payload: AddLibraryCard): HttpResponse<String> = client.send(
+            HttpRequest.newBuilder(URI("http://127.0.0.1:$port/api/campaigns/$campaign/sessions/${session.id}/library/$item"))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(mapper.writeValueAsBytes(payload))).build(),
+            HttpResponse.BodyHandlers.ofString())
+        val retainedCounts = counts(campaign)
+        for (stale in listOf(command.copy(draftRevision = draft.revision - 1), command.copy(draft = UUID.randomUUID()))) {
+            val response = replace(stale)
+            response.statusCode() shouldBe 409
+            mapper.readTree(response.body()).path("code").asString() shouldBe "writing.stale-revision"
+            prep().open(campaign, session.id).getOrNull() shouldBe added.session
+            counts(campaign) shouldBe retainedCounts
+        }
+        val exact = replace(command)
+        exact.statusCode() shouldBe 200
+        mapper.readValue(exact.body(), SessionData::class.java) shouldBe added.session
+        counts(campaign) shouldBe retainedCounts
+        // Historical content can remain prepared even when today's fit/readiness policy blocks new use.
+        val blocked = object : CardLibraries by library() {
+            override fun list(campaign: UUID, query: String, filter: SourceFilter) = library().list(campaign, query, filter).map { catalogue ->
+                catalogue.copy(entries = catalogue.entries.map { it.copy(ready = false) })
+            }
+        }
+        val unchanged = SessionLibraryService(context!!.getBean(Campaigns::class.java), blocked, prep(), context!!.getBean(Transactions::class.java))
+            .replace(campaign, session.id, item, command)
+        unchanged.getOrNull() shouldBe added.session
+        prep().open(campaign, session.id).getOrNull() shouldBe added.session
+        counts(campaign) shouldBe retainedCounts
     }
 
     "HTTP contracts expose destination status, bounded commands, explicit replacement and actionable errors" {

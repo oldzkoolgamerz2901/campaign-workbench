@@ -13,30 +13,38 @@ import java.util.UUID
 /** Composition boundary: coordinates public module contracts in one campaign transaction. */
 class PortableSessionService(private val preparation: PreparationTransfers, private val workspaces: WorkspaceTransfers,
     private val transfers: PortableTransfers, private val codec: SessionArchiveCodec, private val processor: ImageProcessor,
-    private val tx: Transactions, private val campaigns: Campaigns) {
+    private val tx: Transactions, private val campaigns: Campaigns, private val notes: workbench.playthroughs.api.PlayNoteTransfers) {
     private fun invalid() = Failure.Invalid("sessions.archive-format", "Invalid or unsupported current-format session archive. No sessions imported.")
     fun manifest(campaign: UUID, request: ExportSessions, illustrated: Boolean = false): Either<Failure, SessionTransfer> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val contents = preparation.exportContents(campaign, request, illustrated).bind()
-        val result = SessionTransfer(8, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) })
+        val capturedNotes = mutableListOf<workbench.playthroughs.api.PlayNoteData>()
+        for (session in contents.sessions) {
+            val next = notes.snapshot(campaign, session.id).bind()
+            ensure(capturedNotes.size + next.size <= 10000) { Failure.Invalid("sessions.archive-size", "Select sessions containing at most 10,000 PlayNotes in total.") }
+            capturedNotes.addAll(next)
+        }
+        val result = SessionTransfer(11, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) }, capturedNotes)
         val encoded = try { codec.writeTransfer(result) } catch (_: Exception) { raise(Failure.Invalid("sessions.archive-size", "Session manifest exceeds 20 MiB; select fewer sessions.")) }
         ensure(encoded.size <= 20 * 1024 * 1024) { invalid() }
         result
     } }
     fun validate(archive: SessionTransfer, illustrated: Boolean): Either<Failure, Unit> = either {
-        ensure(archive.version == 8) { invalid() }
+        ensure(archive.version in 10..11) { invalid() }
         preparation.validateContents(Archive(archive.version, archive.sessions), illustrated).bind()
+        ensure(archive.notes.size <= 10000 && archive.notes.map { it.id }.distinct().size == archive.notes.size) { invalid() }
+        val sessionById = archive.sessions.associateBy { it.id }
+        ensure(archive.notes.all { it.session in sessionById }) { invalid() }
+        for (session in archive.sessions) ensure(notes.validate(archive.notes.filter { it.session == session.id }, session.campaign, session.id)) { invalid() }
         val ids = archive.sessions.map { it.id }.toSet()
         ensure(archive.workspaces.size == ids.size && archive.workspaces.map { it.session }.toSet() == ids) { invalid() }
         val byId = archive.sessions.associateBy { it.id }
         archive.workspaces.forEach { record -> record.workspace?.let { w ->
-            val all = w.active + w.used
-            ensure(w.session == record.session && w.revision >= 0 && all.size == all.distinct().size &&
-                all.toSet() == byId.getValue(record.session).items.map { it.id }.toSet() &&
-                w.focusedItemIds.size <= 3 && w.focusedItemIds.distinct().size == w.focusedItemIds.size &&
-                all.containsAll(w.focusedItemIds) && (w.activeSceneItemId == null ||
-                    byId.getValue(record.session).items.any { item -> item.id == w.activeSceneItemId &&
-                        item.capturedSource?.classification?.let { c -> c.metadata?.type == "scene" && c.issues.none { it.severity == "error" } } == true })) { invalid() }
+            val items = byId.getValue(record.session).items
+            val scenes = items.filter { item -> item.capturedSource?.classification?.let { c ->
+                c.metadata?.type == "scene" && c.issues.none { it.severity == "error" }
+            } == true }.map { it.id }.toSet()
+            ensure(w.session == record.session && workspaces.validate(w, items.map { it.id }, scenes)) { invalid() }
         } }
     }
     fun restore(campaign: UUID, archive: SessionTransfer, illustrated: Boolean = false): Either<Failure, SessionList> = tx.run { either {
@@ -48,9 +56,12 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
             val restored = preparation.snapshot(campaign, summary.id).bind()
             val ids = original.items.map { it.id }.zip(restored.items.map { it.id }).toMap()
             val workspace = workspaceBySession.getValue(original.id).workspace?.let { w ->
-                w.copy(session = restored.id, revision = 0, active = w.active.map(ids::getValue), used = w.used.map(ids::getValue), activeSceneItemId = w.activeSceneItemId?.let(ids::getValue), focusedItemIds = w.focusedItemIds.map(ids::getValue))
+                w.copy(session = restored.id, revision = 0, sessionCards = w.sessionCards.map(ids::getValue), used = w.used.map(ids::getValue), activeSceneItemId = w.activeSceneItemId?.let(ids::getValue), pile1 = w.pile1.copy(items = w.pile1.items.map(ids::getValue), cover = w.pile1.cover?.let(ids::getValue)), pile2 = w.pile2.copy(items = w.pile2.items.map(ids::getValue), cover = w.pile2.cover?.let(ids::getValue)))
             }
             workspaces.restore(campaign, restored.id, workspace).bind()
+            notes.restore(campaign, restored.id, archive.notes.filter { it.session == original.id }.map {
+                it.copy(campaign = campaign, session = restored.id)
+            }).bind()
         }
         imported
     } }

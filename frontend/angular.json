@@ -55,6 +55,23 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
+            },
+            "card-layout": {
+              "browser": "layout-fixture/main.ts",
+              "tsConfig": "layout-fixture/tsconfig.json",
+              "optimization": false,
+              "sourceMap": true,
+              "assets": [
+                {
+                  "glob": "**/*",
+                  "input": "public"
+                },
+                {
+                  "glob": "layouts.json",
+                  "input": ".angular/card-layout-fixture",
+                  "output": "fixtures"
+                }
+              ]
             }
           },
           "defaultConfiguration": "production"
@@ -67,6 +84,9 @@
             },
             "development": {
               "buildTarget": "campaign-workbench:build:development"
+            },
+            "card-layout": {
+              "buildTarget": "campaign-workbench:build:card-layout"
             }
           },
           "defaultConfiguration": "development",

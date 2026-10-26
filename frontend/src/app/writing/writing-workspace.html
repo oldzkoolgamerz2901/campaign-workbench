@@ -293,6 +293,18 @@
             </details>
           </div>
           <label [hidden]="editorTab() !== 'document'"
+            >Card back text<textarea
+              rows="6"
+              spellcheck="true"
+              [ngModel]="draft.fields.backText ?? ''"
+              (ngModelChange)="state.edit({ backText: $event })"
+            ></textarea>
+          </label>
+          <p class="hint" [hidden]="editorTab() !== 'document'">
+            Plain text for the back of the physical card. Keep it short enough to fit without
+            scrolling.
+          </p>
+          <label [hidden]="editorTab() !== 'document'"
             >Markdown body<textarea
               class="body-editor"
               rows="16"
@@ -302,6 +314,9 @@
             ></textarea>
           </label>
           @if (state.preview(); as result) {
+            @if (result.layout; as layout) {
+              <card-fit-feedback [issues]="layout.front.issues.concat(layout.back.issues)" />
+            }
             @if (result.preview.classification.issues?.length || result.pathIssues.length) {
               <aside class="issues" aria-label="Draft validation">
                 <strong>Saved drafts can be unfinished.</strong>
@@ -364,6 +379,16 @@
               @if (state.previewError()) {
                 <p role="alert">{{ state.previewError() }}</p>
               }
+              <details #fitDetails (toggle)="fitPreviewOpen.set(fitDetails.open)">
+                <summary>Check physical card fit</summary>
+                @if (state.preview()?.layout; as layout) {
+                  @if (fitPreviewOpen()) {
+                    <card-fit-preview [layout]="layout" />
+                  }
+                } @else {
+                  <p role="status">Card fit has not been checked for the current text.</p>
+                }
+              </details>
               @if (!full()) {
                 <playing-card
                   [artwork]="state.pendingArtwork() === 'remove' ? null : artwork.draft(draft)"
@@ -374,6 +399,8 @@
                     state.preview()?.preview?.classification?.metadata?.tags ?? draft.fields.tags
                   "
                   [summary]="draft.fields.summary"
+                  [backText]="draft.fields.backText ?? ''"
+                  [context]="draft.id + ':' + draft.revision"
                   (openDocument)="full.set(true)"
                 />
               } @else {

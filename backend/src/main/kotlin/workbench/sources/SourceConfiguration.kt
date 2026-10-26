@@ -8,5 +8,6 @@ import workbench.sources.application.*
 
 @Configuration
 class SourceConfiguration {
+    @Bean fun cardLayoutCalculator(fonts: workbench.platform.api.FontMeasurements): workbench.sources.api.CardLayoutCalculator = CardLayouts(fonts)
     @Bean fun sourceService(campaigns: Campaigns, store: CaptureStore, scanner: SourceScanner, markdown: Markdown, tx: Transactions) = SourceService(campaigns, store, scanner, markdown, tx)
 }

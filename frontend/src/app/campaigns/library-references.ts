@@ -2,6 +2,7 @@ import { Component, effect, inject, input, output, OnDestroy } from '@angular/co
 import { LibraryAdventure } from './library-adventure';
 import { MatButtonModule } from '@angular/material/button';
 import { LibraryEntry, ArtworkControllerService } from '../../api/generated';
+import { CardFitFeedback } from '../shared/card-layout/card-fit-feedback';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { ArtworkImage, ArtworkSource } from '../shared/artwork/artwork-image';
 import { LibraryFiltersControl, LIBRARY_FILTER_STATE } from './library-filters';
@@ -10,7 +11,14 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
 
 @Component({
   selector: 'library-references',
-  imports: [MatButtonModule, LibraryFiltersControl, PlayingCard, ArtworkImage, LibraryAdventure],
+  imports: [
+    MatButtonModule,
+    LibraryFiltersControl,
+    PlayingCard,
+    CardFitFeedback,
+    ArtworkImage,
+    LibraryAdventure,
+  ],
   providers: [{ provide: LIBRARY_FILTER_STATE, useExisting: REFERENCE_LIBRARY_STATE }],
   template: `
     <section aria-label="Library references">
@@ -63,6 +71,7 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
             Reload selected document
           </button>
         }
+        <card-fit-feedback [issues]="entry.fitIssues ?? []" />
         @if (!entry.ready || entry.conflicts?.length) {
           <p>
             Preparation blocked. Correct incomplete metadata in Write or resolve identity conflicts.
@@ -73,6 +82,10 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
           [type]="entry.classification?.metadata?.type ?? ''"
           [summary]="entry.classification?.metadata?.summary ?? ''"
           [tags]="entry.classification?.metadata?.tags ?? []"
+          [backText]="entry.classification?.metadata?.backText ?? ''"
+          [context]="
+            campaign() + ':' + entry.key + ':' + entry.revision + ':' + state.documentCapture()
+          "
           [artwork]="artwork(entry)"
           (openDocument)="openDocument.emit(entry)"
         />

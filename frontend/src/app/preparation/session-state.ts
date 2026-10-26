@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
+import { PlayNotesState } from '../playthroughs/play-notes-state';
 import { PlayWorkspaceState } from '../playthroughs/workspace-state';
 import { transferError } from '../shared/transfer-error';
 import { firstValueFrom, Observable } from 'rxjs';
@@ -17,6 +18,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class SessionState {
   readonly play = inject(PlayWorkspaceState);
+  readonly playNotes = inject(PlayNotesState);
   private readonly api = inject(PreparationControllerService);
   private readonly sessionLibrary = inject(SessionLibraryControllerService);
   private readonly portable = inject(PortableSessionControllerService);
@@ -47,6 +49,7 @@ export class SessionState {
 
   hasUnsaved() {
     return (
+      this.playNotes.hasUnsaved() ||
       this.play.hasUnsaved() ||
       this.transferBusy() ||
       this.dirty ||
@@ -99,7 +102,7 @@ export class SessionState {
     const sameSession = this.current()?.id === id && this.current()?.campaign === campaign;
     const previousSelection = sameSession ? this.selectedItem() : null;
     if (sameSession && !reload && !this.invalidatedMembership.has(`${campaign}:${id}`)) return true;
-    if (!sameSession) this.play.clear();
+    if (!sameSession) { this.play.clear(); this.playNotes.clear(); }
     this.saving = undefined;
     const epoch = ++this.epoch;
     this.previewEpoch++;
@@ -139,6 +142,7 @@ export class SessionState {
   }
   clear() {
     this.play.clear();
+    this.playNotes.clear();
     this.saving = undefined;
     this.epoch++;
     this.listEpoch++;
@@ -344,15 +348,6 @@ export class SessionState {
     if (!session || !(await this.flush()) || epoch !== this.epoch) return;
     await this.play.open(session.campaign, session.id);
   }
-  moveTable(id: string, to: number) {
-    if (!this.mutating()) this.play.move(id, to);
-  }
-  markUsed(id: string) {
-    if (!this.mutating()) this.play.use(id);
-  }
-  returnToTable(id: string) {
-    if (!this.mutating()) this.play.restore(id);
-  }
   async flush(): Promise<boolean> {
     clearTimeout(this.timer);
     if (this.mutating()) {
@@ -428,7 +423,7 @@ export class SessionState {
       this.error.set('Wait for the current operation to finish before leaving.');
       return false;
     }
-    if (!(await this.play.allowLeave())) return false;
+    if (!(await this.playNotes.allowLeave()) || !(await this.play.allowLeave())) return false;
     if (!this.hasUnsaved() || (await this.flush())) return true;
     if (
       window.confirm(
@@ -458,6 +453,7 @@ export class SessionState {
       if (
         !(await this.flush()) ||
         !(await this.play.flush()) ||
+        !(await this.playNotes.flush()) ||
         epoch !== this.epoch ||
         campaign !== this.activeCampaign
       )

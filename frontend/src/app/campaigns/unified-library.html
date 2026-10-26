@@ -127,6 +127,7 @@
           </div>
           <p>Destination: {{ destinationTitle() }}</p>
           <library-adventure [state]="state" />
+          <card-fit-feedback [issues]="entry.fitIssues ?? []" />
           @if (!entry.ready || entry.conflicts?.length) {
             <p>
               Preparation blocked. Inspect Details and correct the document in Write or resolve
@@ -201,6 +202,14 @@
               <p>{{ issue.message }}</p>
             }
           </details>
+          @if (entry.classification?.metadata?.backText; as back) {
+            <details>
+              <summary>Card back text</summary>
+              <p class="back-text" style="white-space: pre-wrap; overflow-wrap: anywhere">
+                {{ back }}
+              </p>
+            </details>
+          }
           <nav aria-label="Library reading mode">
             <button
               matButton
@@ -227,6 +236,16 @@
               [type]="document.entry?.classification?.metadata?.type ?? ''"
               [summary]="document.entry?.classification?.metadata?.summary ?? ''"
               [tags]="document.entry?.classification?.metadata?.tags ?? []"
+              [backText]="document.entry?.classification?.metadata?.backText ?? ''"
+              [context]="
+                state.campaign() +
+                ':' +
+                document.entry!.key +
+                ':' +
+                document.entry!.revision +
+                ':' +
+                state.documentCapture()
+              "
               [artwork]="artwork(document.entry!)"
               (openDocument)="state.mode.set('document')"
             />

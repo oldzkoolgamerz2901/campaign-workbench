@@ -94,12 +94,12 @@ test('cards fill the background with portrait, landscape and square artwork behi
         await expect(image).toHaveCSS('object-fit', 'cover');
         const area = (await image.boundingBox())!;
         expect(area.height / outer.height).toBeGreaterThan(0.98);
-        const panel = (await card.locator('.card-content').boundingBox())!;
+        const panel = (await card.locator('rect[data-role="front-panel"]').boundingBox())!;
         expect(panel.height / outer.height).toBeGreaterThan(0.35);
         expect(panel.height / outer.height).toBeLessThanOrEqual(0.41);
         expect(panel.y + panel.height).toBeLessThanOrEqual(outer.y + outer.height);
-        await expect(card.locator('.card-content')).toHaveCSS(
-          'background-color',
+        await expect(card.locator('rect[data-role="front-panel"]')).toHaveCSS(
+          'fill',
           'rgb(242, 239, 220)',
         );
         // Resizing can move the lazy artwork out of view and reload its Blob.

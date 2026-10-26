@@ -4,6 +4,17 @@ Date: 2026-10-17
 
 Status: Requirements approved by the owner on 2026-10-17, with subsequent accepted revisions for local laptop operation, direct campaign-folder access, and multiple campaigns. Outstanding decisions remain explicit. Architectural proposals and implementation plans require their own approval; this specification does not authorize implementation.
 
+## Reading and decision precedence
+
+This specification retains the evolution of accepted requirements. A later, explicitly accepted refinement supersedes only conflicting earlier behavior; broad requirements may describe future capabilities rather than delivered features. [Current delivery/evidence](implementation-plan.md) and [future work](future-work.md) distinguish implementation status from acceptance and proposals.
+
+| Area | Most specific accepted reference |
+| --- | --- |
+| Library, Writing and frozen preparation | [Unified requirements](#unified-library-writing-and-preparation--accepted-requirements--2026-10-22), then [UX refinements](#library--write--prepare-visual-simplification--accepted-requirements--2026-10-23) and UX-C6/C7 below |
+| Tabletop, notes, history and P7/P8 | [2026-10-24 reconciliation](#play-tabletop--accepted-requirements-reconciliation--2026-10-24); original Q10 decisions remain traceability context |
+| Creative co-author | [Accepted requirements](#creative-co-author--accepted-requirements--2026-10-19), with unresolved choices retained; not implemented by P8 |
+| Earlier outstanding questions | Dated investigation context; consult later accepted decisions and evidence before treating them as unresolved |
+
 ## Purpose and audience
 
 The app supports two main activities: **preparing a session** and **playing a session**. Assisted creation is part of preparation and is optionally available during play.
@@ -806,3 +817,64 @@ Following investigation with temporary fixtures, the owner approved the followin
 - Pin new preparation approvals to exact resolved target revisions. Preserve existing approved revisions, export artifacts, frozen sessions and historical link evidence; do not reinterpret or rewrite retained history.
 
 Required evidence includes associated typed/untyped Source/Draft pairs, true identity/path collisions, moved Draft placement, Draft-only/self links, heading navigation, export warnings and stale reports, future exact-revision freezing, and historical session/Writing recovery regressions. The consequential resolver architecture and bounded implementation plan retain their own approval gates. All-stage execution authorization is recorded in the conversation.
+
+## Play tabletop — accepted requirements reconciliation — 2026-10-24
+
+**Status: ACCEPTED.** The owner approved reconciliation of the [reviewed tabletop UX](play-tabletop-ux-design.md) with Q10f–Q10x and the remaining P5–P8 requirements. This defines future behavior; existing implementation and historical verification remain unchanged. Architecture, bounded implementation plans and execution retain their separate approval gates.
+
+### Placement, Scene transitions and inspection
+
+- Exactly one runtime location per prepared item: ordered Session Cards, Pile 1, Pile 2, Used, or the reserved active Scene slot. The two named runtime piles have ordered unique membership and a displayed cover. This replaces the overlapping Active/Used plus three-independent-focus presentation in Q10f.
+- Only Activate/Change Scene or Deactivate Scene changes the reserved slot. An active Scene cannot be dragged, marked Used or displaced by ordinary movement. Preparation remains authoritative for membership: removing the prepared Scene clears the slot.
+- Scene activation/change offers Keep current piles or explicit customization of existing and incoming related cards. Confirmation applies the Scene change and selected movements atomically; cancellation changes nothing. Keep current piles removes the incoming Scene from its former location if necessary and discloses that exception. No automatic pile population or clearing. The previous Scene returns to the front of Session Cards.
+- Related cards come exclusively from Preparation-owned session Scene associations, in preparation order. Inspection does not edit associations or add membership; normal Markdown links remain reader navigation.
+- Cards returned from piles or Used go to the front of Session Cards; newly prepared cards also enter at the front. Initial Session Cards follow preparation order. Closed-pile drops append; open piles support precise reorder. When a cover leaves, choose the next surviving ordered card, wrapping to the first; an empty pile has no cover.
+- Read opens the existing frozen Markdown reader in the right Notes/Document panel. Reading, choosing a pile cover and switching panel modes never move cards, activate a Scene or change a note's primary association. Pile Show all uses a separate temporary overlay. These replace Q10i's fourth-card/focus-replacement interaction and Q10s's expanded-focus treatment.
+- Search/type filters narrow Session Cards and Used, retaining the selected document. Tabletop covers and opened pile contents remain visible and unfiltered, allowing precise pile movement/reorder. No additional global inventory duplicates assigned cards.
+- Every drag operation has an accessible menu/button equivalent. Invalid/cancelled drops do not mutate state. Retain the shared 243:420 renderer, frozen artwork, heading-aware reader and usable independently scrolling layouts at 1280×800, 1440×900 and narrow widths.
+
+### Continuity, notes and remaining capabilities
+
+- Reopening restores active Scene, unique placements, pile order, optional names and covers; Play → Prepare → Play preserves committed tabletop state. Temporary overlays, drag state, panel mode and document selection need not persist. This supersedes Q10r/Q10w's focused-card restoration. Removal prunes only the removed item's placement, clears a removed active Scene and advances an affected cover without disturbing other placements or historical notes (Q10x).
+- Notes is the default panel mode on Play entry. Before P5, it exposes existing Preparation notes read-only. P5 adds independent PlayNotes capture/history; Preparation notes remain distinct contextual references. Switching Notes/Document or interacting with the tabletop preserves unsubmitted note text and association context.
+- P5 retains independent note revisions, immutable creation chronology, pinning, one optional explicit primary resource, server-captured Scene/resource evidence, expected-Scene checks, idempotent creation and originating-session safety. Scene changes do not rewrite existing notes; creating under changed Scene context requires explicit conflict recovery with text retained.
+- Revised P7 reuses unified Library inspection and the supported atomic whole-card Add. Inspection alone changes no placement or Scene. Successful explicit Add targets the originating session and reconciles new membership into Session Cards without altering piles or Scene. Already-prepared entries retain their placement. Unavailable historical Markdown targets never silently become current Library content. The old P4R unprepared-suggestion completion dependency is superseded because contextual Scene associations only target already-prepared items.
+- P6 retains separate campaign-scoped primary-resource and captured-Scene history queries, stable identity and chronology, with no duplicated note storage or title/path-based merging. P8 assesses the reconciled placement/Scene/panel behavior alongside Library access, notes/history and existing integration requirements.
+- Every increment introducing persisted state includes complete current-format archive validation, reference remapping and round trips. Preserve independent revisions, save failure/retry/discard/navigation guards, campaign isolation and frozen content. Historical artifacts remain disposable under the existing policy; no reset is authorized here.
+
+Exclusions remain unchanged: no combat automation, extra piles, card backs, freeform canvas, discovery/world-state engine, authored Scene relationship editing in Play, automatic source changes, mandatory review or new AI behavior.
+
+**Delivery priority approved in the reconciliation:** tabletop foundation and UI, then P5, revised P7, P6 and P8. This is ordering direction, not an accepted detailed increment plan or implementation authorization.
+
+## Flippable cards — accepted requirements — 2026-10-24
+
+**Status: ACCEPTED, including refinements.** The owner approved the original requirements following investigation, then approved scroll-free fronts, the detailed flip animation and overflow handling below. This supersedes the tabletop reconciliation's exclusion of card backs and the existing scrollable-front presentation; other exclusions remain. Architecture and subsequent phases retain their separate approval gates.
+
+- Each card has optional separately authored plain-text back text, with line breaks, independent of its summary and Markdown body. Existing cards have an empty back.
+- Both sides retain the existing card dimensions and have no internal scrolling, automatic truncation or automatic font shrinking. The front's title, type, summary and tags must fit alongside its controls. The back uses its available area for plain text plus a flip control, without artwork. Preserve text during editing and show a clear fit warning. Fit must account for consistent typography and usable card sizes; a character limit alone is insufficient.
+- Every full card representation supports an explicit flip control on either side, including contextual Library references, Writing recovery and all Play locations. Thumbnails and catalogue rows remain unchanged. Flipping does not open the document, select or move a card, activate a Scene or change note context.
+- Newly opened views show the front. Orientation is temporary and is not persisted across application restarts. Reset to the front when displayed content changes, selection changes, a view reopens or the card moves between Play locations. Unrelated note saves, filters and workspace updates do not reset a card being read.
+- Back text belongs to the card revision. Markdown export and Source capture preserve it; preparation freezes it; explicit revision replacement updates it. Session archives and Writing recovery retain it independently of live campaign files.
+- Preserve the illustrated front, authored summary and full-document reader. Back text is not interpreted as rich Markdown.
+- Deliberate flips have a small visual animation.
+
+### Accepted fit, animation and historical-content refinements
+
+- Extend the approved back-fit approval gate to both sides: allow saving and exporting oversized working Drafts with visible fit feedback, but block new session addition or explicit prepared replacement until both sides fit. Reuse of an already-prepared card does not become a blocked new addition.
+- Use a brief vertical-axis flip, approximately 200–250 ms, without changing surrounding layout. Respect reduced-motion preferences with an immediate side change. Automatic resets to the front happen immediately.
+- Existing frozen prepared cards remain usable and are never automatically rewritten, shortened, removed or replaced. If a side cannot fit, show a clear non-fitting-side state with an action to read all of that side's text outside the card, rather than showing clipped text. The front fallback must expose title, type, summary and every tag; the back fallback must expose all back text. Do not assume the existing full-document reader includes these fields. The external reading surface may scroll; neither card side may scroll. Retain flipping and existing Play actions. Correcting a working Draft affects the frozen card only through explicit replacement, which must satisfy both-side fit.
+- Apply the same non-fitting-side state to oversized working previews, captured Sources and historical recovery previews, retaining their existing editability and authority restrictions.
+
+Acceptance evidence must cover flipping in every full card representation, no internal scrolling on either side, the specified resets, animation and reduced motion, keyboard access, overflow feedback without lost text, and preservation through save/reload, export/capture, preparation, replacement, session archives and Writing recovery. Include oversized historical cards and complete external access to front metadata and back text. Architecture must resolve how fit is enforced consistently across session-addition paths and card sizes.
+
+## Play tabletop — approved UX refinement — 2026-10-25
+
+The owner approved the interaction and presentation refinements detailed in [Play tabletop UX design](play-tabletop-ux-design.md#owner-approved-play-interaction-refinement--2026-10-25). These requirements override older conflicting drag-handle, Show all and Play Notes presentation requirements **only**; previous scene, identity, placement, ordering, read, save, versioning and archive semantics remain authoritative.
+
+- **Direct manipulation:** Press-and-drag movable card surfaces rather than separate Move/Reorder buttons; preserve click-to-read, flip, card actions, keyboard move/reorder alternatives, and cancelled/invalid-drop safety.
+- **Focus piles:** Header-level small rename and Show all controls, card count, decorative stack for multi-card piles, and Previous/Next arrows on the sides of the displayed card. Retain the same basic Scene/pile footprint and canonical 243:420 card ratio.
+- **Show all:** A bounded responsive grid targeting two rows of four to five cards, with clearly labeled **Other pile / Session Cards / Used cards** drop targets on the **same header row as Close**. No overlay card count, renaming, Display cover, Earlier/Later, Move card selector or Reorder card button. Clicking reads/selects; dragging moves/reorders. Reordering alone preserves the displayed cover.
+- **Notes:** Preserve Notes/Document switching and establish **Live notes / Preparation / History** subviews inside Notes. Live notes prioritizes capture and recent notes; Preparation exposes existing read-only Session/Selected Item notes; History contains chronology, pinned notes, historical context, edit and recovery operations. Switching views preserves unsaved note/draft/resource/scene association and reader selection; the PlayNotes and Preparation persistence models remain distinct.
+- **Acceptance:** Existing behavior and save/conflict protections must be regressed alongside browser-verified card gestures, wrapped-grid ordering, overlay drop targets, responsive layout, keyboard access, and draft retention. UI approval is still pending.
+
+No new pile types, card copies, changes to Scene activation, or note schema are authorized by this refinement.

@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { PreparedArtwork } from '../preparation/artwork-sources';
 import {
   Component,
@@ -19,8 +20,8 @@ import { CampaignControls } from '../campaigns/campaign-controls';
 import { SessionContents } from './session-contents';
 import { revealReaderTarget } from '../shared/reader/reader-presentation';
 import { PlayingCard } from '../shared/playing-card/playing-card';
-import { CardTable } from './card-table';
-import { FocusedTabletop } from '../playthroughs/focused-tabletop';
+import { PlayNotesPanel } from '../playthroughs/play-notes';
+import { Tabletop } from '../playthroughs/tabletop';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { PreparationLibrary } from './preparation-library';
 import { ScenePlanning } from './scene-planning';
@@ -35,11 +36,12 @@ import { MarkdownView } from './markdown-view';
     MarkdownView,
     ScenePlanning,
     PreparationLibrary,
+    NgTemplateOutlet,
     CampaignControls,
     SessionContents,
     PlayingCard,
-    CardTable,
-    FocusedTabletop,
+    Tabletop,
+    PlayNotesPanel,
     WorkbenchHeader,
   ],
   templateUrl: './workspace.html',
@@ -60,7 +62,7 @@ export class Workspace implements OnDestroy {
     'reference',
   ];
   readonly activeCount = computed(() => {
-    const ids = new Set(this.state.play.current()?.active ?? []);
+    const ids = new Set(this.state.play.current()?.sessionCards ?? []);
     const query = this.cardQuery().trim().toLowerCase();
     return (
       this.state
@@ -75,7 +77,7 @@ export class Workspace implements OnDestroy {
     );
   });
   readonly saveStatus = computed(() => {
-    const statuses = [this.state.status(), this.state.play.status()];
+    const statuses = [this.state.status(), this.state.play.status(), this.state.playNotes.status()];
     return statuses.includes('failed')
       ? 'failed'
       : statuses.includes('saving')
@@ -212,10 +214,7 @@ export class Workspace implements OnDestroy {
   readonly item = computed(
     () => this.state.current()?.items.find((i) => i.id === this.state.selectedItem()) ?? null,
   );
-  readonly hasTabletop = computed(
-    () =>
-      !!this.state.play.current()?.focusedItemIds.length || !!this.state.play.inspectionItemId(),
-  );
+  readonly playPanel = signal<'notes' | 'document'>('notes');
   readonly sourceReader = viewChild<MarkdownView>('sourceReader');
   readonly source = computed(
     () => this.state.rendered()?.items.find((i) => i.id === this.item()?.id)?.source ?? null,
@@ -265,7 +264,12 @@ export class Workspace implements OnDestroy {
         const item = params.get('item');
         if (item && this.state.current()?.items.some((i) => i.id === item))
           this.state.selectItem(item);
+        const wasReading = this.reading();
         this.reading.set(['read', 'play'].includes(params.get('mode') ?? '') && !!id);
+        if (this.reading() && !wasReading) {
+          this.playPanel.set('notes');
+          this.notesOpen.set(true);
+        }
         if (!id && ['read', 'play'].includes(params.get('mode') ?? '')) this.pendingPlay = true;
         if (this.reading()) void this.openPlayContext();
         if (id && this.campaignReady() && this.pendingLibraryCampaign === campaign) {
@@ -286,6 +290,8 @@ export class Workspace implements OnDestroy {
       this.inspectedScene.set(null);
       this.cardOpen.set(false);
       this.campaignReady.set(false);
+      this.playPanel.set('notes');
+      this.notesOpen.set(true);
       void (async () => {
         if (campaign && campaign !== this.library.selected()?.id) {
           this.exportIds = [];
@@ -382,6 +388,8 @@ export class Workspace implements OnDestroy {
       readerIntent = this.readerIntent;
     if (!session) return;
     await this.state.initializeTable();
+    if (epoch !== this.routeEpoch) return;
+    await this.state.playNotes.open(session.campaign, session.id);
     if (
       epoch !== this.routeEpoch ||
       !this.reading() ||
@@ -389,22 +397,8 @@ export class Workspace implements OnDestroy {
       this.state.current()?.id !== session.id
     )
       return;
-    // Frozen reader links remain usable while the workspace opens. Reconcile
-    // newer explicit reading intent instead of restoring over it.
-    if (readerIntent !== this.readerIntent) {
-      const selected = this.state.selectedItem();
-      if (selected && this.state.play.current() && !this.state.play.loading()) {
-        if (
-          this.state.play.expandedItemId() &&
-          this.state.play.current()?.focusedItemIds.includes(selected)
-        )
-          this.state.play.expand(selected);
-        else this.state.play.inspect(selected);
-      }
-      return;
-    }
-    const expanded = this.state.play.expandedItemId();
-    if (expanded) this.state.selectItem(expanded);
+    // Opening the workspace never replaces newer explicit reader selection.
+    if (readerIntent !== this.readerIntent) return;
   }
   private selectReader(id: string) {
     this.readerIntent++;
@@ -439,67 +433,16 @@ export class Workspace implements OnDestroy {
     this.cardOpen.set(false);
     this.selectReader(id);
     if (this.reading()) {
-      if (
-        this.state.play.expandedItemId() &&
-        this.state.play.current()?.focusedItemIds.includes(id)
-      )
-        this.state.play.expand(id);
-      else this.state.play.inspect(id);
-    }
-    void this.navigate(undefined, 'prepare');
+      this.playPanel.set('document');
+      this.notesOpen.set(true);
+    } else void this.navigate(undefined, 'prepare');
   }
-  focusPrepared(id: string) {
-    if (this.busy() || !this.reading()) return;
-    this.state.play.focus(id);
-    const epoch = this.routeEpoch;
-    setTimeout(() => {
-      if (
-        epoch !== this.routeEpoch ||
-        !this.reading() ||
-        !this.state.play.current()?.focusedItemIds.includes(id)
-      )
-        return;
-      const stage = document.querySelector<HTMLElement>('play-tabletop > section');
-      if (stage) {
-        stage.tabIndex = -1;
-        stage.focus({ preventScroll: true });
-        stage.scrollIntoView({ block: 'nearest' });
-      }
-    });
-  }
-  expandPrepared(id: string) {
-    if (this.busy() || !this.reading()) return;
-    this.state.play.expand(id);
-    if (this.state.play.expandedItemId() === id) this.openPreparedDocument(id, false);
-  }
-  openPreparedDocument(id: string, inspect = true) {
-    if (this.busy()) return;
-    if (inspect) this.selectPrepared(id);
-    else this.selectReader(id);
+  openPreparedDocument(id: string) {
+    this.selectPrepared(id);
     const epoch = this.routeEpoch;
     setTimeout(() => {
       if (epoch !== this.routeEpoch || this.state.selectedItem() !== id || !this.reading()) return;
-      const reader = document.querySelector<HTMLElement>('.source-page');
-      if (reader) {
-        reader.tabIndex = 0;
-        reader.scrollIntoView({ block: 'nearest' });
-        reader.focus({ preventScroll: true });
-      }
-    });
-  }
-  closeInspection() {
-    const id = this.state.play.inspectionItemId();
-    this.state.play.inspectionItemId.set(null);
-    const expanded = this.state.play.expandedItemId();
-    if (expanded) this.selectReader(expanded);
-    const epoch = this.routeEpoch;
-    setTimeout(() => {
-      if (epoch !== this.routeEpoch || !this.reading()) return;
-      const cards = document.querySelectorAll<HTMLElement>('read-card-table [data-item-id]');
-      Array.from(cards)
-        .find((node) => node.dataset['itemId'] === id)
-        ?.querySelector<HTMLElement>('article')
-        ?.focus();
+      document.querySelector<HTMLElement>('.source-page')?.focus({ preventScroll: true });
     });
   }
   cancelSessionChooser() {
@@ -508,6 +451,7 @@ export class Workspace implements OnDestroy {
   }
   sessionNotes() {
     this.notesScope.set('session');
+    this.playPanel.set('notes');
     this.notesOpen.set(true);
   }
   @HostListener('window:keydown.escape') closePanels() {
@@ -517,19 +461,14 @@ export class Workspace implements OnDestroy {
     this.managementOpen.set(false);
     this.sessionDetailsOpen.set(false);
     this.pendingPlay = false;
-    if (this.reading()) this.closeInspection();
   }
   followCaptured(target: string) {
     const [id, anchor] = target.slice(1).split('#');
     if (!this.state.current()?.items.some((i) => i.id === id)) return;
     this.selectReader(id);
     if (this.reading()) {
-      if (
-        this.state.play.expandedItemId() &&
-        this.state.play.current()?.focusedItemIds.includes(id)
-      )
-        this.state.play.expand(id);
-      else this.state.play.inspect(id);
+      this.playPanel.set('document');
+      this.notesOpen.set(true);
     }
     this.cardOpen.set(false);
     const epoch = this.routeEpoch;

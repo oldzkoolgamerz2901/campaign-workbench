@@ -136,7 +136,7 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&mode=play&view=prepare`);
-    await illustrated('read-card-table playing-card img');
+    await illustrated('play-tabletop playing-card img');
     await page
       .getByRole('button', { name: 'Card actions: Illustrated captain', exact: true })
       .click();
@@ -146,18 +146,18 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     await page
       .getByRole('button', { name: 'Card actions: Illustrated captain', exact: true })
       .click();
-    await page.getByRole('menuitem', { name: 'Return to table', exact: true }).click();
-    await illustrated('read-card-table playing-card img');
+    await page.getByRole('menuitem', { name: 'Return to Session Cards', exact: true }).click();
+    await illustrated('play-tabletop playing-card img');
     const imageRoute = `**/api/campaigns/${campaign.id}/sessions/${session.id}/items/*/artwork/DISPLAY`;
     await page.route(imageRoute, (r) => r.fulfill({ status: 503, body: 'Unavailable' }));
     await page.reload();
     await expect(
       page.getByRole('button', { name: 'Artwork unavailable · Retry', exact: true }),
     ).toBeVisible();
-    await expect(page.locator('read-card-table playing-card')).toHaveCSS('width', '320px');
+    await expect(page.locator('play-tabletop playing-card')).toHaveCSS('width', '320px');
     await page.unroute(imageRoute);
     await page.getByRole('button', { name: 'Artwork unavailable · Retry', exact: true }).click();
-    await illustrated('read-card-table playing-card img');
+    await illustrated('play-tabletop playing-card img');
     for (const [width, height] of [
       [1280, 800],
       [1440, 900],
@@ -217,7 +217,7 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     );
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&mode=play&view=prepare`);
-    await illustrated('read-card-table playing-card img');
+    await illustrated('play-tabletop playing-card img');
     const frozen = await (
       await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}`)
     ).json();
@@ -226,17 +226,17 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     const workspace = await (await request.get(endpoint)).json();
     expect(
       (
-        await request.put(endpoint, {
-          data: { ...workspace, focusedItemIds: [frozen.items[0].id] },
+        await request.post(`${endpoint}/move`, {
+          data: { revision: workspace.revision, item: frozen.items[0].id, destination: 'PILE_1' },
         })
       ).ok(),
     ).toBeTruthy();
     await page.reload();
-    await illustrated('read-card-table playing-card img');
+    await illustrated('play-tabletop playing-card img');
     const workspaceSaved = page.waitForResponse(
       (r) =>
-        r.request().method() === 'PUT' &&
-        r.url().endsWith(`/sessions/${session.id}/workspace`) &&
+        r.request().method() === 'POST' &&
+        r.url().endsWith(`/sessions/${session.id}/workspace/move`) &&
         r.ok(),
     );
     await page
@@ -244,6 +244,30 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
       .click();
     await page.getByRole('menuitem', { name: 'Mark used', exact: true }).click();
     await workspaceSaved;
+    const playNotes = page.locator('play-notes');
+    await playNotes.getByLabel('PlayNote Markdown', { exact: true }).fill('P8 illustrated outcome');
+    await playNotes
+      .getByLabel('Primary resource', { exact: true })
+      .selectOption(frozen.items[0].id);
+    await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(playNotes.getByLabel('PlayNote Markdown', { exact: true })).toHaveValue('');
+    await playNotes
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'History', exact: true })
+      .click();
+    await playNotes.getByRole('button', { name: 'Edit / pin note', exact: true }).click();
+    await playNotes.getByLabel('Pinned', { exact: true }).check();
+    await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await playNotes
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'History', exact: true })
+      .click();
+    await expect(playNotes.getByRole('region', { name: 'Pinned PlayNotes' })).toContainText(
+      'P8 illustrated outcome',
+    );
+    const originalNotes = await (
+      await request.get(`/api/campaigns/${campaign.id}/sessions/${session.id}/play-notes`)
+    ).json();
     const downloadingSession = page.waitForEvent('download');
     await page.getByRole('button', { name: 'More session actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Export session', exact: true }).click();
@@ -265,6 +289,14 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     ).json();
     expect(restored.items[0].image.hash).toBe(originalHash);
     expect(restored.items[0].notes).toBe('Frozen illustrated note');
+    const restoredNotes = await (
+      await request.get(`/api/campaigns/${destination.id}/sessions/${imported.id}/play-notes`)
+    ).json();
+    expect(restoredNotes.notes).toHaveLength(1);
+    expect(restoredNotes.notes[0].id).not.toBe(originalNotes.notes[0].id);
+    expect(restoredNotes.notes[0].markdown).toBe('P8 illustrated outcome');
+    expect(restoredNotes.notes[0].pinned).toBe(true);
+    expect(restoredNotes.notes[0].resource).toEqual(originalNotes.notes[0].resource);
     await page.getByRole('button', { name: 'Illustrated voyage', exact: true }).click();
     await page.goto(`/?campaign=${destination.id}&session=${imported.id}&mode=play&view=prepare`);
     await expect(page.getByRole('button', { name: 'Used cards (1)', exact: true })).toBeVisible();
@@ -273,9 +305,9 @@ test('local artwork saves, freezes in Play and survives portable session and Wri
     const restoredWorkspace = await (
       await request.get(`/api/campaigns/${destination.id}/sessions/${imported.id}/workspace`)
     ).json();
-    expect(restoredWorkspace.active).toEqual([]);
+    expect(restoredWorkspace.sessionCards).toEqual([]);
     expect(restoredWorkspace.used).toEqual([restored.items[0].id]);
-    expect(restoredWorkspace.focusedItemIds).toEqual([restored.items[0].id]);
+    expect(restoredWorkspace.pile1.items).toEqual([]);
     expect(restoredWorkspace.activeSceneItemId).toBeNull();
     expect(restored.items[0].id).not.toBe(frozen.items[0].id);
   } finally {

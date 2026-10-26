@@ -10,7 +10,7 @@ import java.util.UUID
 class PortableWritingService(private val recovery: RecoveryService, private val images: WritingImageStore,
     private val transfers: PortableTransfers, private val codec: RecoveryCodec, private val processor: ImageProcessor, private val tx: Transactions) {
     fun backup(campaign: UUID): Either<Failure, PortableDownload> = export(WritingImageOwner.Campaign(campaign)) { recovery.snapshot(campaign, illustrated = true) }
-    fun archive(workspace: UUID): Either<Failure, PortableDownload> = export(WritingImageOwner.Recovery(workspace)) { recovery.workspace(workspace).map { it.copy(version = 4) } }
+    fun archive(workspace: UUID): Either<Failure, PortableDownload> = export(WritingImageOwner.Recovery(workspace)) { recovery.workspace(workspace).map { it.copy(version = 6) } }
     private fun export(owner: WritingImageOwner, snapshot: () -> Either<Failure, WritingArchive>): Either<Failure, PortableDownload> = transfers.run { work -> either {
         tx.run { either {
             val archive = snapshot().bind()

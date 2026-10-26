@@ -129,7 +129,7 @@ class WritingRecoveryIntegrationTest : StringSpec({
         bad { it.withArray("approved").add(it.path("approved")[0]) }
         bad { it.withArray("exports").add(it.path("exports")[0]) }
         recovery.restore(original + "{}".toByteArray()).isLeft() shouldBe true
-        recovery.restore(String(original).replaceFirst("\"version\":3", "\"version\":3,\"version\":3").toByteArray()).isLeft() shouldBe true
+        recovery.restore(String(original).replaceFirst("\"version\":5", "\"version\":5,\"version\":5").toByteArray()).isLeft() shouldBe true
         recovery.restore(byteArrayOf(0xc3.toByte(), 0x28)).isLeft() shouldBe true
         recovery.restore(ByteArray(RECOVERY_BYTES + 1) { 32 }).isLeft() shouldBe true
         recovery.restore(codec.write(archive.copy(drafts = List(1001) { archive.drafts.first() }))).isLeft() shouldBe true

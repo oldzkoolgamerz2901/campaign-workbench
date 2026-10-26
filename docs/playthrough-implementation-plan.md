@@ -1,5 +1,9 @@
 # Playthroughs — implementation planning (2026-10-22)
 
+**Current delivery:** T1/T2 and P5–P8 are delivered and formally assessed; see [P8](verification.md#p8--integrated-developer-handover--2026-10-24) and [current architecture](implementation-plan.md). This document retains the original sequence and acceptance evolution. Older statements that P5/P6/P7 are future or incomplete apply at their recording date. Owner acceptance remains separate.
+
+**Later reconciliation (2026-10-24):** [Accepted tabletop architecture and proposed T1/T2 sequence](implementation-plan.md#play-tabletop--accepted-architecture-reconciliation--2026-10-24) replace conflicting future focus/placement expectations. Accepted ordering direction is T1 → T2 → P5 → revised P7 → P6 → P8; T1/T2 are accepted and have implementation handovers. The original P5–P8 text and sequence below retain historical context; apply the later reconciliation for future work, including the superseded P7 unprepared-P4R dependency. No execution permission follows from either record.
+
 **Status:** Revised increment plan accepted by the owner, 2026-10-22. Requirements and architecture gap closures are accepted. No implementation, database reset or formal verification is authorized by this document. Accepted domain decisions live in [Playthrough architecture](playthrough-domain-architecture.md); requirements live in [product specification](product-specification.md#play-workspace-discovery--accepted-owner-decisions--2026-10-22).
 
 ## Decisions and exclusions
@@ -80,6 +84,8 @@ The shared PlayingCard used 5:7 before P2G. P2G changes its outer ratio to **243
 
 ## P5 — PlayNotes, context safety and archives
 
+**Later delivery (2026-10-24):** Implemented and passed separate [formal verification](verification.md#p5--playnotes-context-safety-and-archives--2026-10-24) after T1/T2; see the [bounded plan and developer handover](implementation-plan.md#p5--bounded-implementation-plan--2026-10-24). V20 and strict session archive v10 include PlayNotes. Owner acceptance remains separate; the reconciled next increment is revised P7, subject to its own planning/authorization. The original scope below is retained for traceability.
+
 **Scope:** Playthrough note persistence/API/state/editor using existing Markdown editing/rendering patterns; current-session chronology and pinned presentation; public snapshot-based associations; portable coordinator/codec validation. Keep Preparation session/item notes unchanged.
 
 **Acceptance:** freeform notes, immutable creation chronology with stable ID tie-break, optional primary resource and captured scene/title, pinning without removing chronological entries. Own note revision prevents lost edits/pins. Create requests carry operation ID and expected active-scene item (including null); changed scene returns a context conflict retaining text, unrelated reorder does not block creation. Identical retries return one note; changed payload with same operation ID conflicts. Preserve originating UI campaign/session.
@@ -87,6 +93,8 @@ The shared PlayingCard used 5:7 before P2G. P2G changes its outer ratio to **243
 Test valid identity, untyped/duplicate metadata (title context without fabricated cross-session identity), sections, multiple copies and removed resources. Server captures snapshot evidence, not arbitrary client-supplied titles. Extend archives now for all note fields, revisions as restored-state policy requires, captured identities/titles/timestamps and fresh note/session/item IDs. Prevent imported retry IDs colliding with new creates. Test malformed references, rollback and existing byte limits; limit notes to 10,000 per session and 10,000 total per archive, in addition to the existing 2 MiB Markdown-field and 20 MiB total session-manifest limits. Validate counts before allocating records; reject excess without truncation. These are proposed operational bounds for owner review with this plan, not guarantees that maximum-sized records fit one archive.
 
 ## P6 — Cross-session resource and scene history
+
+**Delivery (2026-10-24):** Implemented ahead of revised P7 at the owner's request; see the [bounded P6 plan and developer handover](implementation-plan.md#p6--bounded-implementation-plan--2026-10-24). The separate [formal assessment](verification.md#p6--cross-session-resource-and-scene-history--2026-10-24) passes; owner acceptance remains separate. The original scope/acceptance below is retained for traceability.
 
 **Scope:** separate Playthrough primary-resource/scene query APIs, bounded pagination/indexes and card-history UI, reusing note records and current session navigation.
 

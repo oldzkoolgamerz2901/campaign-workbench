@@ -1,11 +1,11 @@
-import { addLibraryFixture } from './preparation-fixtures';
+import { historicalSourceItem, importHistoricalSession } from './preparation-fixtures';
 import { test, expect } from '@playwright/test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-test('portrait geometry retains dense content and keyboard reading in narrow containers', async ({
+test('portrait geometry retains dense text through external reading in narrow containers', async ({
   page,
   request,
 }, info) => {
@@ -18,7 +18,7 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
     for (const type of ['scene', 'npc', 'item']) {
       await writeFile(
         join(root, `${type}.md`),
-        `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${type === 'npc' ? title : `Geometry ${type}`}\n  type: ${type}\n  purpose: session\n  status: current\n  summary: ${'Every detail remains readable. '.repeat(30)}\n  tags: [${Array.from({ length: 30 }, (_, i) => `detail-${i}`).join(', ')}]\n---\n# Full ${type}\nComplete geometry fixture document.`,
+        `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${type === 'npc' ? title : `Geometry ${type}`}\n  type: ${type}\n  purpose: session\n  status: current\n  summary: ${'Every detail remains readable. '.repeat(30)}\n  backText: ${'Historical secret. '.repeat(700)}\n  tags: [${Array.from({ length: 30 }, (_, i) => `detail-${i}`).join(', ')}]\n---\n# Full ${type}\nComplete geometry fixture document.`,
       );
     }
     const campaign = await (
@@ -32,21 +32,19 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
         data: { title: 'Geometry session', objective: '' },
       })
     ).json();
-    const endpoint = `/api/campaigns/${campaign.id}/sessions/${session.id}`;
+    const items = [];
     for (const type of ['scene', 'npc', 'item']) {
-      session = await (
-        await addLibraryFixture(request, `${endpoint}`, {
-          data: {
-            revision: session.revision,
-            capture: capture.capture,
-            path: `${type}.md`,
-            section: null,
-          },
-        })
-      ).json();
+      items.push(
+        await historicalSourceItem(request, campaign.id, {
+          capture: capture.capture,
+          path: `${type}.md`,
+          section: null,
+        }),
+      );
     }
+    session = await importHistoricalSession(request, campaign.id, session, items);
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare&mode=play`);
-    const cards = page.locator('read-card-table .shelf playing-card article');
+    const cards = page.locator('play-tabletop .shelf playing-card article');
     await expect(cards).toHaveCount(3);
     for (const width of [1440, 1280, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
@@ -55,12 +53,16 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
         expect(box.width / box.height).toBeCloseTo(243 / 420, 2);
         expect(box.width).toBeLessThanOrEqual(320);
         if (width >= 1280) expect(box.width).toBe(320);
-        const summary = card.getByLabel('Card summary and tags', { exact: true });
-        await summary.focus();
-        await expect(summary).toBeFocused();
-        expect(await summary.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
-        await summary.press('End');
-        await expect.poll(() => summary.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+        await expect(card.getByRole('button', { name: 'Read all front text' })).toBeVisible();
+        expect(
+          await card.evaluate((el) =>
+            [...el.querySelectorAll('*')].some(
+              (child) =>
+                ['auto', 'scroll'].includes(getComputedStyle(child).overflowY) &&
+                child.scrollHeight > child.clientHeight,
+            ),
+          ),
+        ).toBe(false);
         const action = card.getByRole('button', { name: 'Open full document' });
         // Keyboard scrolling can still be animating; compare both rectangles in one frame.
         expect(
@@ -71,11 +73,18 @@ test('portrait geometry retains dense content and keyboard reading in narrow con
         ).toBe(true);
         await expect(card.locator('img')).toHaveAttribute('src', '/card-placeholder.svg');
       }
-      const heading = cards.nth(1).getByRole('heading', { level: 3 });
-      await heading.focus();
-      await heading.press('End');
-      await expect.poll(() => heading.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
-      await expect(heading).toHaveText(title);
+      await cards.nth(1).getByRole('button', { name: 'Read all front text' }).click();
+      const reader = page.getByRole('dialog', { name: 'Complete card side text' });
+      await expect(reader.getByRole('heading')).toHaveText(title);
+      await expect(reader.getByRole('listitem')).toHaveCount(30);
+      await reader.getByRole('button', { name: 'Close card text' }).click();
+      await cards.nth(1).getByRole('button', { name: 'Flip to back' }).click();
+      await cards.nth(1).getByRole('button', { name: 'Read all back text' }).click();
+      await expect(reader).toContainText('Historical secret. '.repeat(700).trim());
+      await reader.getByRole('button', { name: 'Close card text' }).click();
+      await cards.nth(1).getByRole('button', { name: 'Flip to front' }).click();
+      await expect(cards.nth(1)).toHaveAttribute('data-side', 'front');
+
       await page.screenshot({ path: info.outputPath(`dense-play-${width}.png`), fullPage: true });
     }
     await cards.nth(2).getByRole('button', { name: 'Open full document' }).press('Enter');

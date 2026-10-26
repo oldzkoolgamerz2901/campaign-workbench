@@ -18,27 +18,59 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         require(bytes.size <= MAX_ARCHIVE)
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
-        fields(tree, "version", "sessions", "workspaces")
+        fields(tree, "version", "sessions", "workspaces", "notes")
+        integer(tree.path("version")); require(tree.path("version").intValue() in 10..11)
+        val notes = tree.path("notes")
+        require(notes.isArray && notes.size() <= 10000)
+        val counts = mutableMapOf<String, Int>()
+        for (note in notes) {
+            fields(note, "id", "campaign", "session", "revision", "markdown", "scene", "resource", "createdAt", "updatedAt", "pinned")
+            listOf("id", "campaign", "session").forEach { uuid(note.path(it)) }
+            val session = note.path("session").asString()
+            counts[session] = (counts[session] ?: 0) + 1
+            require(counts.getValue(session) <= 10000)
+            val revision = note.path("revision")
+            require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
+            strings(note, "markdown", "createdAt", "updatedAt")
+            require(note.path("markdown").asString().isNotBlank() && note.path("pinned").isBoolean)
+            val created = java.time.Instant.parse(note.path("createdAt").asString())
+            require(java.time.Instant.parse(note.path("updatedAt").asString()) >= created)
+            for (name in listOf("scene", "resource")) {
+                val context = note.path(name)
+                if (!context.isNull) {
+                    fields(context, "reference", "title"); string(context.path("title"))
+                    require(context.path("title").asString().isNotBlank())
+                    val reference = context.path("reference")
+                    if (!reference.isNull) {
+                        fields(reference, "campaign", "card"); uuid(reference.path("campaign")); uuid(reference.path("card"))
+                    }
+                }
+            }
+        }
         val records = tree.path("workspaces")
         require(records.isArray && records.size() <= 100)
         for (record in records) {
             fields(record, "session", "workspace"); uuid(record.path("session"))
             val workspace = record.path("workspace")
             if (!workspace.isNull) {
-                fields(workspace, "session", "revision", "active", "used", "activeSceneItemId", "focusedItemIds")
+                fields(workspace, "session", "revision", "sessionCards", "used", "activeSceneItemId", "pile1", "pile2")
                 uuid(workspace.path("session"))
                 val revision = workspace.path("revision")
                 require(revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0)
                 if (!workspace.path("activeSceneItemId").isNull) uuid(workspace.path("activeSceneItemId"))
-                require(workspace.path("focusedItemIds").isArray && workspace.path("focusedItemIds").size() <= 3)
-                for (name in listOf("active", "used", "focusedItemIds")) {
-                    val ids = workspace.path(name)
-                    require(ids.isArray && ids.size() <= 1000); ids.forEach(::uuid)
+                for (name in listOf("sessionCards", "used")) ids(workspace.path(name))
+                for (name in listOf("pile1", "pile2")) {
+                    val pile = workspace.path(name)
+                    fields(pile, "name", "items", "cover")
+                    val title = pile.path("name")
+                    require(title.isNull || (title.isString && title.asString().isNotBlank() && title.asString().length <= 200))
+                    ids(pile.path("items"))
+                    if (!pile.path("cover").isNull) uuid(pile.path("cover"))
                 }
             }
         }
         val contents = tree.deepCopy() as tools.jackson.databind.node.ObjectNode
-        contents.remove("workspaces")
+        contents.remove("workspaces"); contents.remove("notes")
         read(mapper.writeValueAsBytes(contents)).map {
             mapper.treeToValue(tree, workbench.sessionarchives.api.SessionTransfer::class.java)
         }
@@ -62,7 +94,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version == 8)
+        require(version in 10..11)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
@@ -106,7 +138,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
                 }
                 strings(p, "path", "documentHash", "contentHash")
                 nullableString(p.path("section"))
-                if (!item.path("capturedSource").isNull) captured(item.path("capturedSource"))
+                if (!item.path("capturedSource").isNull) captured(item.path("capturedSource"), version)
             }
         }
         Either.Right(mapper.treeToValue(tree, Archive::class.java))
@@ -129,10 +161,10 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             require(revision.isNull || (revision.isIntegralNumber && revision.canConvertToLong() && revision.longValue() >= 0))
         }
     }
-    private fun captured(node: JsonNode) {
+    private fun captured(node: JsonNode, version: Int) {
         fields(node, "interpretation", "bodyStart", "classification", "relationships")
         integer(node.path("interpretation")); integer(node.path("bodyStart"))
-        classification(node.path("classification"))
+        classification(node.path("classification"), version)
         require(node.path("relationships").isArray)
         for (r in node.path("relationships")) {
             fields(r, "key", "originSection", "destination", "target", "classification", "sceneCandidate")
@@ -142,14 +174,15 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             fields(target, "document", "section", "external", "missing")
             listOf("document", "section", "external").forEach { nullableString(target.path(it)) }
             require(target.path("missing").isBoolean)
-            if (!r.path("classification").isNull) classification(r.path("classification"))
+            if (!r.path("classification").isNull) classification(r.path("classification"), version)
         }
     }
-    private fun classification(node: JsonNode) {
+    private fun classification(node: JsonNode, version: Int) {
         fields(node, "metadata", "issues")
         val metadata = node.path("metadata")
         if (!metadata.isNull) {
-            fields(metadata, "schema", "id", "title", "type", "purpose", "status", "tags", "summary")
+            fields(metadata, *(arrayOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary") + if (version == 11) arrayOf("backText") else emptyArray()))
+            if (version == 11) string(metadata.path("backText"))
             integer(metadata.path("schema")); uuid(metadata.path("id"))
             strings(metadata, "title", "type", "purpose", "status"); nullableString(metadata.path("summary"))
             val tags = metadata.path("tags")
@@ -162,6 +195,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             strings(issue, "code", "message", "severity"); nullableString(issue.path("field"))
         }
     }
+    private fun ids(node: JsonNode) { require(node.isArray && node.size() <= 1000); node.forEach(::uuid) }
     private fun fields(node: JsonNode, vararg names: String) { require(node.isObject && node.properties().map { it.key }.toSet() == names.toSet()) }
     private fun integer(node: JsonNode) { require(node.isIntegralNumber && node.canConvertToInt()) }
     private fun string(node: JsonNode) { require(node.isString && node.asString().toByteArray(Charsets.UTF_8).size <= MAX_TEXT) }

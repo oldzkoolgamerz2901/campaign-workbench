@@ -24,18 +24,36 @@ class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
         require(tree.path("approved").isArray && tree.path("exports").isArray && tree.path("approved").size() + tree.path("exports").size() <= 10000)
         require(tree.path("associations").isArray && tree.path("associations").size() <= 10000 &&
             tree.path("approved").size() + tree.path("exports").size() + tree.path("associations").size() <= 10000)
+        val incomingVersion = tree.path("version")
+        require(incomingVersion.isIntegralNumber && incomingVersion.canConvertToInt() && incomingVersion.intValue() in setOf(version, version + 2))
+        if (incomingVersion.intValue() == version) {
+            val snapshots = mutableListOf<JsonNode>()
+            tree.path("drafts").forEach { snapshots.add(it) }
+            tree.path("approved").forEach { snapshots.add(it.path("snapshot")) }
+            tree.path("exports").forEach { snapshots.add(it.path("snapshot")) }
+            for (snapshot in snapshots) {
+                require(snapshot.isObject && snapshot.path("fields").isObject && !snapshot.has("encoding") && !snapshot.path("fields").has("backText"))
+                (snapshot as tools.jackson.databind.node.ObjectNode).put("encoding", 1)
+                (snapshot.path("fields") as tools.jackson.databind.node.ObjectNode).put("backText", "")
+            }
+        }
         val archive = mapper.treeToValue(tree, WritingArchive::class.java)
-        require(archive.version == version)
+        require(archive.version in setOf(version, version + 2))
         if (version == 3) require((archive.drafts + archive.approved.map { it.snapshot } + archive.exports.map { it.snapshot }).all { it.image == null })
         // Round-trip shape comparison rejects unknown/missing fields, scalar coercions, noncanonical UUIDs
         // and nulls supplied for primitive fields; never accepts an entity's incidental schema.
-        fun same(a: JsonNode, b: JsonNode): Boolean = when {
-            a.isObject && b.isObject -> a.properties().map { it.key }.toSet() == b.properties().map { it.key }.toSet() && a.properties().all { same(it.value, b.path(it.key)) }
-            a.isArray && b.isArray -> a.size() == b.size() && (0 until a.size()).all { same(a[it], b[it]) }
-            a.isIntegralNumber && b.isIntegralNumber -> a.asString() == b.asString()
-            else -> a == b
+        val mismatches = mutableListOf<String>()
+        fun same(a: JsonNode, b: JsonNode, path: String = "archive"): Boolean {
+            val valid = when {
+                a.isObject && b.isObject -> a.properties().map { it.key }.toSet() == b.properties().map { it.key }.toSet() && a.properties().all { same(it.value, b.path(it.key), "$path.${it.key}") }
+                a.isArray && b.isArray -> a.size() == b.size() && (0 until a.size()).all { same(a[it], b[it], "$path[$it]") }
+                a.isIntegralNumber && b.isIntegralNumber -> a.asString() == b.asString()
+                else -> a == b
+            }
+            if (!valid && mismatches.size < 3) mismatches += if (a.isObject && b.isObject) "$path (${a.properties().map { it.key }} vs ${b.properties().map { it.key }})" else path
+            return valid
         }
-        require(same(tree, mapper.valueToTree(archive)))
+        require(same(tree, mapper.valueToTree(archive))) { "Archive shape mismatch at ${mismatches.joinToString()}" }
         return archive
     }
     override fun write(archive: WritingArchive): ByteArray {

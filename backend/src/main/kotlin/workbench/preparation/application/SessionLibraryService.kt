@@ -32,6 +32,7 @@ class SessionLibraryService(private val campaigns: Campaigns, private val librar
                 PreparedCardMatch(item.id, newer(item, entry), newer(item, entry) && entry.ready && sameType(item, entry))
             }
             SessionLibraryEntry(entry, when {
+                found.isNotEmpty() && found.none { it.updateAvailable } -> SessionCardState.ALREADY_PREPARED
                 !entry.ready -> SessionCardState.BLOCKED
                 found.any { it.updateAvailable } -> SessionCardState.UPDATE_AVAILABLE
                 found.isNotEmpty() -> SessionCardState.ALREADY_PREPARED
@@ -52,7 +53,7 @@ class SessionLibraryService(private val campaigns: Campaigns, private val librar
         ensure(entry.draft == request.draft && entry.revision == request.draftRevision) {
             Failure.Conflict("writing.stale-revision", "Draft identity or saved revision changed. Reload the catalogue before preparing this card.")
         }
-        ensure(entry.ready) { invalid("Complete valid session metadata in Write before preparing this card.") }
+        ensure(entry.ready) { invalid(if (entry.fitIssues.isNotEmpty()) "Card text does not fit. Shorten the front title, summary or tags, or the back text in Write." else "Complete valid session metadata in Write before preparing this card.") }
     }
     private fun revision(session: SessionData, expected: Long): Either<Failure, Unit> = either {
         ensure(session.revision == expected) { Failure.Conflict("preparation.stale-revision", "Session changed. Reload explicitly before changing membership or replacing content.") }
@@ -81,12 +82,17 @@ class SessionLibraryService(private val campaigns: Campaigns, private val librar
         val session = preparation.open(campaign, id).bind()
         revision(session, request.revision).bind()
         val entry = selected(campaign, request).bind()
-        exact(entry, request).bind()
         val before = ensureNotNull(matches(campaign, session, entry).find { it.id == item }) { invalid("Choose a whole prepared card with the same origin identity.") }
         ensure(sameType(before, entry)) { invalid("Card type changed. In-place replacement requires the same valid card type.") }
         val draft = ensureNotNull(entry.draft) { invalid("Save an editable Draft in Write before replacing this prepared version.") }
         // No approval churn or session revision change when already at this exact saved version.
-        if (!newer(before, entry)) return@either session
+        if (!newer(before, entry)) {
+            ensure(entry.draft == request.draft && entry.revision == request.draftRevision) {
+                Failure.Conflict("writing.stale-revision", "Draft identity or saved revision changed. Reload the catalogue before preparing this card.")
+            }
+            return@either session
+        }
+        exact(entry, request).bind()
         preparation.replaceDraft(campaign, id, item, AddDraft(request.revision, draft, request.draftRevision!!)).bind()
     } }
 }

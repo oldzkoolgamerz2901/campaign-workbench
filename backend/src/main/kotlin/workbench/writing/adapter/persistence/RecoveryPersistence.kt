@@ -16,7 +16,7 @@ class JdbcRecoverySource(private val jdbc: JdbcTemplate, private val mapper: Obj
         fun count(table: String) = jdbc.queryForObject("SELECT count(*) FROM writing.$table WHERE campaign = ?", Long::class.java, campaign)!!
         fun bytes(table: String, expression: String) = jdbc.queryForObject("SELECT coalesce(sum($expression),0) FROM writing.$table WHERE campaign = ?", Long::class.java, campaign)!!
         return RecoverySize(count("draft"), count("approved_revision") + count("export_artifact") + count("source_association"),
-            bytes("draft", "octet_length(title)+octet_length(type)+octet_length(status)+octet_length(tags)+octet_length(summary)+octet_length(body)+octet_length(path)+coalesce(octet_length(origin),0)+coalesce(octet_length(recovery),0)") +
+            bytes("draft", "octet_length(title)+octet_length(type)+octet_length(status)+octet_length(tags)+octet_length(summary)+octet_length(back_text)+octet_length(body)+octet_length(path)+coalesce(octet_length(origin),0)+coalesce(octet_length(recovery),0)") +
             bytes("approved_revision", "octet_length((payload::jsonb - 'preview')::text)") + bytes("export_artifact", "octet_length(payload)") + bytes("source_association", "octet_length(path)+256"))
     }
     override fun approved(campaign: UUID) = jdbc.query("SELECT (payload::jsonb - 'preview')::text FROM writing.approved_revision WHERE campaign = ? ORDER BY draft, revision", { r, _ -> mapper.readValue(r.getString(1), RecoveryApproval::class.java) }, campaign)

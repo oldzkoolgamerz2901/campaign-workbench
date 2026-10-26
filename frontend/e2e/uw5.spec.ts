@@ -38,14 +38,12 @@ async function fixture(request: APIRequestContext) {
   const endpoint = `${base}/sessions/${session.id}`;
   const ids = session.items.map((i: { id: string }) => i.id) as string[];
   const workspace = await (await request.get(`${endpoint}/workspace`)).json();
-  await request.put(`${endpoint}/workspace`, {
-    data: {
-      ...workspace,
-      used: [ids[2]],
-      active: [ids[0], ids[1], ids[3]],
-      focusedItemIds: [ids[0], ids[2]],
-      activeSceneItemId: ids[0],
-    },
+  await request.post(`${endpoint}/workspace/scene`, {
+    data: { revision: workspace.revision, preparationRevision: session.revision, scene: ids[0] },
+  });
+  const active = await (await request.get(`${endpoint}/workspace`)).json();
+  await request.post(`${endpoint}/workspace/move`, {
+    data: { revision: active.revision, item: ids[2], destination: 'PILE_1' },
   });
   return {
     root,
@@ -203,8 +201,13 @@ test('Scene planning shares prepared targets, preserves notes scope and leaves r
       .getByRole('navigation', { name: 'Workspace mode' })
       .getByRole('button', { name: 'Play', exact: true })
       .click();
-    await expect(page.locator('play-relationship-suggestions')).toContainText('Reference NPC');
-    await expect(page.locator('play-relationship-suggestions')).toContainText('Reference Relic');
+    await page.getByRole('button', { name: 'Related cards', exact: true }).click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Customize placements', exact: true })
+      .click();
+    await expect(page.getByRole('dialog')).toContainText('Reference NPC');
+    await expect(page.getByRole('dialog')).toContainText('Reference Relic');
   } finally {
     await rm(f.root, { recursive: true, force: true });
   }
@@ -291,7 +294,7 @@ test('explicit replacement preserves identities/runtime and linked removal confi
     expect(saved.items).toHaveLength(3);
     expect((await request.get(`${f.base}/drafts/${draftId}`)).ok()).toBe(true);
     const reconciled = await (await request.get(`${f.endpoint}/workspace`)).json();
-    expect(reconciled.focusedItemIds).toEqual([f.ids[0]]);
+    expect(reconciled.pile1.items).toEqual([]);
     expect(reconciled.activeSceneItemId).toBe(f.ids[0]);
   } finally {
     await rm(f.root, { recursive: true, force: true });

@@ -112,10 +112,14 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect(page.locator('.source-page')).toContainText('Protect the crew.');
     await page.screenshot({ path: info.outputPath('authored-session-card.png') });
+    await page
+      .getByRole('navigation', { name: 'Play supporting panel' })
+      .getByRole('button', { name: 'Document', exact: true })
+      .click();
     await page.locator('.source-page').getByRole('link', { name: 'Scene', exact: true }).click();
     await expect(page.locator('.source-page')).toContainText('outside captured material');
     await page
-      .locator('read-card-table')
+      .locator('play-tabletop')
       .getByRole('article', { name: 'Read: scene.md', exact: true })
       .first()
       .click();
@@ -125,7 +129,7 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(8);
+    expect(archive.version).toBe(11);
     const imported = await (
       await request.post(`/api/campaigns/${destination.id}/sessions/import`, { data: archive })
     ).json();
@@ -133,12 +137,23 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
       `/?campaign=${destination.id}&session=${imported.sessions[0].id}&view=prepare&mode=read`,
     );
     await page
-      .locator('read-card-table')
+      .locator('play-tabletop')
       .getByRole('article', { name: 'Read: Captain Mira', exact: true })
       .click();
     await expect(page.locator('.source-page')).toContainText('A watchful captain.');
     await expect(page.locator('.source-page')).toContainText('Protect the crew.');
-    await expect(page.getByLabel('Working notes')).toContainText('Session-specific secret.');
+    await page
+      .getByRole('navigation', { name: 'Play supporting panel', exact: true })
+      .getByRole('button', { name: 'Notes', exact: true })
+      .click();
+    await page
+      .locator('play-notes')
+      .getByRole('navigation', { name: 'Notes views' })
+      .getByRole('button', { name: 'Preparation', exact: true })
+      .click();
+    await expect(
+      page.getByRole('region', { name: 'Preparation references', exact: true }),
+    ).toContainText('Session-specific secret.');
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(other, { recursive: true, force: true });

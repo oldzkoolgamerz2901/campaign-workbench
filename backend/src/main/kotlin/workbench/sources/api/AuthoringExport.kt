@@ -13,7 +13,7 @@ data class DecodedAuthoring(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val summary: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val issues: List<String>,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val errors: List<String>,
-    val card: UUID? = null
+    val card: UUID? = null, val backText: String = ""
 )
 data class EncodedAuthoring(val markdown: String, val preview: AuthoredPreview, val errors: List<String>)
 data class AuthoredTarget(val id: UUID, val revision: Long, val path: String, val body: String)

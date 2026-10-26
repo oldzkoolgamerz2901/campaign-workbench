@@ -5,7 +5,7 @@ import java.util.UUID
 
 data class CapturedCardData(
     val schema: Int, val id: UUID, val title: String, val type: String, val purpose: String, val status: String,
-    val tags: List<String>, @field:Schema(nullable = true) val summary: String?
+    val tags: List<String>, @field:Schema(nullable = true) val summary: String?, val backText: String = ""
 )
 data class CapturedIssueData(val code: String, @field:Schema(nullable = true) val field: String?, val message: String, val severity: String)
 data class CapturedClassificationData(@field:Schema(nullable = true) val metadata: CapturedCardData?, val issues: List<CapturedIssueData>)

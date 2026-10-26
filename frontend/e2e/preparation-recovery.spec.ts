@@ -41,7 +41,7 @@ for (const action of ['retry', 'reload'] as const) {
       expect(added.ok(), await added.text()).toBe(true);
       const url = `/?campaign=${campaign.id}&session=${created.id}&view=prepare`;
       const card = page
-        .locator('read-card-table')
+        .locator('play-tabletop')
         .getByRole('article', { name: 'Read: scene.md', exact: true });
       await page.goto(url + (action === 'reload' ? '&mode=play' : ''));
       if (action === 'reload') {
@@ -80,11 +80,11 @@ for (const action of ['retry', 'reload'] as const) {
       await expect(page.getByLabel('Session save status')).toHaveText('Saved');
       await expect(card).not.toHaveAttribute('aria-disabled', 'true');
       await page
-        .locator('read-card-table')
+        .locator('play-tabletop')
         .getByRole('button', { name: 'Card actions: scene.md', exact: true })
         .click();
       await page.getByRole('menuitem', { name: 'Mark used', exact: true }).click();
-      await expect(page.getByRole('button', { name: 'Used cards (1)', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Used cards (0)', exact: true })).toBeVisible();
       await expect(page.getByLabel('Session save status')).toHaveText('Saved');
       const saved = await (await request.get(endpoint)).json();
       expect(saved.notes).toBe(action === 'retry' ? 'Retained local recovery notes' : '');
@@ -142,12 +142,12 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
         })
       ).json();
       await page.goto(`/?campaign=${campaign.id}&session=${origin.id}&mode=play&view=prepare`);
-      const table = page.locator('read-card-table');
+      const table = page.locator('play-tabletop');
       await expect(
         table.getByRole('article', { name: 'Read: scene.md', exact: true }),
       ).toBeVisible();
-      await page.route(`**${endpoint}/workspace`, (route) =>
-        route.request().method() === 'PUT'
+      await page.route(`**${endpoint}/workspace/move`, (route) =>
+        route.request().method() === 'POST'
           ? route.fulfill({
               status: 409,
               contentType: 'application/problem+json',
@@ -158,7 +158,7 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
       await table.getByRole('button', { name: 'Card actions: scene.md', exact: true }).click();
       await page.getByRole('menuitem', { name: 'Mark used', exact: true }).click();
       await expect(
-        page.getByRole('button', { name: 'Retry table save', exact: true }),
+        page.getByRole('button', { name: 'Review / retry table action', exact: true }),
       ).toBeVisible();
       await page.getByRole('button', { name: 'Prepare', exact: true }).click();
       await page.route(`**${endpoint}`, (route) =>
@@ -215,19 +215,19 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
       });
       await leave();
       await expect.poll(() => dialogs.length).toBe(1);
-      expect(dialogs[0]).toContain('Table changes have not been saved');
+      expect(dialogs[0]).toContain('Table actions have not been confirmed saved');
       await expect(page).toHaveURL(new RegExp(`session=${origin.id}`));
       await expect(
-        page.getByRole('button', { name: 'Retry table save', exact: true }),
+        page.getByRole('button', { name: 'Review / retry table action', exact: true }),
       ).toBeVisible();
       if (destination === 'cancel') {
         releaseReload();
         await expect.poll(() => reloadDelivered).toBe(true);
         await expect(
-          table.getByRole('button', { name: 'Used cards (1)', exact: true }),
+          table.getByRole('button', { name: 'Used cards (0)', exact: true }),
         ).toBeVisible();
         await expect(
-          page.getByRole('button', { name: 'Retry table save', exact: true }),
+          page.getByRole('button', { name: 'Review / retry table action', exact: true }),
         ).toBeVisible();
         await expect(page).toHaveURL(new RegExp(`session=${origin.id}`));
         expect((await (await request.get(`${endpoint}/workspace`)).json()).used).toEqual([]);
@@ -240,7 +240,7 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
       });
       await leave();
       await expect.poll(() => dialogs.length).toBe(2);
-      expect(dialogs[1]).toContain('Table changes have not been saved');
+      expect(dialogs[1]).toContain('Table actions have not been confirmed saved');
       await expect(page).toHaveURL(
         new RegExp(
           destination === 'session' ? `session=${other.id}` : `campaign=${otherCampaign.id}`,
@@ -259,9 +259,9 @@ for (const destination of ['session', 'campaign', 'cancel'] as const) {
         page.getByRole('heading', { name: 'Reload destination', exact: true }),
       ).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`session=${other.id}`));
-      await expect(page.getByRole('button', { name: 'Retry table save', exact: true })).toHaveCount(
-        0,
-      );
+      await expect(
+        page.getByRole('button', { name: 'Review / retry table action', exact: true }),
+      ).toHaveCount(0);
       expect((await (await request.get(`${endpoint}/workspace`)).json()).used).toEqual([]);
       expect((await (await request.get(endpoint)).json()).notes).toBe('');
     } finally {

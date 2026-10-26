@@ -47,11 +47,11 @@ flowchart LR
 
 ### Play
 
-**Reviewed tabletop UX extension (2026-10-23):** [Play tabletop — reviewed UX design](play-tabletop-ux-design.md) records the owner-confirmed reserved Scene slot, two unique-location runtime piles, Scene activation/transition overview, drag-and-drop, pile overlay, and switchable Notes/Document panel using the existing Notes space. This supersedes the former three-individual-focus-card *future presentation* and requires separate architecture reconciliation and browser verification. It does not claim the redesign is implemented.
+**T2 tabletop handover (2026-10-24):** The [reviewed tabletop UX](play-tabletop-ux-design.md), [accepted requirements reconciliation](product-specification.md#play-tabletop--accepted-requirements-reconciliation--2026-10-24) and [accepted architecture](implementation-plan.md#play-tabletop--accepted-architecture-reconciliation--2026-10-24) supersede the former three-individual-focus-card presentation. T1/T2 have implementation handovers; see [T2 developer evidence and limits](implementation-plan.md#t2--implementation-and-developer-handover--2026-10-24). The [separate T2 assessment](verification.md#t2--integrated-tabletop-ui-and-runtime-save-lifecycle--2026-10-24) passes within scope; owner acceptance remains distinct.
 
-- Retain approved Play UI/ownership: explicit active Scene, Active/Used, up to three focus slots, existing full reader, notes and historical identities.
-- Contextual **Related cards** for the active Scene come **only from session-specific Preparation Scene→PreparedItem associations**, in Preparation order. Do not derive from authored Markdown links. P4R existing implemented resolver is superseded *as future behavior* and requires architecture/plan review; do not assume it was already replaced.
-- Prepared card identity and resource history remain distinct. Inspection alone never adds a card, assigns focus, or changes the active Scene; temporary previews are reversible.
+- Play owns one reserved active Scene slot, two ordered runtime piles, disjoint Session Cards/Used and the existing right-hand space switched between Notes and Document. Preserve the shared card renderer, frozen Markdown reader/artwork and historical identities. PlayNotes capture/history remains future P5 work; current Preparation note references remain distinct and read-only in Play.
+- Contextual related cards come only from Preparation-owned same-session Scene associations, in Preparation order. UW3 already replaced authored-link suggestions; T2 exposes those endpoints in the Scene overview for explicit placement choices. Ordinary Markdown links retain frozen reader navigation and do not author Scene relationships.
+- Read/inspection never adds material, changes placement or activates a Scene. Cover cycling does not change the inspected document. Activate/Change Scene and customized movements commit atomically; pile overlays remain separate from the Notes/Document panel.
 
 ## Whole-card duplicate scope, sections and history
 

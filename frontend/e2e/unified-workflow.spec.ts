@@ -42,7 +42,7 @@ async function mode(page: Page, name: string) {
 }
 async function tableAction(page: Page, title: string, name: string) {
   await page
-    .locator('read-card-table')
+    .locator('play-tabletop')
     .getByRole('article', { name: `Read: ${title}`, exact: true })
     .getByRole('button', { name: `Card actions: ${title}`, exact: true })
     .click();
@@ -112,15 +112,11 @@ test('research, author, prepare, plan, play and update preserve the same session
       prepared.getByRole('button', { name: 'Unlink: Harbour keeper', exact: true }),
     ).toBeVisible();
     await mode(page, 'Play');
-    await tableAction(page, 'Harbour arrival', 'Focus card');
-    await page
-      .getByRole('button', { name: 'Activate scene: Harbour arrival', exact: true })
-      .press('Enter');
-    await expect(page.getByLabel('Session save status')).toHaveText('Saved');
-    const related = page.getByRole('region', { name: 'Related cards', exact: true });
-    await expect(related).toContainText('Harbour keeper');
-    await related.getByRole('button', { name: 'Focus: Harbour keeper', exact: true }).click();
-    await expect(page.getByLabel('Session save status')).toHaveText('Saved');
+    await tableAction(page, 'Harbour arrival', 'Activate Scene');
+    const sceneDialog = page.getByRole('dialog', { name: 'Activate / Change Scene' });
+    await sceneDialog.getByRole('button', { name: 'Customize placements', exact: true }).click();
+    await expect(sceneDialog).toContainText('Harbour keeper');
+    await sceneDialog.getByRole('button', { name: 'Keep current piles', exact: true }).click();
     await tableAction(page, 'Harbour keeper', 'Mark used');
     let frozen = await (await request.get(f.endpoint)).json();
     const scene = frozen.items.find((i: { title: string }) => i.title === 'Harbour arrival');
@@ -131,7 +127,7 @@ test('research, author, prepare, plan, play and update preserve the same session
       .toEqual([keeper.id]);
     let runtime = await (await request.get(`${f.endpoint}/workspace`)).json();
     expect(runtime.activeSceneItemId).toBe(scene.id);
-    expect(runtime.focusedItemIds).toEqual([scene.id, keeper.id]);
+    expect(runtime.sessionCards).toEqual([]);
     expect(runtime.used).toEqual([keeper.id]);
 
     await mode(page, 'Library');
@@ -142,10 +138,10 @@ test('research, author, prepare, plan, play and update preserve the same session
     await expect(reader.getByText('Already in session', { exact: true })).toBeVisible();
     frozen = await (await request.get(f.endpoint)).json();
     const afterAdd = await (await request.get(`${f.endpoint}/workspace`)).json();
-    expect(afterAdd.focusedItemIds).toEqual(runtime.focusedItemIds);
+    expect(afterAdd.pile1).toEqual(runtime.pile1);
     expect(afterAdd.activeSceneItemId).toBe(runtime.activeSceneItemId);
     expect(afterAdd.used).toEqual(runtime.used);
-    expect(afterAdd.active[0]).toBe(frozen.items[2].id);
+    expect(afterAdd.sessionCards[0]).toBe(frozen.items[2].id);
     runtime = afterAdd;
     await page.getByRole('button', { name: 'Harbour keeper npc', exact: false }).click();
     await reader.getByRole('button', { name: 'Edit in Write', exact: true }).click();
@@ -165,10 +161,26 @@ test('research, author, prepare, plan, play and update preserve the same session
     expect(updated.sceneLinks).toEqual(frozen.sceneLinks);
     expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(runtime);
     await mode(page, 'Play');
-    await expect(page.getByRole('region', { name: 'Related cards', exact: true })).toContainText(
-      'Used',
-    );
+    await page.getByRole('button', { name: 'Related cards', exact: true }).click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Customize placements', exact: true })
+      .click();
+    await expect(page.getByRole('dialog')).toContainText('Harbour keeper');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
 
+    await page
+      .getByRole('navigation', { name: 'Play supporting panel' })
+      .getByRole('button', { name: 'Notes', exact: true })
+      .click();
+    const playNotes = page.locator('play-notes');
+    await playNotes.getByLabel('PlayNote Markdown', { exact: true }).fill('P8 keeper outcome');
+    await playNotes.getByLabel('Primary resource', { exact: true }).selectOption(keeper.id);
+    await playNotes.getByRole('button', { name: 'Save PlayNote', exact: true }).click();
+    await expect(playNotes.getByLabel('PlayNote Markdown', { exact: true })).toHaveValue('');
+    const originalNotes = await (await request.get(`${f.endpoint}/play-notes`)).json();
+    expect(originalNotes.notes[0].scene.title).toBe('Harbour arrival');
+    expect(originalNotes.notes[0].resource.title).toBe('Harbour keeper');
     const archive = await request.post(`${f.base}/sessions/portable-export`, {
       data: { sessions: [f.session.id] },
     });
@@ -179,20 +191,38 @@ test('research, author, prepare, plan, play and update preserve the same session
     });
     expect(importedResponse.ok(), await importedResponse.text()).toBe(true);
     const imported = (await importedResponse.json()).sessions[0];
+    const restoredNotes = await (
+      await request.get(`${f.base}/sessions/${imported.id}/play-notes`)
+    ).json();
+    expect(restoredNotes.notes).toHaveLength(1);
+    expect(restoredNotes.notes[0].id).not.toBe(originalNotes.notes[0].id);
+    expect(restoredNotes.notes[0].markdown).toBe('P8 keeper outcome');
+    expect(restoredNotes.notes[0].scene).toEqual(originalNotes.notes[0].scene);
+    expect(restoredNotes.notes[0].resource).toEqual(originalNotes.notes[0].resource);
     await page.goto(`/?campaign=${f.campaign.id}&session=${imported.id}&mode=play&view=prepare`);
-    await expect(page.locator('play-tabletop')).toContainText('Active scene: Harbour arrival');
-    await expect(page.getByRole('region', { name: 'Related cards', exact: true })).toContainText(
-      'Used',
+    await expect(page.getByRole('region', { name: 'Active Scene', exact: true })).toContainText(
+      'Harbour arrival',
     );
-    await page.getByRole('button', { name: 'Expand: Harbour keeper', exact: true }).click();
+    await page.getByRole('button', { name: 'Related cards', exact: true }).click();
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Customize placements', exact: true })
+      .click();
+    await expect(page.getByRole('dialog')).toContainText('Harbour keeper');
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Used cards (1)', exact: true }).click();
+    await page
+      .locator('play-tabletop')
+      .getByRole('article', { name: 'Read: Harbour keeper', exact: true })
+      .press('Enter');
     await expect(prepared).toContainText('Authored keeper revision two.');
     await expect(prepared).toBeFocused();
     await expect(prepared).toHaveAttribute('tabindex', '0');
     const restored = await (
       await request.get(`${f.base}/sessions/${imported.id}/workspace`)
     ).json();
-    expect(restored.focusedItemIds).toHaveLength(2);
-    expect(restored.focusedItemIds).not.toContain(keeper.id);
+    expect(restored.sessionCards).toHaveLength(1);
+    expect(restored.used).not.toContain(keeper.id);
     expect(restored.used).toHaveLength(1);
     expect(restored.activeSceneItemId).not.toBe(scene.id);
   } finally {

@@ -142,7 +142,9 @@ ${'code-token'.repeat(160)}
     await page.goto(`/?campaign=${campaign.id}&session=${session.id}&view=prepare`);
     const setPanel = async (name: string, show: boolean) => {
       if (name === 'notes') {
-        const button = page.getByRole('button', { name: /^(Hide|Show) notes$/ });
+        const button = page.getByRole('button', {
+          name: /^(Hide|Show) (notes|Notes \/ Document panel)$/,
+        });
         if (((await button.getAttribute('aria-expanded')) === 'true') !== show)
           await button.click();
         await expect(button).toHaveAttribute('aria-expanded', String(show));
@@ -193,7 +195,13 @@ ${'code-token'.repeat(160)}
           expect(
             await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
           ).toBe(true);
-          await expect(frozen).toBeVisible();
+          if (showNotes) {
+            await page
+              .getByRole('navigation', { name: 'Play supporting panel' })
+              .getByRole('button', { name: 'Document', exact: true })
+              .click();
+            await expect(frozen).toBeVisible();
+          } else await expect(frozen).toBeHidden();
         }
       await page.screenshot({ path: testInfo.outputPath(`reader-${width}.png`) });
     }
@@ -261,7 +269,7 @@ ${'code-token'.repeat(160)}
       .getByLabel('Find in session', { exact: true })
       .fill('Long reader');
     await page
-      .locator('read-card-table')
+      .locator('play-tabletop')
       .getByRole('article', { name: 'Read: Long reader', exact: true })
       .click();
     await frozen.getByRole('button', { name: 'Expand all', exact: true }).click();
