@@ -167,6 +167,56 @@ Explicitly **no player full-document reader, document URL, or hidden source docu
 
 Batch source selection/distribution, granular spoiler/redaction editor, player-to-player transfers, freeform positions, screen-specific device layouts, quantity stacks, player documents, always-visible Claim/Remove targets, auto-navigation on claim, and offline operations. A future batch flow should be compatible with current per-instance distribution and pile destinations, but is not a G3 requirement.
 
+
+## Approved visual composition and roster/pairing UX — 2026-10-26
+
+**Status: Owner-approved visual correction and implementation-facing UI contract.** Supersedes contradictory *illustrative* layout details in earlier mockups; the accepted decisions and security/domain constraints above remain authoritative. The mockups were concept illustrations, **not pixel-perfect screens**: do not implement invented names, portraits, card artwork, extra menus, badges or actions merely because they appeared in an image.
+
+### Exactly what opens on the DM's Share tab
+
+- Use the application's **existing navigation, typography, components and card styling**, not a newly invented sidebar/theme. The Share tab opens a **single integrated screen**, with an unobtrusive **Players** roster and LAN Sharing status/control alongside the primary **Prepared session cards** source tray and **Collections** workspace. At normal laptop widths, roster/status may occupy a compact side region; card distribution/collections receive most of the width. At narrower widths, stack/collapse the side region while preserving accessible roster and connection controls.
+- **Players section:** simple text rows with *display name*, *active/inactive status*, *paired-device count* (including no devices), **Add player**, a contextual player-management menu, and a **Pair device** action when eligible. Expand a row or menu for Rename, Deactivate/Reactivate, and Manage paired devices/revoke. Do not permanently repeat every management button in each row.
+- **No player accounts, passwords, profile photos, character portraits, avatars, or player-editable profiles.** `CampaignPlayer` is an existing architecture concept: a **DM-created, campaign-scoped display-name identity**, with tablet authorization established via a paired device credential, not login. Use a generic icon only if useful. Any example names in mockups are placeholders, not seeded users.
+- **Add player** opens a compact name-entry dialog/popover and creates a campaign player with no paired devices; does **not** automatically start the gateway or generate a QR. Rename and deactivate use contextual actions. Deactivation preserves ownership and pairing history per architecture. Do not introduce an unapproved **Remove from campaign** action.
+- **Sharing status** is visible without dominating the screen: explicit Enable/Disable, reachable local address and concise network guidance/error where relevant. A server-running indication is not proof that tablets can connect.
+- **Prepared session cards** are represented as the existing genuine draggable PlayingCard source tray with search/filter when useful; do not substitute arbitrary miniature card types. **Collections** has a simple Group / named Player selection, shows the selected collection's actual layout, and exposes the DM's **Removed cards** recovery entry point without crowding each card.
+- **Group selected:** named piles are **horizontal cards side by side in a responsive grid**, each with one full-proportion cover, stacked-edge indication, previous/next arrows, concise count and Show all. `+ New pile` is a small action in the group-piles header; **do not render both a large empty New pile tile and a separate New pile button**. Unsorted is a **distinct visible tray of individual cards underneath the named piles**, not an empty pile and not a fourth pile tile.
+- **Player selected:** DM sees that player's Unsorted and private organization for inspection, but distributes/transfers only to that player's Unsorted and does not reorganize their private piles. One collection is focused at a time rather than compressing all players' collections into small thumbnails.
+- On source-card drop, a **compact Share popover** with recipient/destination and explicit Handout/Inventory choice precedes creation. QR pairing and Removed cards are overlays/secondary views, not permanent columns occupying card-display space.
+
+### DM pairing overlay / player onboarding
+
+- From an **existing roster row**, Pair device opens a focused modal identifying the selected **display name**, showing a large high-contrast **real generated scannable QR** and optionally a selectable/copyable pairing link as fallback. No avatar/portrait, account registration or second DM approval.
+- A token is **player/campaign-scoped, short-lived and single-use**; show its expiration/expired status, regenerate action, and same-LAN instruction. Avoid inventing a fixed expiry duration: the architecture's five minutes is illustrative pending implementation design. Closing the modal must not claim successful pairing or reveal a permanent credential.
+- Scan with an ordinary tablet camera → player browser → single-use token exchanged for campaign-scoped paired-device credential → **Group Cards opens automatically** with discreet `Playing as <display name>` and connection status; no login, player selector, profile creation or password. A previously paired active device reconnects without a new code.
+- Error/expired/used code or unreachable gateway gets a concise recoverable state on the tablet; expired/used pairing needs a newly generated code on the DM screen. Paired devices can be inspected/revoked through the player row; DM enabling gateway remains deliberate and separate from adding players. No player account management screen.
+- QR appearance in mockups is only an illustration; never copy its pixel pattern or example LAN URL into implementation. The real LAN address must be determined at runtime and the QR and optional textual link must carry the same actual pairing destination.
+
+### Exactly what opens on the tablet
+
+- **Group Cards is the initial screen after pairing**. In its **sticky top header**, show Group Cards title and **My Cards** navigation/drop destination on the right. Tap navigates; dragging an eligible inventory card onto it claims without navigation; while dragging, emphasize the target. Beneath, show a compact connected/disconnected indicator and optional `Playing as <display name>` (plain text, no avatar).
+- Beneath the header, **named Group piles are displayed horizontally side by side, wrapping responsively** like the personal-piles grid, not vertically as full-width rows. Each pile uses the **same cover-card/stack/arrows/Show all composition and dimensions** on Group and My Cards. Keep card size readable on tablet; don't force an arbitrary number of columns when screen width is insufficient.
+- Below named group piles, **Group Unsorted is an actual responsive card tray** containing cards, not merely a dashed empty placeholder or a tile labeled Unsorted.
+- **My Cards** is a separate screen with mirrored **sticky header** and a Group Cards navigation target (navigation only; player cannot return/transfer inventory to Group). Display player's named piles in the **same horizontal responsive grid**, small `New pile` action, and an actual Unsorted tray below. Do not place both New pile button and large New pile tile permanently.
+- All cards are the shared PlayingCard renderer: front/back, built-in flip control, aspect ratio and artwork. Tap to enlarge **the same card surface**; tap enlarged card to close **except on flip/other on-card controls**; no external flip or previous/next reader buttons and **no player full-document reader**.
+- Pile Show all displays an overlay of card faces in a responsive grid; player can expand/flip individual cards. A valid Claim target appears **within this modal** when dragging eligible group inventory (the obscured sticky header is not relied on). The player can also Claim from a card's contextual menu. Personal overlay supports reorder/move/remove by permission; Group overlay is read/claim only.
+- Personal cards show contextual Remove only when applicable. No always-visible Remove control; dropping to Remove or selecting it from the menu requires explicit confirmation. Distinguish `Delete pile` (organizational, returns cards to Unsorted) from `Remove card` (discard/withdraw lifecycle).
+- No generic avatars, invented card categories, per-card quantity badges, automatic `From group` badges, descriptions for piles that were never authored, or invented card-specific iconography; a card's source type does not force the DM-selected Handout/Inventory distribution mode.
+- Preserve immediate Claim, quiet new-card indicators, stable overlays/scroll positions during polling, stale-but-readable temporary disconnects, and authoritative hiding on access loss. No player sign-in/account interface.
+
+### Verification against mockups (anti-regression checklist)
+
+1. DM opens Share: player roster is compact with name/status/device count; prepared source tray and selected collection are visible in the same workspace; controls aren't duplicated per row.
+2. DM clicks Add player: enters only a display name; no account/profile/avatar or automatic gateway start.
+3. DM clicks Pair device: modal is scoped to chosen player, shows valid expiring QR/link; tablet scan enters Group Cards; pair failure/revocation handled.
+4. DM selects Group: named piles are **horizontal like My Cards**, with actual cover cards and stacked behavior, while Group Unsorted is a **real card row/tray** below, not another pile.
+5. Tablet enters Group: sticky **My Cards** top target, optional plain `Playing as X`, horizontal group piles, and visible uncategorized cards in Unsorted. Scroll keeps navigation available.
+6. Tap My Cards: dedicated personal screen with horizontally arranged piles and Unsorted card tray; Group Cards header target navigates but never transfers.
+7. Both screens use exactly the existing PlayingCard flip behavior; expansion/closing does not add reader-side flip controls or document access.
+8. No visually attractive element in conceptual screenshots silently becomes a new feature: especially portrait avatars, accounts, player-removal action, fake QR, default categories or quantity stacks.
+
+**Implementation discipline:** Build and visually check the screen composition against these contracts *before* broad UI integration/refactoring. Verify actual card sizes, long names, tablet portrait/landscape, native modal touch drag/drop, sticky targets and reading gestures with browser/device tests. Layout acceptance is separate from design approval.
+
 ## Handoff and acceptance status
 
 **Accepted:** UX Decisions 1–20 as owner-selected in conversation. This document makes screen hierarchy, sticky header behavior, overlays, on-card controls, mode/role permissions, and lifecycle outcomes explicit to reduce speculative UI refactoring.
