@@ -9,6 +9,8 @@ sealed interface Failure {
     data class NotFound(override val code: String, override val message: String) : Failure
     data class Conflict(override val code: String, override val message: String) : Failure
     data class Unreadable(override val code: String, override val message: String) : Failure
+    data class Unauthenticated(override val code: String, override val message: String) : Failure
+    data class Forbidden(override val code: String, override val message: String) : Failure
 }
 
 interface Transactions {

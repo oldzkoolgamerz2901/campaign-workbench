@@ -65,7 +65,46 @@ Startup lifecycle checks: `cd backend && ./gradlew checkDevStartup`. This opt-in
 
 Backend checks: `cd backend && ./gradlew test bootJar`. Frontend checks after client generation: `cd frontend && npm run check:versions && npm test && npm run build`. The `test:e2e` command expects an isolated backend on port 18080; prefer the complete setup script.
 
-Session-use packaging, serving frontend assets through Spring, a session-use launcher, backup/restore and tablet/network access remain future work. The current development startup is not the session-use distribution.
+Session-use packaging, serving frontend assets through Spring, a session-use launcher, backup/restore and the player tablet interface remain future work. The current development startup is not the session-use distribution.
+
+### Local gateway foundation (G1)
+
+The player gateway is disabled on every startup. G1 provides listener/lifecycle infrastructure and a content-free readiness response; player pairing, cards and the tablet interface remain future work. The private API stays bound to `127.0.0.1`, including when `server.address` is overridden. PostgreSQL's existing localhost binding is unchanged.
+
+With the application running and a campaign selected, enable from the laptop:
+
+```sh
+curl -fsS -X POST -H 'Content-Type: application/json' http://127.0.0.1:8080/api/gateway/enable
+curl -fsS http://127.0.0.1:8080/api/gateway
+```
+
+The response reports enabled state, campaign, bound port and active requests. By default the player listener binds to `0.0.0.0:8081`; `workbench.gateway.address` and `workbench.gateway.port` configure that listener separately. On a device on the same trusted home Wi-Fi, open `http://<laptop-LAN-IP>:8081/player-api/readiness`. A successful response is `{"status":"ready"}`. Local HTTP is unencrypted. A successful enable response proves local binding, not device-to-device reachability.
+
+Disable from the laptop:
+
+```sh
+curl -fsS -X POST -H 'Content-Type: application/json' http://127.0.0.1:8080/api/gateway/disable
+```
+
+Switching to a different campaign disables the gateway. Admitted synchronous requests finish against their original campaign before selection changes; newcomers are rejected. The default drain timeout is 5000 milliseconds (`workbench.gateway.drain-timeout-ms`). On timeout/cleanup failure, selection fails and admission remains closed; retry after outstanding operations finish. Selecting the same campaign preserves an enabled gateway. Re-enabling creates a new activation. Only the readiness GET is admitted over the LAN in G1; DM APIs, OpenAPI, static files and gateway controls remain private.
+
+### Player identity and pairing backend (G2)
+
+G2 adds backend APIs only. After restarting Workbench, Flyway V23 adds Sharing-owned player, invitation and device tables. Existing content and archives are unchanged; session/Writing archives do not back up Sharing records or credentials. There is no Share tab, QR display or player interface yet.
+
+Private operations use the laptop API under `/api/campaigns/<campaign>/sharing`:
+
+| Method | Path below that prefix | Purpose |
+| --- | --- | --- |
+| GET / POST | `/players` | List players / create with `{"displayName":"Mira"}` |
+| PUT | `/players/<player>/active` | Set `{"active":false}` or `true` |
+| POST | `/players/<player>/pairing` | Issue a one-use token and its expiry |
+| GET | `/players/<player>/devices` | Inspect devices without exposing credentials or hashes |
+| POST | `/devices/<device>/revoke` | Permanently revoke that device |
+
+Send `Content-Type: application/json` for mutations, including bodyless pairing issuance and revocation. Enable the gateway for the selected campaign before using its player port. `POST /player-api/pair` accepts `{"token":"<invitation-token>"}` and returns a new `credential` plus the paired identity. `GET /player-api/me` requires `Authorization: Bearer <credential>`. Do not place secrets in query strings. Issuance/redemption responses are not cached, and only credential hashes are persisted. A lost redemption response requires a new invitation; replay cannot recover the credential.
+
+Invitations expire after 300 seconds by default (`workbench.sharing.invitation-lifetime-seconds`). Device credentials have no automatic expiry; they survive restart and gateway disable/re-enable for the same campaign until revoked. Inactive players are denied without deleting their devices; reactivation restores access for non-revoked devices. Wrong-campaign, expired, consumed or revoked credentials return 401; an inactive authenticated player returns 403. All management routes remain unreachable through the LAN listener. Trusted-LAN HTTP remains unencrypted.
 
 ### Optional development database reset
 

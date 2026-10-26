@@ -24,6 +24,9 @@ class UnexpectedFailures {
     fun unsupportedMethod(ex: org.springframework.web.HttpRequestMethodNotSupportedException) = ResponseEntity.status(405)
         .header("Allow", *(ex.supportedMethods ?: emptyArray()))
         .body(problem(405, "request.method-not-allowed", "This operation is not supported for the requested resource."))
+    @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException::class)
+    fun unsupportedContentType(ex: org.springframework.web.HttpMediaTypeNotSupportedException) = ResponseEntity.status(415)
+        .body(problem(415, "request.content-type", "Use a supported request content type."))
     @ExceptionHandler(Exception::class)
     fun unexpected(ex: Exception): ResponseEntity<ProblemDetail> {
         val id = UUID.randomUUID().toString()

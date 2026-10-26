@@ -10,7 +10,7 @@ import workbench.platform.api.Failure
 import workbench.platform.api.Transactions
 import java.util.UUID
 
-class CampaignService(private val store: CampaignStore, private val directories: DirectoryAccess, private val tx: Transactions) : Campaigns {
+class CampaignService(private val store: CampaignStore, private val directories: DirectoryAccess, private val tx: Transactions) : Campaigns, CampaignSelection {
     fun list(): Either<Failure, CampaignList> = tx.run { either { store.list() } }
     override fun configuration(id: UUID): Either<Failure, Campaign> = tx.run { either {
         ensureNotNull(store.lock(id)) { Failure.NotFound("campaign.not-found", "Campaign not found.") }
@@ -32,7 +32,8 @@ class CampaignService(private val store: CampaignStore, private val directories:
         ensure(old.revision == request.revision) { Failure.Conflict("campaign.configuration-conflict", "Configuration changed; reload it before saving.") }
         old.copy(includes = request.includes, excludes = request.excludes, revision = old.revision + 1).also(store::save)
     } }
-    fun select(id: UUID): Either<Failure, Campaign> = tx.run { either {
+    override fun selected(): Either<Failure, UUID?> = tx.run { either { store.list().selected } }
+    override fun select(id: UUID): Either<Failure, Campaign> = tx.run { either {
         val campaign = ensureNotNull(store.get(id)) { Failure.NotFound("campaign.not-found", "Campaign not found.") }
         store.select(id); campaign
     } }

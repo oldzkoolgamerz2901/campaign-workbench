@@ -39,12 +39,4 @@ class CampaignController(private val campaigns: CampaignService) {
     @ApiResponse(responseCode = "422", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
     @PutMapping("/{id}/configuration")
     fun configure(@PathVariable id: UUID, @RequestBody request: ConfigureCampaign) = campaigns.configure(id, request).response()
-    @Operation(operationId = "selectCampaign")
-    @ApiResponse(responseCode = "200", content = [Content(schema = Schema(implementation = Campaign::class))])
-    @ApiResponse(responseCode = "400", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
-    @ApiResponse(responseCode = "404", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
-    @ApiResponse(responseCode = "409", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
-    @ApiResponse(responseCode = "422", content = [Content(mediaType = "application/problem+json", schema = Schema(implementation = ProblemResponse::class))])
-    @PutMapping("/{id}/selection")
-    fun select(@PathVariable id: UUID) = campaigns.select(id).response()
 }

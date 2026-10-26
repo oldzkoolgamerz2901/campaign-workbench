@@ -33,3 +33,9 @@ data class ConfigureCampaign(
 interface Campaigns {
     fun configuration(id: UUID): Either<Failure, Campaign>
 }
+
+/** Application coordination contract; selection HTTP is owned by the gateway coordinator. */
+interface CampaignSelection {
+    fun selected(): Either<Failure, UUID?>
+    fun select(id: UUID): Either<Failure, Campaign>
+}

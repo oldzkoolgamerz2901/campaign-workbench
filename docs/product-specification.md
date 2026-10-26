@@ -6,6 +6,18 @@ Status: Requirements approved by the owner on 2026-10-17, with subsequent accept
 
 ## Reading and decision precedence
 
+### G1 — accepted local gateway prerequisite — 2026-10-26
+
+The owner approved a bounded gateway foundation for future player sharing. The DM's existing API and PostgreSQL remain localhost-only. The player listener is disabled on every application startup and enabled/disabled explicitly through private controls. G1 exposes only a content-free readiness response; it does not expose campaign content, player operations, credentials or the Angular development server. This prerequisite does not deliver the deferred Sharing feature.
+
+Switching to a different campaign disables the gateway and waits for admitted operations to finish against their original campaign before changing selection. Reject new operations while draining. If draining or listener cleanup fails, keep admission closed and selection unchanged. Selecting the already selected campaign preserves availability. Re-enabling uses a new activation and is refused while old operations remain. A running listener does not itself prove tablet reachability. Trusted-home-LAN HTTP remains the accepted deployment assumption. Architecture, increment scope and developer evidence are recorded in `implementation-plan.md`; formal evidence belongs in `verification.md`.
+
+### G2 — accepted player identity and pairing backend — 2026-10-26
+
+The DM manages campaign-scoped players, active state and paired devices through private APIs. A short-lived invitation can be redeemed exactly once for a persistent, revocable device credential; no external account or second approval is required. Validate the invitation and player against the gateway's admitted campaign and atomically consume it with device creation. Expired, consumed or wrong-campaign invitations cannot create devices. Store only hashes of invitation/device secrets; never expose stored hashes in management responses. Successful issuance/redemption reveals the new secret only in that response, with caching disabled.
+
+Identity lookup authenticates the opaque credential from the Authorization header against the admitted campaign, device revocation and player activity on every request. Deactivation retains devices; reactivation permits still-valid credentials. Revocation is permanent for that device. Valid devices survive backend restart and gateway disable/re-enable for the same campaign. G2 delivers APIs and persistence only; QR/player UI, collection operations and card rendering remain subsequent work.
+
 This specification retains the evolution of accepted requirements. A later, explicitly accepted refinement supersedes only conflicting earlier behavior; broad requirements may describe future capabilities rather than delivered features. [Current delivery/evidence](implementation-plan.md) and [future work](future-work.md) distinguish implementation status from acceptance and proposals.
 
 | Area | Most specific accepted reference |
