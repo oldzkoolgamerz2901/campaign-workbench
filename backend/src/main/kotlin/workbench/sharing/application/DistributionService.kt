@@ -11,7 +11,7 @@ import java.security.MessageDigest
 import java.util.UUID
 
 class DistributionService(private val campaigns: Campaigns, private val prepared: PreparedCards,
-    private val players: SharingStore, private val cards: SharedCardStore, private val tx: Transactions, private val clock: SharingClock) {
+    private val players: SharingStore, private val cards: SharedCardStore, private val tx: Transactions, private val clock: SharingClock, private val piles: PileStore) {
     fun preview(campaign: UUID, request: PreviewSharedCard) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val source = prepared.card(campaign, request.session, request.item).bind()
@@ -33,13 +33,23 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
             request.recipient?.let { ensureNotNull(players.player(campaign, it)) { missing() } }
             val source = prepared.card(campaign, request.session, request.item).bind()
             ensure(fingerprint(source) == request.fingerprint) { changed() }
-            cards.insert(campaign, request, source, clock.now())
+            ensure(request.recipient==null || (request.pile==null && request.newPile==null)) { invalidDestination() }
+            ensure(request.pile==null || request.newPile==null) { invalidDestination() }
+            request.pile?.let { id -> ensure(piles.piles(campaign,null).any { it.id==id }) { invalidDestination() } }
+            val destination=request.newPile?.let { name ->
+                val trimmed=name.trim()
+                ensure(trimmed.isNotEmpty() && trimmed.length<=200) { Failure.Invalid("sharing.pile-name","Enter a pile name of 1–200 characters.") }
+                piles.create(campaign,null,trimmed)
+            } ?: request.pile
+            val card=cards.insert(campaign, request, source, clock.now())
+            if(destination!=null) piles.move(campaign,null,card.id,destination,null)
+            ensureNotNull(cards.card(campaign,card.id)?.second) { missing() }
         }
     } }
     fun collection(campaign: UUID, recipient: UUID?) = tx.run { either {
         campaigns.configuration(campaign).bind()
         recipient?.let { ensureNotNull(players.player(campaign, it)) { missing() } }
-        SharedCollection(cards.cards(campaign, recipient))
+        SharedCollection(cards.cards(campaign, recipient),piles.piles(campaign,recipient))
     } }
     fun artwork(campaign: UUID, card: UUID) = tx.run { either {
         campaigns.configuration(campaign).bind()
@@ -57,6 +67,7 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
         }
         return MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()).joinToString("") { "%02x".format(it) }
     }
+    private fun invalidDestination() = Failure.Conflict("sharing.destination", "Destination is unavailable. Choose a current Group pile or Unsorted.")
     private fun changed() = Failure.Conflict("sharing.preview-changed", "Prepared card changed. Review a fresh preview before sharing.")
     private fun missing() = Failure.NotFound("sharing.card", "Card, artwork or recipient is unavailable.")
 }

@@ -8,7 +8,7 @@ The Angular frontend and Kotlin/Spring modular backend provide four content work
 - **Write:** edit durable Drafts with separate card-back text, check physical front/back text fit, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
 - **Prepare:** assemble ordered frozen items, edit preparation notes, plan explicit Scene associations and accept same-type revision replacements.
 - **Play:** arrange Session Cards, two covered piles, Used and an explicit active Scene; read frozen documents and record independent PlayNotes with pins and cross-session history.
-- **Share:** manage campaign players, pair tablets by QR and explicitly distribute frozen card fronts/backs/artwork to Group or one player's Unsorted. Tablets read separate Group/My Cards collections, claim Group Inventory and confirm removal of their own Inventory. DM transfer, removal/withdrawal and same-instance recovery are available; piles remain subsequent increments.
+- **Share:** manage campaign players, pair tablets by QR and explicitly distribute frozen card fronts/backs/artwork to Group or one player's Unsorted. Tablets read separate Group/My Cards collections, claim Group Inventory and confirm removal of their own Inventory. DM transfer, removal/withdrawal, same-instance recovery and owner-controlled piles are available; direct manipulation remains a subsequent increment.
 
 T1/T2, P5–P8 and FC1–FC3 have delivery and formal evidence. Full cards now flip between canonical scroll-free fronts and plain-text backs, with complete external reading when a side cannot fit. The latest FC3 assessment passed 103 backend tests, 134 frontend tests, 55 Chromium journeys and four layout journeys. Owner functional/visual acceptance of FC3 remains separate. AI assistance, authority assignments and general source history remain future work.
 
@@ -132,9 +132,15 @@ Flyway V25 adds Sharing-owned frozen content/artwork, instances, Unsorted placem
 
 Use **Card actions** on a distributed card. On tablets, **Claim** takes Group Inventory into your My Cards Unsorted immediately, keeping you on Group; a competing claim refreshes the view with concise feedback. My Cards Inventory offers **Remove** with confirmation. Handouts remain read-only for players.
 
-In Share, the DM can **Transfer** active Inventory to Group or another player's Unsorted, **Remove** Inventory or **Withdraw** Handouts with confirmation. **Removed cards** opens one DM-only recovery view showing mode, state and previous recipient. **Restore** returns the same instance and frozen content to that recipient's Unsorted, including inactive players; it does not reactivate access. Transfer and recovery preserve instance identity. Named piles and drag/drop remain G3.4–G3.5.
+In Share, the DM can **Transfer** active Inventory to Group or another player's Unsorted, **Remove** Inventory or **Withdraw** Handouts with confirmation. **Removed cards** opens one DM-only recovery view showing mode, state and previous recipient. **Restore** returns the same instance and frozen content to that recipient's Unsorted, including inactive players; it does not reactivate access. Transfer and recovery preserve instance identity. G3.4 adds named piles below; drag/drop remains G3.5.
 
 Every command rechecks current access/state in its transaction. Unknown connection loss disables mutations while retaining in-memory reading; reconnect refreshes authoritative state. Sharing lifecycle state and history survive restart, but remain outside session/Writing archives. No database migration or reset is needed beyond G3.2's V25.
+
+### Collection organization (G3.4)
+
+Sharing collections now have ordered named piles above a separate Unsorted tray. DM organizes Group; players organize My Cards across paired devices. Use **New pile**, contextual **Pile actions** and **Move / reorder** to create, rename, order, delete and arrange cards. Nonempty deletion confirms and appends cards to the same Unsorted in pile order; empty deletion is immediate. Organizer arrows save default covers; Group viewers browse locally. **Show all** opens a responsive card grid with expansion, flip and contextual actions.
+
+Distribution supports existing or newly created Group piles; new pile and card commit together with retry recovery. DM transfers can target Group piles; personal delivery, Claim and Restore retain Unsorted destinations. Flyway V26 adds pile membership and cover constraints while preserving existing cards and distribution records. No development reset is needed. Gestures remain G3.5; formal verification and owner visual acceptance are separate.
 
 ### Optional development database reset
 

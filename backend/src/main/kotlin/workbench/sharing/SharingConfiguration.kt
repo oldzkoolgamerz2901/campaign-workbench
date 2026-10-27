@@ -12,9 +12,10 @@ import java.time.Instant
 
 @Configuration
 class SharingConfiguration {
-    @Bean fun cardLifecycleService(campaigns: Campaigns, identity: workbench.sharing.api.PlayerAccess, players: SharingStore, cards: SharedCardStore, tx: Transactions, clock: SharingClock) = CardLifecycleService(campaigns,identity,players,cards,tx,clock)
-    @Bean fun distributionService(campaigns: Campaigns, prepared: workbench.preparation.api.PreparedCards, players: SharingStore, cards: SharedCardStore, tx: Transactions, clock: SharingClock) = DistributionService(campaigns,prepared,players,cards,tx,clock)
-    @Bean fun collectionService(identity: workbench.sharing.api.PlayerAccess, cards: SharedCardStore, tx: Transactions, layouts: workbench.sources.api.CardLayoutCalculator) = CollectionService(identity,cards,tx,layouts)
+    @Bean fun organizationService(campaigns: Campaigns, identity: workbench.sharing.api.PlayerAccess, cards: SharedCardStore, piles: PileStore, tx: Transactions) = OrganizationService(campaigns,identity,cards,piles,tx)
+    @Bean fun cardLifecycleService(campaigns: Campaigns, identity: workbench.sharing.api.PlayerAccess, players: SharingStore, cards: SharedCardStore, tx: Transactions, clock: SharingClock, piles: PileStore) = CardLifecycleService(campaigns,identity,players,cards,tx,clock,piles)
+    @Bean fun distributionService(campaigns: Campaigns, prepared: workbench.preparation.api.PreparedCards, players: SharingStore, cards: SharedCardStore, tx: Transactions, clock: SharingClock, piles: PileStore) = DistributionService(campaigns,prepared,players,cards,tx,clock,piles)
+    @Bean fun collectionService(identity: workbench.sharing.api.PlayerAccess, cards: SharedCardStore, tx: Transactions, layouts: workbench.sources.api.CardLayoutCalculator, piles: PileStore) = CollectionService(identity,cards,tx,layouts,piles)
     @Bean fun sharingClock() = SharingClock { Instant.now() }
     @Bean fun deviceSecrets(): DeviceSecrets = RandomDeviceSecrets()
     @Bean fun sharingService(campaigns: Campaigns, store: SharingStore, tx: Transactions, clock: SharingClock, secrets: DeviceSecrets,

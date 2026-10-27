@@ -167,9 +167,11 @@
               }
             </select>
           </div>
-          <h3>Unsorted</h3>
           <shared-card-tray
             [cards]="sharedCards()"
+            [piles]="sharedPiles()"
+            [organizer]="collection() === 'group'"
+            (organize)="organize($event)"
             [artwork]="sharedArtwork"
             [identity]="campaign() + collection()"
             [actions]="cardActions"
@@ -303,6 +305,34 @@
         }
       </select></label
     >
+    @if (destination() === 'group') {
+      <label
+        >Group destination
+        <select
+          aria-label="Group destination"
+          [disabled]="deliveryBusy() || uncertain()"
+          [ngModel]="deliveryPile()"
+          (ngModelChange)="deliveryPile.set($event)"
+        >
+          <option value="">Unsorted</option>
+          @for (pile of groupPiles(); track pile.id) {
+            <option [value]="pile.id">{{ pile.name }}</option>
+          }
+          <option value="new">New pile…</option>
+        </select>
+      </label>
+      @if (deliveryPile() === 'new') {
+        <label
+          >New pile name
+          <input
+            aria-label="New pile name"
+            maxlength="200"
+            [disabled]="deliveryBusy() || uncertain()"
+            [ngModel]="newPileName()"
+            (ngModelChange)="newPileName.set($event)"
+        /></label>
+      }
+    }
     <label
       >Mode
       <select
@@ -327,7 +357,13 @@
     <button
       matButton
       type="button"
-      [disabled]="!preview() || !deliveryMode() || deliveryBusy() || !previewImageReady()"
+      [disabled]="
+        !preview() ||
+        !deliveryMode() ||
+        deliveryBusy() ||
+        !previewImageReady() ||
+        (destination() === 'group' && deliveryPile() === 'new' && !newPileName().trim())
+      "
       (click)="confirmDelivery()"
     >
       {{ uncertain() ? 'Retry delivery' : 'Confirm sharing' }}
@@ -358,7 +394,22 @@
         }
       </select>
     </label>
-    <p>Move this inventory instance to the destination's Unsorted.</p>
+    @if (transferDestination() === 'group') {
+      <label
+        >Group pile
+        <select
+          aria-label="Transfer Group pile"
+          [ngModel]="transferPile()"
+          (ngModelChange)="transferPile.set($event)"
+        >
+          <option value="">Unsorted</option>
+          @for (pile of groupPiles(); track pile.id) {
+            <option [value]="pile.id">{{ pile.name }}</option>
+          }
+        </select></label
+      >
+    }
+    <p>Move this inventory instance to the chosen destination.</p>
   } @else {
     <p>Remove this card from its collection? It can be restored through Removed cards.</p>
   }

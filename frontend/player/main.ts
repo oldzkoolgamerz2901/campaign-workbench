@@ -13,6 +13,7 @@ import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, timeout, tap, of } from 'rxjs';
 import { Injectable } from '@angular/core';
 import { PlayerCardsControllerService } from '../src/api/generated/api/playerCardsController.service';
+import type { SharedPile, OrganizeCollection } from '../src/api/generated';
 import type { SharedCardData } from '../src/api/generated/model/sharedCardData';
 import type { CardLayout } from '../src/api/generated/model/cardLayout';
 import { CARD_LAYOUT_CLIENT } from '../src/app/shared/card-layout/layout-client';
@@ -126,9 +127,11 @@ function readSaved(): Saved {
       </p>
       @if (identity()) {
         <section class="collection">
-          <h2>Unsorted</h2>
           <shared-card-tray
             [cards]="screen() === 'group' ? group() : mine()"
+            [piles]="screen() === 'group' ? groupPiles() : myPiles()"
+            [organizer]="screen() === 'mine'"
+            (organize)="organize($event)"
             [artwork]="artwork"
             [actions]="cardActions"
             [disabled]="state() !== 'connected' || commandBusy()"
@@ -288,6 +291,43 @@ export class PlayerApp implements OnDestroy {
       this.commandBusy.set(false);
     }
   }
+  async organize(request: OrganizeCollection) {
+    if (
+      this.screen() !== 'mine' ||
+      this.state() !== 'connected' ||
+      this.commandBusy() ||
+      !this.credential
+    )
+      return;
+    const epoch = this.epoch;
+    this.commandBusy.set(true);
+    ++this.readGeneration;
+    this.refreshing = false;
+    clearTimeout(this.timer);
+    try {
+      await firstValueFrom(
+        this.transport.api
+          .organizePlayerCollection(request, `Bearer ${this.credential}`, 'body', false, this.json)
+          .pipe(timeout(8000)),
+      );
+      if (epoch === this.epoch) await this.refresh(true);
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      if (error instanceof HttpErrorResponse && (error.status === 409 || error.status === 400)) {
+        await this.refresh(true);
+        if (this.state() === 'connected')
+          this.message.set(
+            error.status === 409
+              ? 'Organization changed. Refresh and try again.'
+              : 'Enter a valid pile name.',
+          );
+      } else this.failure(error, false);
+    } finally {
+      this.commandBusy.set(false);
+    }
+  }
+  readonly groupPiles = signal<SharedPile[]>([]);
+  readonly myPiles = signal<SharedPile[]>([]);
   private readGeneration = 0;
   readonly group = signal<SharedCardData[]>([]);
   readonly mine = signal<SharedCardData[]>([]);
@@ -303,6 +343,8 @@ export class PlayerApp implements OnDestroy {
       : null;
   private clearCards() {
     this.removeDialog()?.nativeElement.close();
+    this.groupPiles.set([]);
+    this.myPiles.set([]);
     this.group.set([]);
     this.mine.set([]);
     this.arrivals.set({ group: false, mine: false });
@@ -492,6 +534,8 @@ export class PlayerApp implements OnDestroy {
         return;
       }
       this.identity.set(data.identity);
+      this.groupPiles.set(data.group.piles);
+      this.myPiles.set(data.mine.piles);
       this.acceptCards(data.group.cards, data.mine.cards);
       this.transport.stale = false;
       this.state.set('connected');

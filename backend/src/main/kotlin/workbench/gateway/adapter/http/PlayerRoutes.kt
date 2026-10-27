@@ -7,7 +7,7 @@ internal object PlayerRoutes {
     const val OPERATION="workbench.gateway.operation"
     fun allowed(method: String,path: String,assets: PlayerAssets) = when(path) {
         "/player-api/readiness", "/player-api/me", "/player-api/collections" -> method=="GET"
-        "/player-api/pair" -> method=="POST"
+        "/player-api/pair", "/player-api/organization" -> method=="POST"
         else -> (method=="POST" && Regex("/player-api/cards/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(claim|remove)").matches(path)) || (method=="GET" && Regex("/player-api/cards/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/(artwork|layout)").matches(path)) || assets.allowed(method,path)
     }
     fun deny(response: HttpServletResponse) {

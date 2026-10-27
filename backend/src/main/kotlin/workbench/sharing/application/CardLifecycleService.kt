@@ -8,7 +8,7 @@ import java.util.UUID
 
 class CardLifecycleService(private val campaigns: Campaigns, private val identity: PlayerAccess,
     private val players: SharingStore, private val cards: SharedCardStore, private val tx: Transactions,
-    private val clock: SharingClock) : PlayerCardCommands {
+    private val clock: SharingClock, private val piles: PileStore) : PlayerCardCommands {
     override fun claim(campaign: UUID, credential: String?, card: UUID) = tx.run { either {
         val player=identity.identify(campaign,credential).bind()
         val current=active(campaign,card)
@@ -26,7 +26,11 @@ class CardLifecycleService(private val campaigns: Campaigns, private val identit
         val current=active(campaign,card)
         ensure(current.card.mode==SharingMode.INVENTORY && current.recipient!=request.recipient) { conflict() }
         request.recipient?.let { ensureNotNull(players.player(campaign,it)) { conflict() } }
+        ensure(request.recipient==null || request.pile==null) { conflict() }
+        request.pile?.let { id -> ensure(piles.piles(campaign,null).any { it.id==id }) { conflict() } }
         cards.transition(campaign,card,request.recipient,"ACTIVE","TRANSFERRED",clock.now())
+        request.pile?.let { piles.move(campaign,null,card,it,null) }
+        ensureNotNull(cards.card(campaign,card)?.second) { conflict() }
     } }
     fun removeByDm(campaign: UUID, card: UUID) = tx.run { either {
         campaigns.configuration(campaign).bind()

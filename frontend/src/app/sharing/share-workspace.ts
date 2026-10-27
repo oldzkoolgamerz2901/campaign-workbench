@@ -14,7 +14,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { CardLifecycleControllerService } from '../../api/generated/api/cardLifecycleController.service';
 import type { RemovedSharedCard } from '../../api/generated/model/removedSharedCard';
 import { DistributionControllerService } from '../../api/generated/api/distributionController.service';
-import type { SharedCardPreview, DistributeCard, SharedCardData } from '../../api/generated';
+import type {
+  SharedCardPreview,
+  DistributeCard,
+  SharedCardData,
+  SharedPile,
+  OrganizeCollection,
+} from '../../api/generated';
+import { OrganizationControllerService } from '../../api/generated/api/organizationController.service';
 import { SharedCardTray } from './shared-card-tray';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -46,6 +53,29 @@ import {
 export class ShareWorkspace implements OnDestroy {
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(SharingControllerService);
+  private readonly organization = inject(OrganizationControllerService);
+  readonly sharedPiles = signal<SharedPile[]>([]);
+  readonly groupPiles = signal<SharedPile[]>([]);
+  readonly deliveryPile = signal('');
+  readonly newPileName = signal('');
+  readonly transferPile = signal('');
+  async organize(request: OrganizeCollection) {
+    if (this.collection() !== 'group' || !this.access() || this.lifecycleBusy()) return;
+    await this.runLifecycle(
+      () =>
+        firstValueFrom(
+          this.organization.organizeGroupCollection(
+            this.campaign(),
+            request,
+            'body',
+            false,
+            this.json,
+          ),
+        ),
+      undefined,
+      true,
+    );
+  }
   private readonly lifecycle = inject(CardLifecycleControllerService);
   readonly lifecycleCard = signal<SharedCardData | null>(null);
   readonly lifecycleAction = signal('');
@@ -55,7 +85,9 @@ export class ShareWorkspace implements OnDestroy {
   readonly removedCards = signal<RemovedSharedCard[]>([]);
   private readonly lifecycleDialog = viewChild<ElementRef<HTMLDialogElement>>('lifecycleDialog');
   private readonly recoveryDialog = viewChild<ElementRef<HTMLDialogElement>>('recoveryDialog');
-  private readonly recoveryClose = viewChild('recoveryClose', { read: ElementRef<HTMLButtonElement> });
+  private readonly recoveryClose = viewChild('recoveryClose', {
+    read: ElementRef<HTMLButtonElement>,
+  });
   readonly cardActions = (card: SharedCardData) =>
     card.mode === 'INVENTORY'
       ? [...(this.collection() !== 'group' || this.players().length ? ['Transfer'] : []), 'Remove']
@@ -72,6 +104,8 @@ export class ShareWorkspace implements OnDestroy {
     this.transferDestination.set(
       this.collection() === 'group' ? this.players()[0]?.id || '' : 'group',
     );
+    this.transferPile.set('');
+    void this.loadGroupPiles();
     this.lifecycleError.set('');
     this.lifecycleDialog()?.nativeElement.showModal();
   }
@@ -109,6 +143,10 @@ export class ShareWorkspace implements OnDestroy {
                 {
                   recipient:
                     this.transferDestination() === 'group' ? null : this.transferDestination(),
+                  pile:
+                    this.transferDestination() === 'group'
+                      ? this.transferPile() || undefined
+                      : undefined,
                 },
                 'body',
                 false,
@@ -135,7 +173,11 @@ export class ShareWorkspace implements OnDestroy {
       entry.recipient || 'group',
     );
   }
-  private async runLifecycle(action: () => Promise<unknown>, destination?: string) {
+  private async runLifecycle(
+    action: () => Promise<unknown>,
+    destination?: string,
+    organization = false,
+  ) {
     const epoch = this.epoch;
     this.lifecycleBusy.set(true);
     this.lifecycleError.set('');
@@ -146,7 +188,7 @@ export class ShareWorkspace implements OnDestroy {
       this.lifecycleDialog()?.nativeElement.close();
       if (destination && destination !== this.collection())
         this.newDestinations.update((values) => [...new Set([...values, destination])]);
-      this.notice.set('Card updated.');
+      this.notice.set(organization ? 'Organization updated.' : 'Card updated.');
       await this.refreshCollection();
       if (this.recoveryDialog()?.nativeElement.open) {
         await this.refreshRemoved();
@@ -158,8 +200,12 @@ export class ShareWorkspace implements OnDestroy {
       if (epoch !== this.epoch) return;
       this.lifecycleError.set(
         error instanceof HttpErrorResponse && error.status === 409
-          ? 'This card is no longer available for that action. Close and refresh.'
-          : 'The result could not be confirmed. Reconnect and refresh before trying again.',
+          ? organization
+            ? 'Organization changed. Refresh and try again; a nonempty pile requires confirmation.'
+            : 'This card is no longer available for that action. Close and refresh.'
+          : organization && error instanceof HttpErrorResponse && error.status === 400
+            ? 'Enter a pile name of 1–200 characters.'
+            : 'The result could not be confirmed. Reconnect and refresh before trying again.',
       );
       this.error.set(this.lifecycleError());
       await this.refresh(true);
@@ -212,6 +258,7 @@ export class ShareWorkspace implements OnDestroy {
     this.collection.set(value);
     this.newDestinations.update((values) => values.filter((id) => id !== value));
     this.sharedCards.set([]);
+    this.sharedPiles.set([]);
     try {
       await this.refreshCollection();
     } catch {
@@ -238,11 +285,24 @@ export class ShareWorkspace implements OnDestroy {
       collection === this.collection()
     ) {
       this.sharedCards.set(result.cards);
+      this.sharedPiles.set(result.piles);
+      if (collection === 'group') this.groupPiles.set(result.piles);
       if (
         this.lifecycleCard() &&
         !result.cards.some((card) => card.id === this.lifecycleCard()!.id)
       )
         this.lifecycleDialog()?.nativeElement.close();
+    }
+  }
+  private async loadGroupPiles() {
+    const epoch = this.epoch;
+    try {
+      const data = await firstValueFrom(
+        this.distribution.getSharedCollection(this.campaign(), undefined, 'body', false, this.json),
+      );
+      if (epoch === this.epoch) this.groupPiles.set(data.piles);
+    } catch {
+      if (epoch === this.epoch) this.groupPiles.set([]);
     }
   }
   async share(item: PreparedItemData) {
@@ -253,6 +313,9 @@ export class ShareWorkspace implements OnDestroy {
     }
     this.sourceItem = item.id;
     this.destination.set(this.collection());
+    this.deliveryPile.set('');
+    this.newPileName.set('');
+    void this.loadGroupPiles();
     this.deliveryMode.set('');
     this.deliveryError.set('');
     this.uncertain.set(false);
@@ -297,7 +360,15 @@ export class ShareWorkspace implements OnDestroy {
     }
   }
   async confirmDelivery() {
-    if (!this.delivery || !this.deliveryMode() || this.deliveryBusy() || !this.previewImageReady())
+    if (
+      !this.delivery ||
+      !this.deliveryMode() ||
+      this.deliveryBusy() ||
+      !this.previewImageReady() ||
+      (this.destination() === 'group' &&
+        this.deliveryPile() === 'new' &&
+        !this.newPileName().trim())
+    )
       return;
     const epoch = this.epoch;
     if (!this.uncertain())
@@ -305,6 +376,14 @@ export class ShareWorkspace implements OnDestroy {
         ...this.delivery,
         mode: this.deliveryMode() as 'HANDOUT' | 'INVENTORY',
         recipient: this.destination() === 'group' ? null : this.destination(),
+        pile:
+          this.destination() === 'group' && this.deliveryPile() !== 'new'
+            ? this.deliveryPile() || undefined
+            : undefined,
+        newPile:
+          this.destination() === 'group' && this.deliveryPile() === 'new'
+            ? this.newPileName()
+            : undefined,
       };
     this.deliveryBusy.set(true);
     this.deliveryError.set('');
@@ -336,7 +415,12 @@ export class ShareWorkspace implements OnDestroy {
       if (error instanceof HttpErrorResponse && error.status === 409) {
         this.delivery = null;
         this.preview.set(null);
-        this.deliveryError.set('Prepared card changed. Review again before sharing.');
+        void this.loadGroupPiles();
+        this.deliveryError.set(
+          error.error?.code === 'sharing.destination'
+            ? 'Destination changed. Choose a current destination and review again.'
+            : 'Prepared card changed. Review again before sharing.',
+        );
       } else {
         this.uncertain.set(true);
         this.deliveryError.set(
@@ -432,6 +516,7 @@ export class ShareWorkspace implements OnDestroy {
     this.error.set('');
     this.items.set([]);
     this.sharedCards.set([]);
+    this.sharedPiles.set([]);
     this.newDestinations.set([]);
     this.notice.set('');
     this.lifecycleDialog()?.nativeElement.close();

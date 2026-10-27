@@ -17,7 +17,7 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/player-api")
-class PlayerCardsController(private val cards: PlayerCards, private val commands: PlayerCardCommands) {
+class PlayerCardsController(private val cards: PlayerCards, private val commands: PlayerCardCommands, private val organization: PlayerOrganization) {
     @Operation(operationId="getPlayerCollections")
     @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=PlayerCollections::class))])
     @GetMapping("/collections",produces=["application/json"])
@@ -49,6 +49,12 @@ class PlayerCardsController(private val cards: PlayerCards, private val commands
     @PostMapping("/cards/{card}/remove",consumes=["application/json"],produces=["application/json"])
     fun remove(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@PathVariable card: UUID) =
         admitted(request) { commands.remove(it,credential(auth),card) }.response(noStore=true)
+
+    @Operation(operationId="organizePlayerCollection")
+    @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCollection::class))])
+    @PostMapping("/organization",consumes=["application/json"],produces=["application/json"])
+    fun organize(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@RequestBody command: OrganizeCollection) =
+        admitted(request) { organization.organize(it,credential(auth),command) }.response(noStore=true)
 
     private fun credential(auth: String?)=auth?.let { Regex("Bearer ([A-Za-z0-9_-]{43})",RegexOption.IGNORE_CASE).matchEntire(it)?.groupValues?.get(1) }
     private fun <T> admitted(request: HttpServletRequest, call: (UUID)->Either<Failure,T>): Either<Failure,T> {

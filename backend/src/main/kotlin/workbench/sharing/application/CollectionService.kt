@@ -7,10 +7,10 @@ import workbench.sources.api.CardLayoutCalculator
 import java.util.UUID
 
 class CollectionService(private val identity: PlayerAccess, private val cards: SharedCardStore,
-    private val tx: Transactions, private val layouts: CardLayoutCalculator) : PlayerCards {
+    private val tx: Transactions, private val layouts: CardLayoutCalculator, private val piles: PileStore) : PlayerCards {
     override fun collections(campaign: UUID, credential: String?) = tx.run { either {
         val player=identity.identify(campaign, credential).bind()
-        PlayerCollections(player, SharedCollection(cards.cards(campaign, null)), SharedCollection(cards.cards(campaign, player.player)))
+        PlayerCollections(player, SharedCollection(cards.cards(campaign, null),piles.piles(campaign,null)), SharedCollection(cards.cards(campaign, player.player),piles.piles(campaign,player.player)))
     } }
     override fun artwork(campaign: UUID, credential: String?, card: UUID) = tx.run { either {
         val player=identity.identify(campaign, credential).bind()

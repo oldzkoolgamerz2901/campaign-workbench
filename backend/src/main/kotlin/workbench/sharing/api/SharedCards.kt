@@ -18,12 +18,15 @@ data class DistributeCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUI
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val item: UUID,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val fingerprint: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val mode: SharingMode,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?)
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?,
+    val pile: UUID? = null, val newPile: String? = null)
 data class SharedCardData(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val id: UUID,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val visible: CardLayoutInput,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val mode: SharingMode,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val artwork: Boolean)
-data class SharedCollection(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val cards: List<SharedCardData>)
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val artwork: Boolean,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val pile: UUID? = null)
+data class SharedCollection(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val cards: List<SharedCardData>,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val piles: List<SharedPile> = emptyList())
 data class PlayerCollections(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val identity: PlayerIdentity,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val group: SharedCollection,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val mine: SharedCollection)
@@ -35,7 +38,7 @@ interface PlayerCards {
 }
 
 
-data class TransferSharedCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?)
+data class TransferSharedCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?, val pile: UUID? = null)
 data class RemovedSharedCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val card: SharedCardData,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val state: String)

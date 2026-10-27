@@ -18,14 +18,15 @@ class JdbcSharedCardStore(private val jdbc: JdbcTemplate, private val mapper: Ob
     private val select = """SELECT s.*,c.visible,EXISTS(SELECT 1 FROM sharing.card_artwork a WHERE a.campaign=s.campaign AND a.content=s.content) AS artwork
         FROM sharing.shared_card s JOIN sharing.card_content c ON c.campaign=s.campaign AND c.id=s.content"""
     private fun ResultSet.data() = SharedCardData(getObject("id", UUID::class.java),
-        mapper.readValue(getString("visible"), CardLayoutInput::class.java), SharingMode.valueOf(getString("mode")), getBoolean("artwork"))
+        mapper.readValue(getString("visible"), CardLayoutInput::class.java), SharingMode.valueOf(getString("mode")), getBoolean("artwork"), getObject("pile",UUID::class.java))
     override fun retained(campaign: UUID, card: UUID) = jdbc.query("$select WHERE s.campaign=? AND s.id=?",
         {r,_->RemovedSharedCard(r.data(),r.getObject("recipient",UUID::class.java),r.getString("state"))},campaign,card).singleOrNull()
     override fun removed(campaign: UUID) = jdbc.query("$select WHERE s.campaign=? AND s.state<>'ACTIVE' ORDER BY s.id",
         {r,_->RemovedSharedCard(r.data(),r.getObject("recipient",UUID::class.java),r.getString("state"))},campaign)
     override fun transition(campaign: UUID, card: UUID, recipient: UUID?, state: String, kind: String, now: Instant): SharedCardData {
-        val position=jdbc.queryForObject("SELECT COALESCE(max(position),0)+1 FROM sharing.shared_card WHERE campaign=? AND recipient IS NOT DISTINCT FROM ?::uuid AND state='ACTIVE'",Long::class.java,campaign,recipient)!!
-        jdbc.update("UPDATE sharing.shared_card SET recipient=?,state=?,position=? WHERE campaign=? AND id=?",recipient,state,position,campaign,card)
+        repairDeparture(jdbc,campaign,card)
+        val position=jdbc.queryForObject("SELECT COALESCE(max(position),0)+1 FROM sharing.shared_card WHERE campaign=? AND recipient IS NOT DISTINCT FROM ?::uuid AND state='ACTIVE' AND pile IS NULL",Long::class.java,campaign,recipient)!!
+        jdbc.update("UPDATE sharing.shared_card SET recipient=?,state=?,position=?,pile=NULL WHERE campaign=? AND id=?",recipient,state,position,campaign,card)
         jdbc.update("INSERT INTO sharing.card_event(campaign,card,kind,recipient,occurred_at) VALUES (?,?,?,?,?)",campaign,card,kind,recipient,Timestamp.from(now))
         return retained(campaign,card)!!.card
     }
