@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { CARD_FONTS, CardLayout } from './card-layout';
+import { fontHash } from './font-hash';
 
 export type LayoutStatus =
   | 'checking'
@@ -22,12 +23,10 @@ let fontLoad: Promise<void> | undefined;
 function loadCardFonts(): Promise<void> {
   return (fontLoad ??= (async () => {
     for (const value of Object.values(CARD_FONTS)) {
-      const response = await fetch(value.file);
+      const response = await fetch(new URL(value.file.slice(1), document.baseURI));
       if (!response.ok) throw new Error('Font unavailable');
       const bytes = await response.arrayBuffer();
-      const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+      const hash = await fontHash(bytes);
       if (hash !== value.hash) throw new Error('Font identity differs');
       const font = await new FontFace(value.family, bytes).load();
       document.fonts.add(font);

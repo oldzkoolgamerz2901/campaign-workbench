@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { CardLayout, CardLayoutControllerService } from '../../../api/generated';
 import { PlayingCard } from './playing-card';
+import { DM_CARD_LAYOUT_CLIENT } from '../../dm-card-layout-client';
 
 describe('Playing card', () => {
   const requests: Subject<CardLayout>[] = [];
@@ -9,6 +10,7 @@ describe('Playing card', () => {
     requests.length = 0;
     TestBed.configureTestingModule({
       providers: [
+        DM_CARD_LAYOUT_CLIENT,
         {
           provide: CardLayoutControllerService,
           useValue: {

@@ -2,10 +2,81 @@ import { Component, OnDestroy, inject, signal, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom, timeout } from 'rxjs';
+import { firstValueFrom, timeout, tap, of } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { PlayerCardsControllerService } from '../src/api/generated/api/playerCardsController.service';
+import type { SharedCardData } from '../src/api/generated/model/sharedCardData';
+import type { CardLayout } from '../src/api/generated/model/cardLayout';
+import { CARD_LAYOUT_CLIENT } from '../src/app/shared/card-layout/layout-client';
+import { SharedCardTray } from '../src/app/sharing/shared-card-tray';
+import type { ArtworkSource } from '../src/app/shared/artwork/artwork-image';
 import { BASE_PATH } from '../src/api/generated/variables';
 import { PlayerAccessControllerService } from '../src/api/generated/api/playerAccessController.service';
 import type { PlayerIdentity } from '../src/api/generated/model/playerIdentity';
+
+@Injectable({ providedIn: 'root' })
+class PlayerCardTransport {
+  readonly api = inject(PlayerCardsControllerService);
+  credential = '';
+  stale = false;
+  onFailure: (error: unknown) => void = () => {};
+  private readonly layouts = new Map<string, CardLayout>();
+  // Bounded session memory for local reading, never browser-persistent offline storage.
+  private readonly images = new Map<string, Blob>();
+  private accessible = new Set<string>();
+  private generation = 0;
+  clear() {
+    ++this.generation;
+    this.layouts.clear();
+    this.images.clear();
+    this.accessible.clear();
+    this.credential = '';
+  }
+  retain(cards: SharedCardData[]) {
+    this.accessible = new Set(cards.map((card) => card.id));
+    for (const id of this.layouts.keys()) if (!this.accessible.has(id)) this.layouts.delete(id);
+    for (const id of this.images.keys()) if (!this.accessible.has(id)) this.images.delete(id);
+  }
+  artwork(id: string) {
+    const cached = this.images.get(id);
+    if (cached && this.accessible.has(id)) {
+      this.images.delete(id);
+      this.images.set(id, cached);
+      return of(cached);
+    }
+    const generation = this.generation;
+    return this.api.getPlayerCardArtwork(id, `Bearer ${this.credential}`).pipe(
+      tap({
+        next: (image) => {
+          if (generation !== this.generation || !this.accessible.has(id)) return;
+          this.images.delete(id);
+          this.images.set(id, image);
+          if (this.images.size > 16) this.images.delete(this.images.keys().next().value!);
+        },
+        error: (error) => {
+          if (generation === this.generation) this.onFailure(error);
+        },
+      }),
+    );
+  }
+  calculate(_content: unknown, id: string) {
+    const cached = this.layouts.get(id);
+    if (this.stale && cached) return of(cached);
+    const credential = this.credential;
+    const generation = this.generation;
+    return this.api.getPlayerCardLayout(id, `Bearer ${credential}`).pipe(
+      tap({
+        next: (layout) => {
+          if (generation === this.generation && this.accessible.has(id))
+            this.layouts.set(id, layout);
+        },
+        error: (error) => {
+          if (generation === this.generation) this.onFailure(error);
+        },
+      }),
+    );
+  }
+}
 
 const STORE = 'workbench.player.credentials.v1';
 type Saved = { credentials: Record<string, string>; last?: string };
@@ -27,11 +98,12 @@ function readSaved(): Saved {
 }
 @Component({
   selector: 'player-root',
-  imports: [MatButtonModule],
+  imports: [MatButtonModule, SharedCardTray],
   template: ` <header class="player-header">
       <h1>{{ screen() === 'group' ? 'Group Cards' : 'My Cards' }}</h1>
       <button matButton type="button" (click)="navigate(screen() === 'group' ? 'mine' : 'group')">
-        {{ screen() === 'group' ? 'My Cards' : 'Group Cards' }} ›
+        {{ screen() === 'group' ? 'My Cards' : 'Group Cards' }}
+        {{ arrivals()[screen() === 'group' ? 'mine' : 'group'] ? '· New' : '' }} ›
       </button>
     </header>
     <main>
@@ -44,13 +116,11 @@ function readSaved(): Saved {
       @if (identity()) {
         <section class="collection">
           <h2>Unsorted</h2>
-          <p>
-            {{
-              screen() === 'group'
-                ? 'Cards shared with the group will appear here.'
-                : 'Cards shared with you will appear here.'
-            }}
-          </p>
+          <shared-card-tray
+            [cards]="screen() === 'group' ? group() : mine()"
+            [artwork]="artwork"
+            [identity]="identity()!.campaign + screen()"
+          />
         </section>
       }
       @if (state() !== 'connecting' && state() !== 'connected') {
@@ -116,6 +186,40 @@ function readSaved(): Saved {
 export class PlayerApp implements OnDestroy {
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(PlayerAccessControllerService);
+  private readonly transport = inject(PlayerCardTransport);
+  readonly group = signal<SharedCardData[]>([]);
+  readonly mine = signal<SharedCardData[]>([]);
+  readonly arrivals = signal({ group: false, mine: false });
+  private loaded = false;
+  private refreshing = false;
+  readonly artwork = (card: SharedCardData): ArtworkSource | null =>
+    card.artwork
+      ? {
+          key: `${this.identity()?.campaign}.${card.id}`,
+          load: () => this.transport.artwork(card.id),
+        }
+      : null;
+  private clearCards() {
+    this.group.set([]);
+    this.mine.set([]);
+    this.arrivals.set({ group: false, mine: false });
+    this.loaded = false;
+    this.transport.clear();
+  }
+  private acceptCards(group: SharedCardData[], mine: SharedCardData[]) {
+    this.transport.retain([...group, ...mine]);
+    const added = (before: SharedCardData[], after: SharedCardData[]) =>
+      after.some((card) => !before.some((old) => old.id === card.id));
+    this.arrivals.update((old) => ({
+      group:
+        this.screen() !== 'group' && (old.group || (this.loaded && added(this.group(), group))),
+      mine: this.screen() !== 'mine' && (old.mine || (this.loaded && added(this.mine(), mine))),
+    }));
+    this.group.set(group);
+    this.mine.set(mine);
+    this.loaded = true;
+  }
+
   readonly identity = signal<PlayerIdentity | null>(null);
   readonly state = signal<'connecting' | 'connected' | 'stale' | 'denied' | 'unpaired'>(
     'connecting',
@@ -130,13 +234,17 @@ export class PlayerApp implements OnDestroy {
   private pairingRejected = false;
   private epoch = 0;
   private timer: ReturnType<typeof setTimeout> | undefined;
-  private readonly pop = () =>
-    this.screen.set(location.pathname.endsWith('/mine') ? 'mine' : 'group');
+  private readonly pop = () => {
+    const screen = location.pathname.endsWith('/mine') ? 'mine' : 'group';
+    this.screen.set(screen);
+    this.arrivals.update((value) => ({ ...value, [screen]: false }));
+  };
   private readonly resume = () => {
     if (!document.hidden && this.state() !== 'connecting')
       void (this.identity() ? this.refresh() : this.reconnect());
   };
   constructor() {
+    this.transport.onFailure = (error) => this.failure(error, false);
     window.addEventListener('popstate', this.pop);
     document.addEventListener('visibilitychange', this.resume);
     const token = new URLSearchParams(location.hash.slice(1)).get('token');
@@ -148,6 +256,7 @@ export class PlayerApp implements OnDestroy {
   }
   navigate(screen: 'group' | 'mine') {
     this.screen.set(screen);
+    this.arrivals.update((value) => ({ ...value, [screen]: false }));
     history.pushState(null, '', `/player/${screen}`);
   }
   private save() {
@@ -167,6 +276,7 @@ export class PlayerApp implements OnDestroy {
     this.pairingRejected = false;
     const epoch = ++this.epoch;
     this.identity.set(null);
+    this.clearCards();
     this.state.set('connecting');
     this.message.set('Connecting your device…');
     try {
@@ -179,6 +289,7 @@ export class PlayerApp implements OnDestroy {
       this.saved.last = result.identity.campaign;
       const persisted = this.save();
       this.credential = result.credential;
+      this.transport.credential = result.credential;
       this.identity.set(result.identity);
       this.state.set('connected');
       this.screen.set('group');
@@ -187,7 +298,7 @@ export class PlayerApp implements OnDestroy {
           ? 'Connected'
           : 'Connected. Browser storage is unavailable; pair again after closing this page.',
       );
-      this.schedule();
+      await this.refresh();
     } catch (error) {
       if (epoch !== this.epoch) return;
       if (error instanceof HttpErrorResponse && error.status >= 400 && error.status < 500) {
@@ -213,6 +324,7 @@ export class PlayerApp implements OnDestroy {
     clearTimeout(this.timer);
     const epoch = ++this.epoch;
     this.identity.set(null);
+    this.clearCards();
     this.state.set('connecting');
     this.message.set('Connecting…');
     const ids = [...new Set([this.saved.last, ...Object.keys(this.saved.credentials)])].filter(
@@ -236,10 +348,11 @@ export class PlayerApp implements OnDestroy {
         this.saved.last = person.campaign;
         this.save();
         this.credential = token;
+        this.transport.credential = token;
         this.identity.set(person);
         this.state.set('connected');
         this.message.set('Connected');
-        this.schedule();
+        await this.refresh();
         return;
       } catch (error) {
         if (epoch !== this.epoch) return;
@@ -254,27 +367,34 @@ export class PlayerApp implements OnDestroy {
     this.failure(denied, false);
   }
   private async refresh() {
+    if (this.refreshing) return;
     clearTimeout(this.timer);
     const epoch = this.epoch;
     if (!this.credential) return;
+    this.refreshing = true;
     try {
-      const person = await firstValueFrom(
-        this.api
-          .identifyPairedPlayer(`Bearer ${this.credential}`, 'body', false, this.json)
+      const data = await firstValueFrom(
+        this.transport.api
+          .getPlayerCollections(`Bearer ${this.credential}`, 'body', false, this.json)
           .pipe(timeout(8000)),
       );
       if (epoch !== this.epoch) return;
-      if (this.identity()?.campaign !== person.campaign) {
+      if (this.identity()?.campaign !== data.identity.campaign) {
         this.identity.set(null);
+        this.clearCards();
         void this.reconnect();
         return;
       }
-      this.identity.set(person);
+      this.identity.set(data.identity);
+      this.acceptCards(data.group.cards, data.mine.cards);
+      this.transport.stale = false;
       this.state.set('connected');
       this.message.set('Connected');
       this.schedule();
     } catch (error) {
       if (epoch === this.epoch) this.failure(error, false);
+    } finally {
+      this.refreshing = false;
     }
   }
   private failure(error: unknown, pairing: boolean) {
@@ -282,6 +402,7 @@ export class PlayerApp implements OnDestroy {
       ++this.epoch;
       clearTimeout(this.timer);
       this.identity.set(null);
+      this.clearCards();
       this.state.set('denied');
       this.message.set(
         pairing
@@ -295,6 +416,7 @@ export class PlayerApp implements OnDestroy {
       this.state.set('unpaired');
       this.message.set('This pairing link is invalid. Ask your DM for a new code.');
     } else {
+      this.transport.stale = true;
       this.state.set('stale');
       this.message.set(
         pairing
@@ -312,7 +434,11 @@ export class PlayerApp implements OnDestroy {
   }
 }
 bootstrapApplication(PlayerApp, {
-  providers: [provideHttpClient(), { provide: BASE_PATH, useValue: '' }],
+  providers: [
+    provideHttpClient(),
+    { provide: BASE_PATH, useValue: '' },
+    { provide: CARD_LAYOUT_CLIENT, useFactory: () => inject(PlayerCardTransport) },
+  ],
 }).catch(() => {
   document.body.textContent = 'Unable to open player cards. Reload to retry.';
 });

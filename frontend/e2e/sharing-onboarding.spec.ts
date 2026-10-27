@@ -136,8 +136,10 @@ test('Share QR pairs real player browser, reconnects, tracks rename/activity/rev
     for (const url of sent.filter((url) => new URL(url).pathname.endsWith('.js'))) {
       const script = await (await request.get(url)).text();
       expect(script).not.toContain('/api/campaigns');
-      expect(script).not.toContain('Open full document');
+      expect(script).not.toContain('/api/card-layout');
+      // Shared PlayingCard retains the DM capability; it is disabled on player instances.
     }
+    await expect(tablet.getByRole('button', { name: 'Open full document' })).toHaveCount(0);
     expect(new URL(tablet.url()).hash).toBe('');
     expect(
       sent.some((url) => url.includes(new URLSearchParams(target.hash.slice(1)).get('token')!)),

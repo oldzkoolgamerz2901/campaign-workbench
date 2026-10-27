@@ -10,9 +10,13 @@ import {
   afterNextRender,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { HttpErrorResponse } from '@angular/common/http';
+import { DistributionControllerService } from '../../api/generated/api/distributionController.service';
+import type { SharedCardPreview, DistributeCard, SharedCardData } from '../../api/generated';
+import { SharedCardTray } from './shared-card-tray';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, tap } from 'rxjs';
 import { WorkbenchHeader, WorkbenchMode } from '../shared/workbench-header/workbench-header';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { ArtworkSource } from '../shared/artwork/artwork-image';
@@ -33,13 +37,187 @@ import {
 
 @Component({
   selector: 'share-workspace',
-  imports: [FormsModule, WorkbenchHeader, PlayingCard, MatButtonModule],
+  imports: [FormsModule, WorkbenchHeader, PlayingCard, MatButtonModule, SharedCardTray],
   templateUrl: './share-workspace.html',
   styleUrl: './share-workspace.css',
 })
 export class ShareWorkspace implements OnDestroy {
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(SharingControllerService);
+  private readonly distribution = inject(DistributionControllerService);
+  readonly sharedCards = signal<SharedCardData[]>([]);
+  readonly preview = signal<SharedCardPreview | null>(null);
+  readonly deliveryError = signal('');
+  readonly deliveryBusy = signal(false);
+  readonly uncertain = signal(false);
+  readonly previewImageReady = signal(false);
+  readonly newDestinations = signal<string[]>([]);
+  readonly destination = signal('group');
+  readonly deliveryMode = signal<'' | 'HANDOUT' | 'INVENTORY'>('');
+  private delivery: DistributeCard | null = null;
+  private sourceItem = '';
+  private collectionRequest = 0;
+  private readonly deliveryDialog = viewChild<ElementRef<HTMLDialogElement>>('deliveryDialog');
+  readonly sharedArtwork = (card: SharedCardData): ArtworkSource | null =>
+    card.artwork
+      ? {
+          key: `${this.campaign()}.${card.id}`,
+          load: () => this.distribution.getSharedArtwork(this.campaign(), card.id),
+        }
+      : null;
+  readonly previewArtwork = (): ArtworkSource | null =>
+    this.preview()?.artwork && this.delivery
+      ? {
+          key: `${this.campaign()}.${this.delivery.fingerprint}`,
+          load: () => {
+            const fingerprint = this.delivery!.fingerprint;
+            return this.distribution.previewSharedArtwork(this.campaign(), this.delivery!).pipe(
+              tap({
+                next: () => {
+                  if (this.delivery?.fingerprint === fingerprint) this.previewImageReady.set(true);
+                },
+                error: () => {
+                  if (this.delivery?.fingerprint === fingerprint) this.previewImageReady.set(false);
+                },
+              }),
+            );
+          },
+        }
+      : null;
+  async chooseCollection(value: string) {
+    this.collection.set(value);
+    this.newDestinations.update((values) => values.filter((id) => id !== value));
+    this.sharedCards.set([]);
+    try {
+      await this.refreshCollection();
+    } catch {
+      this.error.set('Cannot refresh this collection. Retry when connected.');
+    }
+  }
+  private async refreshCollection() {
+    const generation = ++this.collectionRequest;
+    const epoch = this.epoch,
+      campaign = this.campaign(),
+      collection = this.collection();
+    const result = await firstValueFrom(
+      this.distribution.getSharedCollection(
+        campaign,
+        collection === 'group' ? undefined : collection,
+        'body',
+        false,
+        this.json,
+      ),
+    );
+    if (
+      epoch === this.epoch &&
+      generation === this.collectionRequest &&
+      collection === this.collection()
+    )
+      this.sharedCards.set(result.cards);
+  }
+  async share(item: PreparedItemData) {
+    this.rememberFocus();
+    if (this.uncertain() && this.delivery && this.preview()) {
+      this.deliveryDialog()?.nativeElement.showModal();
+      return;
+    }
+    this.sourceItem = item.id;
+    this.destination.set(this.collection());
+    this.deliveryMode.set('');
+    this.deliveryError.set('');
+    this.uncertain.set(false);
+    this.preview.set(null);
+    this.delivery = null;
+    this.deliveryDialog()?.nativeElement.showModal();
+    await this.reviewDelivery();
+  }
+  async reviewDelivery() {
+    const session = this.route.snapshot.queryParamMap.get('session');
+    if (!session) return;
+    const epoch = this.epoch;
+    this.previewImageReady.set(false);
+    this.deliveryBusy.set(true);
+    this.deliveryError.set('');
+    try {
+      const preview = await firstValueFrom(
+        this.distribution.previewSharedCard(
+          this.campaign(),
+          { session, item: this.sourceItem },
+          'body',
+          false,
+          this.json,
+        ),
+      );
+      if (epoch !== this.epoch || !this.deliveryDialog()?.nativeElement.open) return;
+      this.delivery = {
+        operation: crypto.randomUUID(),
+        session,
+        item: this.sourceItem,
+        fingerprint: preview.fingerprint,
+        mode: 'HANDOUT',
+        recipient: null,
+      };
+      this.preview.set(preview);
+      this.previewImageReady.set(!preview.artwork);
+      this.uncertain.set(false);
+    } catch {
+      if (epoch === this.epoch) this.deliveryError.set('Cannot load preview. Retry review.');
+    } finally {
+      if (epoch === this.epoch) this.deliveryBusy.set(false);
+    }
+  }
+  async confirmDelivery() {
+    if (!this.delivery || !this.deliveryMode() || this.deliveryBusy() || !this.previewImageReady())
+      return;
+    const epoch = this.epoch;
+    if (!this.uncertain())
+      this.delivery = {
+        ...this.delivery,
+        mode: this.deliveryMode() as 'HANDOUT' | 'INVENTORY',
+        recipient: this.destination() === 'group' ? null : this.destination(),
+      };
+    this.deliveryBusy.set(true);
+    this.deliveryError.set('');
+    try {
+      await firstValueFrom(
+        this.distribution.distributeSharedCard(
+          this.campaign(),
+          this.delivery,
+          'body',
+          false,
+          this.json,
+        ),
+      );
+      if (epoch !== this.epoch) return;
+      const destination = this.delivery.recipient || 'group';
+      if (destination !== this.collection())
+        this.newDestinations.update((values) => [...new Set([...values, destination])]);
+      this.notice.set('Card shared.');
+      this.uncertain.set(false);
+      this.deliveryDialog()?.nativeElement.close();
+      this.preview.set(null);
+      try {
+        await this.refreshCollection();
+      } catch {
+        this.error.set('Card shared; collection refresh failed. Retry refresh.');
+      }
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      if (error instanceof HttpErrorResponse && error.status === 409) {
+        this.delivery = null;
+        this.preview.set(null);
+        this.deliveryError.set('Prepared card changed. Review again before sharing.');
+      } else {
+        this.uncertain.set(true);
+        this.deliveryError.set(
+          'Delivery could not be confirmed. Retry this delivery to avoid a duplicate.',
+        );
+      }
+    } finally {
+      if (epoch === this.epoch) this.deliveryBusy.set(false);
+    }
+  }
+
   private readonly gateway = inject(GatewayControllerService);
   private readonly accessApi = inject(GatewayAccessControllerService);
   private readonly campaignsApi = inject(CampaignControllerService);
@@ -119,6 +297,10 @@ export class ShareWorkspace implements OnDestroy {
     this.busy.set(true);
     this.error.set('');
     this.items.set([]);
+    this.sharedCards.set([]);
+    this.newDestinations.set([]);
+    this.notice.set('');
+    this.collection.set('group');
     this.players.set([]);
     this.access.set(null);
     try {
@@ -161,6 +343,7 @@ export class ShareWorkspace implements OnDestroy {
       ]);
       if (epoch !== this.epoch) return;
       this.players.set(players.players);
+      await this.refreshCollection();
       if (
         this.pairing() &&
         (this.access()?.gateway?.port !== access.gateway?.port ||
@@ -395,7 +578,7 @@ export class ShareWorkspace implements OnDestroy {
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
   private anyDialogOpen() {
-    return [this.nameDialog(), this.devicesDialog(), this.pairDialog()].some(
+    return [this.nameDialog(), this.devicesDialog(), this.pairDialog(), this.deliveryDialog()].some(
       (dialog) => dialog?.nativeElement.open,
     );
   }
@@ -423,6 +606,11 @@ export class ShareWorkspace implements OnDestroy {
     );
   }
   private closeDialogs() {
+    this.deliveryDialog()?.nativeElement.close();
+    this.preview.set(null);
+    this.delivery = null;
+    this.uncertain.set(false);
+    this.deliveryBusy.set(false);
     this.endPairing();
     this.nameDialog()?.nativeElement.close();
     this.devicesDialog()?.nativeElement.close();

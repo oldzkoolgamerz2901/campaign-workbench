@@ -82,7 +82,10 @@
               "optimization": true,
               "sourceMap": false,
               "outputHashing": "all",
-              "assets": [],
+              "assets": [
+                { "glob": "*.ttf", "input": "public/fonts", "output": "fonts" },
+                { "glob": "card-placeholder.svg", "input": "public" }
+              ],
               "budgets": [
                 {
                   "type": "initial",

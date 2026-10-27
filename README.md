@@ -8,7 +8,7 @@ The Angular frontend and Kotlin/Spring modular backend provide four content work
 - **Write:** edit durable Drafts with separate card-back text, check physical front/back text fit, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
 - **Prepare:** assemble ordered frozen items, edit preparation notes, plan explicit Scene associations and accept same-type revision replacements.
 - **Play:** arrange Session Cards, two covered piles, Used and an explicit active Scene; read frozen documents and record independent PlayNotes with pins and cross-session history.
-- **Share:** manage campaign players, enable LAN sharing and pair tablets by QR into separate Group/My Cards shells. Distribution and populated collections remain subsequent increments.
+- **Share:** manage campaign players, pair tablets by QR and explicitly distribute frozen card fronts/backs/artwork to Group or one player's Unsorted. Tablets read separate Group/My Cards collections; lifecycle commands and piles remain subsequent increments.
 
 T1/T2, P5–P8 and FC1–FC3 have delivery and formal evidence. Full cards now flip between canonical scroll-free fronts and plain-text backs, with complete external reading when a side cannot fit. The latest FC3 assessment passed 103 backend tests, 134 frontend tests, 55 Chromium journeys and four layout journeys. Owner functional/visual acceptance of FC3 remains separate. AI assistance, authority assignments and general source history remain future work.
 
@@ -119,6 +119,14 @@ Add a player using a display name. Adding a player does not enable sharing. Clic
 Rename/deactivate and device management are in the player's contextual menu. Device counts exclude revoked devices; inactive players retain their pairings. Regenerate invalidates the displayed invitation but never revokes a device that already paired. Closing the modal makes no pairing-success claim. Temporary tokens stay in URL fragments until player bootstrap removes them, then travel in the exchange body. Permanent credentials stay in origin/campaign-scoped localStorage and Authorization headers. Reload reconnects at the same origin; changing LAN IP/port can require re-pairing. Denied access hides identity/collections; unknown network loss retains stale in-memory information while reconnecting.
 
 Player assets come only from the completed `frontend/dist/player/browser` build manifest through Spring; the Angular dev server and DM assets remain private. Missing/partial builds disable QR readiness. For backend-only startup, build the player after generating the client (`cd frontend && npm run build:player`) and set `workbench.gateway.player-assets` to that directory's absolute path if the working directory is not the repository root. Full session-use packaging remains future work.
+
+### Frozen card distribution and tablet reading (G3.2)
+
+In Share, choose a prepared session and use the source card's **Share** action. Review the front, back and artwork, choose Group or one player's Unsorted, explicitly choose Handout or Inventory, and **Confirm sharing**. Artwork must finish loading before confirmation. Changed prepared content requires a fresh review. If delivery is uncertain, **Retry delivery** recovers the original instance; closing/reopening the dialog in the same workspace retains that retry identity. A new explicit distribution creates a separate copy.
+
+DM collection selection shows actual distributed cards. Paired tablets receive Group and their own collection only. Tap/click or keyboard-activate a card to expand, use its on-card flip, and read complete side text when layout is unavailable or does not fit. Close returns focus and preserves the tray's scroll position. New personal arrivals mark the My Cards destination without switching screens or interrupting reading. Network loss retains stale in-memory reading; authoritative denial hides collections. Reload requires reconnecting; no offline content storage or queued mutations is provided.
+
+Flyway V25 adds Sharing-owned frozen content/artwork, instances, Unsorted placement, distribution retry records and initial lifecycle events. Copies survive prepared-source removal and restart, independently of Preparation image pruning. Session/Writing archives do not include Sharing records or artwork. Inventory is currently readable but not claimable; Claim, Transfer, Remove/Restore, piles and drag/drop belong to G3.3–G3.5. Existing G3.1 shell descriptions above describe that earlier increment's scope.
 
 ### Optional development database reset
 

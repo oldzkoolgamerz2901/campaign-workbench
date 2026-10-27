@@ -13,6 +13,9 @@
       {{ error() }} <button matButton type="button" (click)="refresh(true)">Retry</button>
     </p>
   }
+  @if (notice()) {
+    <p role="status">{{ notice() }}</p>
+  }
   @if (!campaign()) {
     <p>Select a campaign to share with players.</p>
   } @else {
@@ -118,16 +121,21 @@
           <div class="source-tray">
             @for (item of visibleItems(); track item.id) {
               @let card = source(item);
-              <playing-card
-                [title]="card.title"
-                [type]="card.type"
-                [summary]="card.summary"
-                [tags]="card.tags"
-                [backText]="card.backText"
-                [artwork]="artwork(item)"
-                [context]="item.id"
-                [documentAvailable]="false"
-              />
+              <div class="source-entry">
+                <playing-card
+                  [title]="card.title"
+                  [type]="card.type"
+                  [summary]="card.summary"
+                  [tags]="card.tags"
+                  [backText]="card.backText"
+                  [artwork]="artwork(item)"
+                  [context]="item.id"
+                  [documentAvailable]="false"
+                />
+                <button matButton type="button" [disabled]="busy()" (click)="share(item)">
+                  Share {{ card.title }}
+                </button>
+              </div>
             } @empty {
               <p class="muted">
                 {{
@@ -145,16 +153,25 @@
             <select
               aria-label="Collection"
               [ngModel]="collection()"
-              (ngModelChange)="collection.set($event)"
+              (ngModelChange)="chooseCollection($event)"
             >
-              <option value="group">Group</option>
+              <option value="group">
+                Group {{ newDestinations().includes('group') ? '· New' : '' }}
+              </option>
               @for (player of players(); track player.id) {
-                <option [value]="player.id">{{ player.displayName }}</option>
+                <option [value]="player.id">
+                  {{ player.displayName }}
+                  {{ newDestinations().includes(player.id) ? '· New' : '' }}
+                </option>
               }
             </select>
           </div>
           <h3>Unsorted</h3>
-          <p class="muted">Shared cards will appear here.</p>
+          <shared-card-tray
+            [cards]="sharedCards()"
+            [artwork]="sharedArtwork"
+            [identity]="campaign() + collection()"
+          />
         </section>
       </div>
     </div>
@@ -241,6 +258,75 @@
       (click)="pair(pairPlayer()!, true)"
     >
       Regenerate code
+    </button>
+  </div>
+</dialog>
+
+<dialog
+  #deliveryDialog
+  (cancel)="deliveryBusy() && $event.preventDefault()"
+  aria-labelledby="delivery-title"
+  (close)="dialogClosed()"
+  class="delivery-dialog"
+>
+  <h2 id="delivery-title">Share card</h2>
+  @if (deliveryError()) {
+    <p role="alert">{{ deliveryError() }}</p>
+  }
+  @if (preview(); as p) {
+    <p>Review the front, back and artwork players will receive.</p>
+    <playing-card
+      [title]="p.visible.title"
+      [type]="p.visible.type"
+      [summary]="p.visible.summary"
+      [tags]="p.visible.tags"
+      [backText]="p.visible.backText"
+      [artwork]="previewArtwork()"
+      [context]="p.fingerprint"
+      [documentAvailable]="false"
+    />
+    <label
+      >Recipient
+      <select
+        aria-label="Recipient"
+        [disabled]="deliveryBusy() || uncertain()"
+        [ngModel]="destination()"
+        (ngModelChange)="destination.set($event)"
+      >
+        <option value="group">Group Unsorted</option>
+        @for (player of players(); track player.id) {
+          <option [value]="player.id">{{ player.displayName }} · Unsorted</option>
+        }
+      </select></label
+    >
+    <label
+      >Mode
+      <select
+        aria-label="Mode"
+        [disabled]="deliveryBusy() || uncertain()"
+        [ngModel]="deliveryMode()"
+        (ngModelChange)="deliveryMode.set($event)"
+      >
+        <option value="">Choose mode</option>
+        <option value="HANDOUT">Handout</option>
+        <option value="INVENTORY">Inventory</option>
+      </select></label
+    >
+  }
+  <div class="dialog-actions">
+    <button matButton type="button" [disabled]="deliveryBusy()" (click)="deliveryDialog.close()">
+      Cancel
+    </button>
+    @if (!preview() && !deliveryBusy()) {
+      <button matButton type="button" (click)="reviewDelivery()">Review again</button>
+    }
+    <button
+      matButton
+      type="button"
+      [disabled]="!preview() || !deliveryMode() || deliveryBusy() || !previewImageReady()"
+      (click)="confirmDelivery()"
+    >
+      {{ uncertain() ? 'Retry delivery' : 'Confirm sharing' }}
     </button>
   </div>
 </dialog>

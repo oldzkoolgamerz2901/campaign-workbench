@@ -184,3 +184,19 @@ dialog::backdrop {
     width: 220px;
   }
 }
+
+.source-entry {
+  flex: 0 0 320px;
+  width: 320px;
+}
+.delivery-dialog > playing-card {
+  display: block;
+  width: min(100%, 300px);
+  margin: auto;
+}
+@media (max-width: 550px) {
+  .source-entry {
+    flex-basis: 220px;
+    width: 220px;
+  }
+}

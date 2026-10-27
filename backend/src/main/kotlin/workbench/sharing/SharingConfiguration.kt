@@ -12,6 +12,8 @@ import java.time.Instant
 
 @Configuration
 class SharingConfiguration {
+    @Bean fun distributionService(campaigns: Campaigns, prepared: workbench.preparation.api.PreparedCards, players: SharingStore, cards: SharedCardStore, tx: Transactions, clock: SharingClock) = DistributionService(campaigns,prepared,players,cards,tx,clock)
+    @Bean fun collectionService(identity: workbench.sharing.api.PlayerAccess, cards: SharedCardStore, tx: Transactions, layouts: workbench.sources.api.CardLayoutCalculator) = CollectionService(identity,cards,tx,layouts)
     @Bean fun sharingClock() = SharingClock { Instant.now() }
     @Bean fun deviceSecrets(): DeviceSecrets = RandomDeviceSecrets()
     @Bean fun sharingService(campaigns: Campaigns, store: SharingStore, tx: Transactions, clock: SharingClock, secrets: DeviceSecrets,

@@ -54,6 +54,14 @@ Create a PlayNote with Markdown and at most one primary resource. The server cap
 
 Expand **Card history across sessions** to select a prepared copy and view primary-resource or captured-Scene history. Pins and full chronology paginate independently. History retains captured titles and session provenance after original removal, uses exact origin-qualified identity, and never merges by title or path. Session links retain unsaved-draft guards.
 
+## Share
+
+Select the campaign and prepared session in **Share**. Manage players and pair tablets through the LAN controls; enabling sharing is explicit. On a prepared source, choose **Share**, inspect both sides and artwork, select Group or one player's Unsorted, choose Handout or Inventory and confirm. Artwork must load before confirmation. Changed content requires review again. An uncertain response offers **Retry delivery**, which recovers the same copy even after closing/reopening that dialog in the same workspace. A subsequent new distribution deliberately creates another copy.
+
+Use the collection selector to inspect actual shared cards. Tablets show **Group Cards** and **My Cards** separately; personal cards are private to that player. Click/tap or keyboard-activate a card to expand, flip with its on-card control, and use complete side reading when necessary. Players never receive the full source document. Quiet arrival indicators do not navigate or interrupt reading. Transport loss retains stale reading in memory; access denial hides content. Reload requires connection. Shared copies retain their frozen text and artwork after prepared-source removal.
+
+G3.2 delivers reading and distribution only: Inventory cannot yet be claimed, and lifecycle commands, piles and drag/drop remain later increments. Shared collections are independent of Prepare and Play. Session/Writing archives do not back up Sharing state or artwork.
+
 ## Transfer and recovery
 
 Session archives use strict current format **v10**, including frozen text/artwork/provenance, preparation notes, Scene associations, runtime locations/covers/names and PlayNotes. Imports create new session/item/note identities while preserving historical origin evidence. Unsupported or invalid archives are rejected without partial session imports. Unopened runtime workspaces remain representable. Older formats are not supported.
