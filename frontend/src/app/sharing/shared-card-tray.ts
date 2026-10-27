@@ -4,18 +4,20 @@ import {
   computed,
   effect,
   input,
+  output,
   signal,
   viewChild,
   OnDestroy,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { PlayingCard } from '../shared/playing-card/playing-card';
 import { ArtworkSource } from '../shared/artwork/artwork-image';
 import type { SharedCardData } from '../../api/generated/model/sharedCardData';
 
 @Component({
   selector: 'shared-card-tray',
-  imports: [PlayingCard],
-  template: ` <div class="tray">
+  imports: [PlayingCard, NgTemplateOutlet],
+  template: ` <div #tray class="tray" tabindex="-1" aria-label="Shared cards">
       @for (card of cards(); track card.id) {
         <div class="entry">
           <playing-card
@@ -31,6 +33,7 @@ import type { SharedCardData } from '../../api/generated/model/sharedCardData';
             [selectionLabel]="'Expand ' + card.visible.title"
             (select)="open(card.id, $event)"
           />
+          <ng-container *ngTemplateOutlet="menu; context: { $implicit: card }" />
           <small>{{ card.mode === 'HANDOUT' ? 'Handout' : 'Inventory' }}</small>
         </div>
       } @empty {
@@ -50,8 +53,23 @@ import type { SharedCardData } from '../../api/generated/model/sharedCardData';
           [documentAvailable]="false"
         />
       }
+      @if (current(); as card) {
+        <ng-container *ngTemplateOutlet="menu; context: { $implicit: card }" />
+      }
       <button type="button" (click)="close()">Close expanded card</button>
-    </dialog>`,
+    </dialog>
+    <ng-template #menu let-card>
+      @if (actions()(card).length) {
+        <details (click)="$event.stopPropagation()">
+          <summary [attr.aria-label]="'Actions for ' + card.visible.title">Card actions</summary>
+          @for (action of actions()(card); track action) {
+            <button type="button" [disabled]="disabled()" (click)="invoke(card, action)">
+              {{ action }}
+            </button>
+          }
+        </details>
+      }
+    </ng-template>`,
   styles: `
     .tray {
       display: flex;
@@ -98,19 +116,36 @@ export class SharedCardTray implements OnDestroy {
   readonly cards = input.required<SharedCardData[]>();
   readonly artwork = input.required<(card: SharedCardData) => ArtworkSource | null>();
   readonly identity = input('');
+  readonly actions = input<(card: SharedCardData) => string[]>(() => []);
+  readonly disabled = input(false);
+  readonly command = output<{ card: SharedCardData; action: string }>();
   private readonly selected = signal('');
+  private readonly commandCard = signal('');
   readonly current = computed(() => this.cards().find((card) => card.id === this.selected()));
   private readonly dialog = viewChild<ElementRef<HTMLDialogElement>>('expanded');
+  private readonly tray = viewChild<ElementRef<HTMLElement>>('tray');
   private target: HTMLElement | null = null;
   private previousOverflow: string | null = null;
   constructor() {
     effect(() => {
       this.identity();
+      this.commandCard.set('');
       this.close();
     });
     effect(() => {
       if (!this.current()) this.close();
     });
+    effect(() => {
+      const id = this.commandCard();
+      if (id && !this.cards().some((card) => card.id === id)) {
+        this.commandCard.set('');
+        queueMicrotask(() => this.tray()?.nativeElement.focus());
+      }
+    });
+  }
+  invoke(card: SharedCardData, action: string) {
+    this.commandCard.set(card.id);
+    this.command.emit({ card, action });
   }
   open(id: string, _event: unknown) {
     this.target = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -126,6 +161,7 @@ export class SharedCardTray implements OnDestroy {
     this.selected.set('');
     this.restoreScroll();
     if (this.target?.isConnected) this.target.focus();
+    else this.tray()?.nativeElement.focus();
   }
   private restoreScroll() {
     if (this.previousOverflow !== null) {

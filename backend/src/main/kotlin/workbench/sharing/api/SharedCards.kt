@@ -33,3 +33,14 @@ interface PlayerCards {
     fun artwork(campaign: UUID, credential: String?, card: UUID): Either<Failure, ImageDerivative>
     fun layout(campaign: UUID, credential: String?, card: UUID): Either<Failure, CardLayout>
 }
+
+
+data class TransferSharedCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?)
+data class RemovedSharedCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val card: SharedCardData,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val state: String)
+data class RemovedSharedCards(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val cards: List<RemovedSharedCard>)
+interface PlayerCardCommands {
+    fun claim(campaign: UUID, credential: String?, card: UUID): Either<Failure, SharedCardData>
+    fun remove(campaign: UUID, credential: String?, card: UUID): Either<Failure, SharedCardData>
+}

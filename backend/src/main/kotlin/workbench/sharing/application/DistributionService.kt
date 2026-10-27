@@ -28,7 +28,7 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
         val previous = cards.operation(campaign, request.operation)
         if (previous != null) {
             ensure(previous.first == request) { Failure.Conflict("sharing.operation", "This operation was already used with different parameters.") }
-            ensureNotNull(cards.card(campaign, previous.second)?.second) { missing() }
+            ensureNotNull(cards.retained(campaign, previous.second)?.card) { missing() }
         } else {
             request.recipient?.let { ensureNotNull(players.player(campaign, it)) { missing() } }
             val source = prepared.card(campaign, request.session, request.item).bind()

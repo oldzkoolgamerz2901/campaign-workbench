@@ -150,6 +150,7 @@
         <section class="panel">
           <div class="section-title">
             <h2>Collections</h2>
+            <button matButton type="button" (click)="openRecovery()">Removed cards</button>
             <select
               aria-label="Collection"
               [ngModel]="collection()"
@@ -171,6 +172,9 @@
             [cards]="sharedCards()"
             [artwork]="sharedArtwork"
             [identity]="campaign() + collection()"
+            [actions]="cardActions"
+            [disabled]="lifecycleBusy() || !access()"
+            (command)="openCardCommand($event)"
           />
         </section>
       </div>
@@ -329,4 +333,76 @@
       {{ uncertain() ? 'Retry delivery' : 'Confirm sharing' }}
     </button>
   </div>
+</dialog>
+
+<dialog #lifecycleDialog aria-labelledby="lifecycle-title" (close)="lifecycleCard.set(null)">
+  <h2 id="lifecycle-title">{{ lifecycleAction() }} card</h2>
+  <p>{{ lifecycleCard()?.visible?.title }}</p>
+  @if (lifecycleAction() === 'Transfer') {
+    <label
+      >Destination
+      <select
+        aria-label="Transfer destination"
+        [ngModel]="transferDestination()"
+        (ngModelChange)="transferDestination.set($event)"
+      >
+        @if (collection() !== 'group') {
+          <option value="group">Group Unsorted</option>
+        }
+        @for (player of players(); track player.id) {
+          @if (player.id !== collection()) {
+            <option [value]="player.id">
+              {{ player.displayName }} · Unsorted{{ player.active ? '' : ' (inactive)' }}
+            </option>
+          }
+        }
+      </select>
+    </label>
+    <p>Move this inventory instance to the destination's Unsorted.</p>
+  } @else {
+    <p>Remove this card from its collection? It can be restored through Removed cards.</p>
+  }
+  @if (lifecycleError()) {
+    <p role="alert">{{ lifecycleError() }}</p>
+  }
+  <button
+    matButton
+    type="button"
+    [disabled]="
+      lifecycleBusy() || !access() || (lifecycleAction() === 'Transfer' && !transferDestination())
+    "
+    (click)="confirmCardCommand()"
+  >
+    {{ lifecycleAction() === 'Transfer' ? 'Transfer now' : 'Confirm removal' }}
+  </button>
+  <button matButton type="button" (click)="lifecycleDialog.close()">Cancel</button>
+</dialog>
+<dialog #recoveryDialog aria-labelledby="recovery-title">
+  <h2 id="recovery-title">Removed cards</h2>
+  @if (lifecycleError()) {
+    <p role="alert">{{ lifecycleError() }}</p>
+  }
+  @for (entry of removedCards(); track entry.card.id) {
+    <div class="removed-card">
+      <p>
+        {{ entry.card.visible.title }} ·
+        {{ entry.card.mode === 'INVENTORY' ? 'Inventory' : 'Handout' }} ·
+        {{ entry.state === 'DISCARDED' ? 'Discarded' : 'Withdrawn' }} ·
+        {{ recipientName(entry.recipient) }}
+      </p>
+      <button
+        matButton
+        type="button"
+        [disabled]="lifecycleBusy() || !access()"
+        (click)="restoreCard(entry)"
+      >
+        Restore {{ entry.card.visible.title }}
+      </button>
+    </div>
+  } @empty {
+    <p>No removed cards.</p>
+  }
+  <button #recoveryClose matButton type="button" (click)="recoveryDialog.close()">
+    Close removed cards
+  </button>
 </dialog>

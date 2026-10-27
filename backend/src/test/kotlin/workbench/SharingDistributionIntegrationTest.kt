@@ -213,6 +213,128 @@ class SharingDistributionIntegrationTest : StringSpec({
         get(port,"/player-api/cards/${card.id}/layout/extra").statusCode() shouldBe 404
         gateway.disable()
     }
+    "lifecycle claim races have one winner and retain instance content and history" {
+        val (a,one)=paired(); val (b,two)=paired()
+        val req=request(); val card=distribution().distribute(campaign,req).getOrNull()!!
+        val lifecycle=context!!.getBean(CardLifecycleService::class.java)
+        val pool=Executors.newFixedThreadPool(2); val go=CountDownLatch(1)
+        try {
+            val attempts=listOf(one,two).map { device -> pool.submit<Boolean> { go.await(); lifecycle.claim(campaign,device.credential,card.id).isRight() } }
+            go.countDown(); attempts.map { it.get(10,TimeUnit.SECONDS) }.count { it } shouldBe 1
+            val stored=context!!.getBean(SharedCardStore::class.java).retained(campaign,card.id)!!
+            listOf(a.id,b.id).contains(stored.recipient) shouldBe true
+            stored.card shouldBe card
+            jdbc().queryForObject("SELECT count(*) FROM sharing.card_event WHERE card=?",Long::class.java,card.id) shouldBe 2L
+            distribution().distribute(campaign,req).getOrNull() shouldBe card
+        } finally { pool.shutdownNow() }
+    }
+    "lifecycle enforces mode owner campaign and credential and restores previous inactive recipient" {
+        val (owner,device)=paired(); val (_,stranger)=paired()
+        val lifecycle=context!!.getBean(CardLifecycleService::class.java)
+        val req=request(owner.id); val inventory=distribution().distribute(campaign,req).getOrNull()!!
+        val handout=distribution().distribute(campaign,request(owner.id).copy(mode=SharingMode.HANDOUT)).getOrNull()!!
+        lifecycle.claim(campaign,device.credential,inventory.id).isLeft() shouldBe true
+        lifecycle.remove(campaign,stranger.credential,inventory.id).isLeft() shouldBe true
+        lifecycle.remove(campaign,device.credential,handout.id).isLeft() shouldBe true
+        lifecycle.transfer(campaign,handout.id,TransferSharedCard(null)).isLeft() shouldBe true
+        lifecycle.transfer(campaign,inventory.id,TransferSharedCard(UUID.randomUUID())).isLeft() shouldBe true
+        lifecycle.removeByDm(other,inventory.id).isLeft() shouldBe true
+        lifecycle.restore(campaign,inventory.id).isLeft() shouldBe true
+        lifecycle.remove(campaign,device.credential,inventory.id).getOrNull() shouldBe inventory
+        collections().artwork(campaign,device.credential,inventory.id).isLeft() shouldBe true
+        collections().layout(campaign,device.credential,inventory.id).isLeft() shouldBe true
+        lifecycle.remove(campaign,device.credential,inventory.id).isLeft() shouldBe true
+        sources().source=null
+        distribution().distribute(campaign,req).getOrNull() shouldBe inventory
+        sharing().activate(campaign,owner.id,false)
+        lifecycle.restore(campaign,inventory.id).getOrNull() shouldBe inventory
+        collections().collections(campaign,device.credential).isLeft() shouldBe true
+        distribution().collection(campaign,owner.id).getOrNull()!!.cards.last().id shouldBe inventory.id
+        lifecycle.transfer(campaign,inventory.id,TransferSharedCard(null)).getOrNull() shouldBe inventory
+        sharing().activate(campaign,owner.id,true)
+        lifecycle.claim(campaign,device.credential,handout.id).isLeft() shouldBe true
+        lifecycle.removeByDm(campaign,handout.id).isRight() shouldBe true
+        lifecycle.removed(campaign).getOrNull()!!.cards.single { it.card.id==handout.id }.state shouldBe "WITHDRAWN"
+        lifecycle.restore(campaign,handout.id).getOrNull() shouldBe handout
+        sharing().revoke(campaign,device.identity.device)
+        lifecycle.claim(campaign,device.credential,inventory.id).isLeft() shouldBe true
+        lifecycle.claim(other,stranger.credential,inventory.id).isLeft() shouldBe true
+    }
+    "lifecycle transition failure rolls back ownership placement and history" {
+        val (_,device)=paired(); val card=distribution().distribute(campaign,request()).getOrNull()!!
+        val store=context!!.getBean(SharedCardStore::class.java)
+        val before=store.retained(campaign,card.id)
+        val events=jdbc().queryForObject("SELECT count(*) FROM sharing.card_event WHERE card=?",Long::class.java,card.id)
+        val failing=object: SharedCardStore by store {
+            override fun transition(campaign:UUID,card:UUID,recipient:UUID?,state:String,kind:String,now:Instant):SharedCardData {
+                store.transition(campaign,card,recipient,state,kind,now); error("After transition")
+            }
+        }
+        val app=CardLifecycleService(context!!.getBean(Campaigns::class.java),context!!.getBean(PlayerAccess::class.java),
+            context!!.getBean(SharingStore::class.java),failing,context!!.getBean(Transactions::class.java),context!!.getBean(SharingClock::class.java))
+        shouldThrow<IllegalStateException> { app.claim(campaign,device.credential,card.id) }
+        store.retained(campaign,card.id) shouldBe before
+        jdbc().queryForObject("SELECT count(*) FROM sharing.card_event WHERE card=?",Long::class.java,card.id) shouldBe events
+    }
+    "lifecycle mutation serializes with revocation and subsequent commands are denied" {
+        val (_,device)=paired(); val card=distribution().distribute(campaign,request()).getOrNull()!!
+        val entered=CountDownLatch(1); val release=CountDownLatch(1)
+        val store=context!!.getBean(SharedCardStore::class.java)
+        val delayed=object: SharedCardStore by store {
+            override fun transition(campaign:UUID,card:UUID,recipient:UUID?,state:String,kind:String,now:Instant):SharedCardData {
+                entered.countDown(); check(release.await(5,TimeUnit.SECONDS))
+                return store.transition(campaign,card,recipient,state,kind,now)
+            }
+        }
+        val app=CardLifecycleService(context!!.getBean(Campaigns::class.java),context!!.getBean(PlayerAccess::class.java),
+            context!!.getBean(SharingStore::class.java),delayed,context!!.getBean(Transactions::class.java),context!!.getBean(SharingClock::class.java))
+        val pool=Executors.newFixedThreadPool(2)
+        try {
+            val claim=pool.submit<Boolean> { app.claim(campaign,device.credential,card.id).isRight() }
+            entered.await(3,TimeUnit.SECONDS) shouldBe true
+            val revoke=pool.submit<Boolean> { sharing().revoke(campaign,device.identity.device).isRight() }
+            shouldThrow<TimeoutException> { revoke.get(100,TimeUnit.MILLISECONDS) }
+            release.countDown(); claim.get(5,TimeUnit.SECONDS) shouldBe true; revoke.get(5,TimeUnit.SECONDS) shouldBe true
+            app.remove(campaign,device.credential,card.id).isLeft() shouldBe true
+        } finally { release.countDown(); pool.shutdownNow() }
+    }
+    "HTTP lifecycle commands require credential JSON and explicit gateway routes while recovery stays private" {
+        val (_,device)=paired(); val card=distribution().distribute(campaign,request()).getOrNull()!!
+        val gateway=context!!.getBean(GatewayService::class.java); gateway.select(campaign); gateway.enable()
+        val port=gateway.status().port!!; val dm=(context as WebServerApplicationContext).webServer!!.port
+        val client=HttpClient.newHttpClient()
+        fun post(port:Int,path:String,auth:String?=device.credential,json:Boolean=true):HttpResponse<String> {
+            val request=HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path"))
+            if(auth!=null) request.header("Authorization","Bearer $auth")
+            if(json) request.header("Content-Type","application/json")
+            return client.send(request.POST(HttpRequest.BodyPublishers.ofString("{}")).build(),HttpResponse.BodyHandlers.ofString())
+        }
+        val path="/player-api/cards/${card.id}"
+        post(port,"$path/claim",null).statusCode() shouldBe 401
+        post(port,"$path/claim",json=false).statusCode() shouldBe 415
+        post(dm,"$path/claim").statusCode() shouldBe 409
+        post(port,"$path/claim").let { it.statusCode() shouldBe 200; it.headers().firstValue("Cache-Control").orElse("") shouldBe "no-store" }
+        post(port,"$path/claim").statusCode() shouldBe 409
+        post(port,"$path/remove").statusCode() shouldBe 200
+        post(port,"$path/restore").statusCode() shouldBe 404
+        post(port,"/api/campaigns/$campaign/sharing/cards/${card.id}/restore").statusCode() shouldBe 404
+        client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:$port/api/campaigns/$campaign/sharing/removed")).GET().build(),HttpResponse.BodyHandlers.ofString()).statusCode() shouldBe 404
+        post(dm,"/api/campaigns/$campaign/sharing/cards/${card.id}/restore").statusCode() shouldBe 200
+        gateway.disable()
+    }
+    "removed lifecycle state history artwork and retry identity survive restart" {
+        val (player,device)=paired(); val req=request(); val card=distribution().distribute(campaign,req).getOrNull()!!
+        val lifecycle=context!!.getBean(CardLifecycleService::class.java)
+        lifecycle.claim(campaign,device.credential,card.id).isRight() shouldBe true
+        lifecycle.remove(campaign,device.credential,card.id).isRight() shouldBe true
+        context!!.close(); context=start(); sources().source=null
+        val app=context!!.getBean(CardLifecycleService::class.java)
+        app.removed(campaign).getOrNull()!!.cards.single { it.card.id==card.id }.recipient shouldBe player.id
+        distribution().distribute(campaign,req).getOrNull() shouldBe card
+        app.restore(campaign,card.id).getOrNull() shouldBe card
+        collections().artwork(campaign,device.credential,card.id).isRight() shouldBe true
+        jdbc().queryForList("SELECT kind FROM sharing.card_event WHERE card=? ORDER BY id",String::class.java,card.id) shouldBe listOf("DISTRIBUTED","CLAIMED","DISCARDED","RESTORED")
+    }
     "frozen content artwork and retry result survive restart with source unavailable" {
         val req=request(); val card=distribution().distribute(campaign,req).getOrNull()!!
         val bytes=distribution().artwork(campaign,card.id).getOrNull()!!.content.sha256

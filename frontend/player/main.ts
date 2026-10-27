@@ -1,4 +1,12 @@
-import { Component, OnDestroy, inject, signal, computed } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  inject,
+  signal,
+  computed,
+  viewChild,
+  ElementRef,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -17,6 +25,9 @@ import type { PlayerIdentity } from '../src/api/generated/model/playerIdentity';
 @Injectable({ providedIn: 'root' })
 class PlayerCardTransport {
   readonly api = inject(PlayerCardsControllerService);
+  constructor() {
+    this.api.defaultHeaders = this.api.defaultHeaders.set('Content-Type', 'application/json');
+  }
   credential = '';
   stale = false;
   onFailure: (error: unknown) => void = () => {};
@@ -119,6 +130,9 @@ function readSaved(): Saved {
           <shared-card-tray
             [cards]="screen() === 'group' ? group() : mine()"
             [artwork]="artwork"
+            [actions]="cardActions"
+            [disabled]="state() !== 'connected' || commandBusy()"
+            (command)="cardCommand($event)"
             [identity]="identity()!.campaign + screen()"
           />
         </section>
@@ -126,7 +140,18 @@ function readSaved(): Saved {
       @if (state() !== 'connecting' && state() !== 'connected') {
         <button matButton type="button" (click)="reconnect()">Retry connection</button>
       }
-    </main>`,
+    </main>
+    <dialog #removeDialog aria-label="Remove inventory" (close)="removeCard.set(null)">
+      <p>Remove {{ removeCard()?.visible?.title }} from My Cards? Your DM can restore it.</p>
+      <button
+        type="button"
+        [disabled]="commandBusy() || state() !== 'connected'"
+        (click)="confirmRemove()"
+      >
+        Confirm removal
+      </button>
+      <button type="button" (click)="removeDialog.close()">Cancel</button>
+    </dialog>`,
   styles: `
     :host {
       display: block;
@@ -166,6 +191,21 @@ function readSaved(): Saved {
       border-radius: 12px;
       background: var(--panel);
     }
+    dialog {
+      width: min(440px, calc(100vw - 2rem));
+      max-height: 90dvh;
+      box-sizing: border-box;
+      overflow: auto;
+      overflow-wrap: anywhere;
+      padding: 1.4rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      color: var(--ink);
+    }
+    dialog::backdrop {
+      background: #000b;
+    }
     .error {
       color: var(--mat-sys-error);
     }
@@ -187,6 +227,68 @@ export class PlayerApp implements OnDestroy {
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(PlayerAccessControllerService);
   private readonly transport = inject(PlayerCardTransport);
+  readonly commandBusy = signal(false);
+  readonly removeCard = signal<SharedCardData | null>(null);
+  private readonly removeDialog = viewChild<ElementRef<HTMLDialogElement>>('removeDialog');
+  readonly cardActions = (card: SharedCardData) =>
+    card.mode === 'INVENTORY' ? [this.screen() === 'group' ? 'Claim' : 'Remove'] : [];
+  async cardCommand(event: { card: SharedCardData; action: string }) {
+    if (this.state() !== 'connected' || this.commandBusy()) return;
+    if (event.action === 'Remove') {
+      this.removeCard.set(event.card);
+      this.removeDialog()?.nativeElement.showModal();
+    } else await this.runCommand(event.card, 'claim');
+  }
+  async confirmRemove() {
+    const card = this.removeCard();
+    if (!card || this.state() !== 'connected' || this.commandBusy()) return;
+    await this.runCommand(card, 'remove');
+    this.removeDialog()?.nativeElement.close();
+  }
+  private async runCommand(card: SharedCardData, action: 'claim' | 'remove') {
+    if (!this.credential) return;
+    const epoch = this.epoch;
+    this.commandBusy.set(true);
+    // Supersede an older polling response before changing authoritative state.
+    ++this.readGeneration;
+    this.refreshing = false;
+    clearTimeout(this.timer);
+    try {
+      const call =
+        action === 'claim'
+          ? this.transport.api.claimPlayerCard(
+              card.id,
+              `Bearer ${this.credential}`,
+              'body',
+              false,
+              this.json,
+            )
+          : this.transport.api.removePlayerCard(
+              card.id,
+              `Bearer ${this.credential}`,
+              'body',
+              false,
+              this.json,
+            );
+      await firstValueFrom(call.pipe(timeout(8000)));
+      if (epoch !== this.epoch) return;
+      await this.refresh(true);
+      if (this.state() === 'connected')
+        this.message.set(
+          action === 'claim' ? 'Card claimed. Find it in My Cards.' : 'Card removed.',
+        );
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      if (error instanceof HttpErrorResponse && error.status === 409) {
+        await this.refresh(true);
+        if (this.state() === 'connected')
+          this.message.set('This card is no longer available for that action.');
+      } else this.failure(error, false);
+    } finally {
+      this.commandBusy.set(false);
+    }
+  }
+  private readGeneration = 0;
   readonly group = signal<SharedCardData[]>([]);
   readonly mine = signal<SharedCardData[]>([]);
   readonly arrivals = signal({ group: false, mine: false });
@@ -200,6 +302,7 @@ export class PlayerApp implements OnDestroy {
         }
       : null;
   private clearCards() {
+    this.removeDialog()?.nativeElement.close();
     this.group.set([]);
     this.mine.set([]);
     this.arrivals.set({ group: false, mine: false });
@@ -208,6 +311,8 @@ export class PlayerApp implements OnDestroy {
   }
   private acceptCards(group: SharedCardData[], mine: SharedCardData[]) {
     this.transport.retain([...group, ...mine]);
+    if (this.removeCard() && !mine.some((card) => card.id === this.removeCard()!.id))
+      this.removeDialog()?.nativeElement.close();
     const added = (before: SharedCardData[], after: SharedCardData[]) =>
       after.some((card) => !before.some((old) => old.id === card.id));
     this.arrivals.update((old) => ({
@@ -366,8 +471,9 @@ export class PlayerApp implements OnDestroy {
     }
     this.failure(denied, false);
   }
-  private async refresh() {
-    if (this.refreshing) return;
+  private async refresh(force = false) {
+    if ((this.refreshing || this.commandBusy()) && !force) return;
+    const generation = ++this.readGeneration;
     clearTimeout(this.timer);
     const epoch = this.epoch;
     if (!this.credential) return;
@@ -378,7 +484,7 @@ export class PlayerApp implements OnDestroy {
           .getPlayerCollections(`Bearer ${this.credential}`, 'body', false, this.json)
           .pipe(timeout(8000)),
       );
-      if (epoch !== this.epoch) return;
+      if (epoch !== this.epoch || generation !== this.readGeneration) return;
       if (this.identity()?.campaign !== data.identity.campaign) {
         this.identity.set(null);
         this.clearCards();
@@ -392,9 +498,9 @@ export class PlayerApp implements OnDestroy {
       this.message.set('Connected');
       this.schedule();
     } catch (error) {
-      if (epoch === this.epoch) this.failure(error, false);
+      if (epoch === this.epoch && generation === this.readGeneration) this.failure(error, false);
     } finally {
-      this.refreshing = false;
+      if (generation === this.readGeneration) this.refreshing = false;
     }
   }
   private failure(error: unknown, pairing: boolean) {

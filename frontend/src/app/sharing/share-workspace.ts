@@ -11,6 +11,8 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { HttpErrorResponse } from '@angular/common/http';
+import { CardLifecycleControllerService } from '../../api/generated/api/cardLifecycleController.service';
+import type { RemovedSharedCard } from '../../api/generated/model/removedSharedCard';
 import { DistributionControllerService } from '../../api/generated/api/distributionController.service';
 import type { SharedCardPreview, DistributeCard, SharedCardData } from '../../api/generated';
 import { SharedCardTray } from './shared-card-tray';
@@ -44,6 +46,128 @@ import {
 export class ShareWorkspace implements OnDestroy {
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(SharingControllerService);
+  private readonly lifecycle = inject(CardLifecycleControllerService);
+  readonly lifecycleCard = signal<SharedCardData | null>(null);
+  readonly lifecycleAction = signal('');
+  readonly transferDestination = signal('group');
+  readonly lifecycleBusy = signal(false);
+  readonly lifecycleError = signal('');
+  readonly removedCards = signal<RemovedSharedCard[]>([]);
+  private readonly lifecycleDialog = viewChild<ElementRef<HTMLDialogElement>>('lifecycleDialog');
+  private readonly recoveryDialog = viewChild<ElementRef<HTMLDialogElement>>('recoveryDialog');
+  private readonly recoveryClose = viewChild('recoveryClose', { read: ElementRef<HTMLButtonElement> });
+  readonly cardActions = (card: SharedCardData) =>
+    card.mode === 'INVENTORY'
+      ? [...(this.collection() !== 'group' || this.players().length ? ['Transfer'] : []), 'Remove']
+      : ['Withdraw'];
+  recipientName(id: string | null) {
+    return id
+      ? this.players().find((player) => player.id === id)?.displayName || 'Unavailable player'
+      : 'Group';
+  }
+  openCardCommand(event: { card: SharedCardData; action: string }) {
+    if (this.lifecycleBusy() || !this.access()) return;
+    this.lifecycleCard.set(event.card);
+    this.lifecycleAction.set(event.action);
+    this.transferDestination.set(
+      this.collection() === 'group' ? this.players()[0]?.id || '' : 'group',
+    );
+    this.lifecycleError.set('');
+    this.lifecycleDialog()?.nativeElement.showModal();
+  }
+  async openRecovery() {
+    this.lifecycleError.set('');
+    this.removedCards.set([]);
+    this.recoveryDialog()?.nativeElement.showModal();
+    await this.refreshRemoved();
+  }
+  private async refreshRemoved() {
+    const campaign = this.campaign(),
+      epoch = this.epoch;
+    try {
+      const data = await firstValueFrom(
+        this.lifecycle.getRemovedSharedCards(campaign, 'body', false, this.json),
+      );
+      if (epoch === this.epoch) this.removedCards.set(data.cards);
+    } catch {
+      if (epoch === this.epoch)
+        this.lifecycleError.set('Cannot load removed cards. Close and retry when connected.');
+    }
+  }
+  async confirmCardCommand() {
+    const card = this.lifecycleCard();
+    if (!card || this.lifecycleBusy() || !this.access()) return;
+    const action = this.lifecycleAction(),
+      campaign = this.campaign();
+    await this.runLifecycle(
+      () =>
+        firstValueFrom(
+          action === 'Transfer'
+            ? this.lifecycle.transferSharedCard(
+                campaign,
+                card.id,
+                {
+                  recipient:
+                    this.transferDestination() === 'group' ? null : this.transferDestination(),
+                },
+                'body',
+                false,
+                this.json,
+              )
+            : this.lifecycle.removeSharedCard(campaign, card.id, 'body', false, this.json),
+        ),
+      action === 'Transfer' ? this.transferDestination() : undefined,
+    );
+  }
+  async restoreCard(entry: RemovedSharedCard) {
+    if (this.lifecycleBusy() || !this.access()) return;
+    await this.runLifecycle(
+      () =>
+        firstValueFrom(
+          this.lifecycle.restoreSharedCard(
+            this.campaign(),
+            entry.card.id,
+            'body',
+            false,
+            this.json,
+          ),
+        ),
+      entry.recipient || 'group',
+    );
+  }
+  private async runLifecycle(action: () => Promise<unknown>, destination?: string) {
+    const epoch = this.epoch;
+    this.lifecycleBusy.set(true);
+    this.lifecycleError.set('');
+    ++this.collectionRequest;
+    try {
+      await action();
+      if (epoch !== this.epoch) return;
+      this.lifecycleDialog()?.nativeElement.close();
+      if (destination && destination !== this.collection())
+        this.newDestinations.update((values) => [...new Set([...values, destination])]);
+      this.notice.set('Card updated.');
+      await this.refreshCollection();
+      if (this.recoveryDialog()?.nativeElement.open) {
+        await this.refreshRemoved();
+        afterNextRender(() => this.recoveryClose()?.nativeElement.focus(), {
+          injector: this.injector,
+        });
+      }
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      this.lifecycleError.set(
+        error instanceof HttpErrorResponse && error.status === 409
+          ? 'This card is no longer available for that action. Close and refresh.'
+          : 'The result could not be confirmed. Reconnect and refresh before trying again.',
+      );
+      this.error.set(this.lifecycleError());
+      await this.refresh(true);
+      if (this.recoveryDialog()?.nativeElement.open) await this.refreshRemoved();
+    } finally {
+      this.lifecycleBusy.set(false);
+    }
+  }
   private readonly distribution = inject(DistributionControllerService);
   readonly sharedCards = signal<SharedCardData[]>([]);
   readonly preview = signal<SharedCardPreview | null>(null);
@@ -112,8 +236,14 @@ export class ShareWorkspace implements OnDestroy {
       epoch === this.epoch &&
       generation === this.collectionRequest &&
       collection === this.collection()
-    )
+    ) {
       this.sharedCards.set(result.cards);
+      if (
+        this.lifecycleCard() &&
+        !result.cards.some((card) => card.id === this.lifecycleCard()!.id)
+      )
+        this.lifecycleDialog()?.nativeElement.close();
+    }
   }
   async share(item: PreparedItemData) {
     this.rememberFocus();
@@ -284,6 +414,10 @@ export class ShareWorkspace implements OnDestroy {
   }, 2000);
   private readonly routeSubscription = this.route.queryParamMap.subscribe(() => void this.load());
   constructor() {
+    this.lifecycle.defaultHeaders = this.lifecycle.defaultHeaders.set(
+      'Content-Type',
+      'application/json',
+    );
     // Generated bodyless mutation methods do not set Content-Type themselves.
     this.api.defaultHeaders = this.api.defaultHeaders.set('Content-Type', 'application/json');
     this.gateway.defaultHeaders = this.gateway.defaultHeaders.set(
@@ -300,6 +434,9 @@ export class ShareWorkspace implements OnDestroy {
     this.sharedCards.set([]);
     this.newDestinations.set([]);
     this.notice.set('');
+    this.lifecycleDialog()?.nativeElement.close();
+    this.recoveryDialog()?.nativeElement.close();
+    this.removedCards.set([]);
     this.collection.set('group');
     this.players.set([]);
     this.access.set(null);
@@ -351,6 +488,8 @@ export class ShareWorkspace implements OnDestroy {
       )
         this.endPairing();
       this.access.set(access);
+      if (this.recoveryDialog()?.nativeElement.open && !this.lifecycleBusy())
+        await this.refreshRemoved();
       const addresses = access.addresses || [];
       if (!addresses.some((candidate) => candidate.address === this.address())) {
         this.endPairing();

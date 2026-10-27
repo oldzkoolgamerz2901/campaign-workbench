@@ -60,7 +60,11 @@ Select the campaign and prepared session in **Share**. Manage players and pair t
 
 Use the collection selector to inspect actual shared cards. Tablets show **Group Cards** and **My Cards** separately; personal cards are private to that player. Click/tap or keyboard-activate a card to expand, flip with its on-card control, and use complete side reading when necessary. Players never receive the full source document. Quiet arrival indicators do not navigate or interrupt reading. Transport loss retains stale reading in memory; access denial hides content. Reload requires connection. Shared copies retain their frozen text and artwork after prepared-source removal.
 
-G3.2 delivers reading and distribution only: Inventory cannot yet be claimed, and lifecycle commands, piles and drag/drop remain later increments. Shared collections are independent of Prepare and Play. Session/Writing archives do not back up Sharing state or artwork.
+Use **Card actions** to **Claim** Group Inventory immediately into My Cards Unsorted without leaving Group. If another player claims first, the view refreshes with an unavailable message. In My Cards, **Remove** requires confirmation and applies only to your Inventory. Handouts cannot be claimed or removed by players.
+
+The DM uses contextual **Transfer** on active Inventory, choosing Group or a player's Unsorted. **Remove** discards Inventory; **Withdraw** removes a Handout, both with confirmation. **Removed cards** is the single DM-only recovery view: **Restore** returns the same instance to its previous recipient's Unsorted, even if that player is inactive. Restoration does not reactivate their access. Unknown connection loss disables commands while retaining local reading; reconnect refreshes state before commands resume.
+
+G3.3 delivers lifecycle commands; named piles and drag/drop remain later increments. Shared collections are independent of Prepare and Play. Session/Writing archives do not back up Sharing state or artwork.
 
 ## Transfer and recovery
 

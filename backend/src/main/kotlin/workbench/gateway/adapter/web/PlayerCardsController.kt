@@ -17,7 +17,7 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/player-api")
-class PlayerCardsController(private val cards: PlayerCards) {
+class PlayerCardsController(private val cards: PlayerCards, private val commands: PlayerCardCommands) {
     @Operation(operationId="getPlayerCollections")
     @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=PlayerCollections::class))])
     @GetMapping("/collections",produces=["application/json"])
@@ -37,6 +37,18 @@ class PlayerCardsController(private val cards: PlayerCards) {
         admitted(request) { cards.artwork(it,credential(auth),card) }.fold(
             { Either.Left(it).response(noStore=true) },
             { ResponseEntity.ok().header("Cache-Control","no-store").header("Content-Type",it.mime).body(it.content.copy()) })
+
+    @Operation(operationId="claimPlayerCard")
+    @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCardData::class))])
+    @PostMapping("/cards/{card}/claim",consumes=["application/json"],produces=["application/json"])
+    fun claim(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@PathVariable card: UUID) =
+        admitted(request) { commands.claim(it,credential(auth),card) }.response(noStore=true)
+
+    @Operation(operationId="removePlayerCard")
+    @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCardData::class))])
+    @PostMapping("/cards/{card}/remove",consumes=["application/json"],produces=["application/json"])
+    fun remove(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@PathVariable card: UUID) =
+        admitted(request) { commands.remove(it,credential(auth),card) }.response(noStore=true)
 
     private fun credential(auth: String?)=auth?.let { Regex("Bearer ([A-Za-z0-9_-]{43})",RegexOption.IGNORE_CASE).matchEntire(it)?.groupValues?.get(1) }
     private fun <T> admitted(request: HttpServletRequest, call: (UUID)->Either<Failure,T>): Either<Failure,T> {

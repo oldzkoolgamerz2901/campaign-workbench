@@ -8,7 +8,7 @@ The Angular frontend and Kotlin/Spring modular backend provide four content work
 - **Write:** edit durable Drafts with separate card-back text, check physical front/back text fit, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
 - **Prepare:** assemble ordered frozen items, edit preparation notes, plan explicit Scene associations and accept same-type revision replacements.
 - **Play:** arrange Session Cards, two covered piles, Used and an explicit active Scene; read frozen documents and record independent PlayNotes with pins and cross-session history.
-- **Share:** manage campaign players, pair tablets by QR and explicitly distribute frozen card fronts/backs/artwork to Group or one player's Unsorted. Tablets read separate Group/My Cards collections; lifecycle commands and piles remain subsequent increments.
+- **Share:** manage campaign players, pair tablets by QR and explicitly distribute frozen card fronts/backs/artwork to Group or one player's Unsorted. Tablets read separate Group/My Cards collections, claim Group Inventory and confirm removal of their own Inventory. DM transfer, removal/withdrawal and same-instance recovery are available; piles remain subsequent increments.
 
 T1/T2, P5–P8 and FC1–FC3 have delivery and formal evidence. Full cards now flip between canonical scroll-free fronts and plain-text backs, with complete external reading when a side cannot fit. The latest FC3 assessment passed 103 backend tests, 134 frontend tests, 55 Chromium journeys and four layout journeys. Owner functional/visual acceptance of FC3 remains separate. AI assistance, authority assignments and general source history remain future work.
 
@@ -126,7 +126,15 @@ In Share, choose a prepared session and use the source card's **Share** action. 
 
 DM collection selection shows actual distributed cards. Paired tablets receive Group and their own collection only. Tap/click or keyboard-activate a card to expand, use its on-card flip, and read complete side text when layout is unavailable or does not fit. Close returns focus and preserves the tray's scroll position. New personal arrivals mark the My Cards destination without switching screens or interrupting reading. Network loss retains stale in-memory reading; authoritative denial hides collections. Reload requires reconnecting; no offline content storage or queued mutations is provided.
 
-Flyway V25 adds Sharing-owned frozen content/artwork, instances, Unsorted placement, distribution retry records and initial lifecycle events. Copies survive prepared-source removal and restart, independently of Preparation image pruning. Session/Writing archives do not include Sharing records or artwork. Inventory is currently readable but not claimable; Claim, Transfer, Remove/Restore, piles and drag/drop belong to G3.3–G3.5. Existing G3.1 shell descriptions above describe that earlier increment's scope.
+Flyway V25 adds Sharing-owned frozen content/artwork, instances, Unsorted placement, distribution retry records and initial lifecycle events. Copies survive prepared-source removal and restart, independently of Preparation image pruning. Session/Writing archives do not include Sharing records or artwork. G3.2 delivered readable Inventory; G3.3 adds Claim, Transfer and Remove/Restore below. Piles and drag/drop remain G3.4–G3.5. Existing G3.1 shell descriptions above describe that earlier increment's scope.
+
+### Inventory lifecycle and recovery (G3.3)
+
+Use **Card actions** on a distributed card. On tablets, **Claim** takes Group Inventory into your My Cards Unsorted immediately, keeping you on Group; a competing claim refreshes the view with concise feedback. My Cards Inventory offers **Remove** with confirmation. Handouts remain read-only for players.
+
+In Share, the DM can **Transfer** active Inventory to Group or another player's Unsorted, **Remove** Inventory or **Withdraw** Handouts with confirmation. **Removed cards** opens one DM-only recovery view showing mode, state and previous recipient. **Restore** returns the same instance and frozen content to that recipient's Unsorted, including inactive players; it does not reactivate access. Transfer and recovery preserve instance identity. Named piles and drag/drop remain G3.4–G3.5.
+
+Every command rechecks current access/state in its transaction. Unknown connection loss disables mutations while retaining in-memory reading; reconnect refreshes authoritative state. Sharing lifecycle state and history survive restart, but remain outside session/Writing archives. No database migration or reset is needed beyond G3.2's V25.
 
 ### Optional development database reset
 
