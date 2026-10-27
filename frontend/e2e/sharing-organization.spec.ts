@@ -269,7 +269,10 @@ test('G3.4 organization, atomic distribution, local cover browsing and stable re
       await reserve.getByLabel('Actions for pile Reserve').click();
     await reserve.getByRole('button', { name: 'Delete pile', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Reserve', exact: true })).toHaveCount(0);
-    await page.getByLabel('Collection', { exact: true }).selectOption(player.id);
+    await page
+      .getByRole('navigation', { name: 'Collections' })
+      .getByRole('button', { name: 'Mira', exact: true })
+      .click();
     await expect(page.getByRole('button', { name: 'New pile', exact: true })).toHaveCount(0);
     await second.setViewportSize({ width: 600, height: 800 });
     await second.screenshot({ path: info.outputPath('personal-narrow.png'), fullPage: true });

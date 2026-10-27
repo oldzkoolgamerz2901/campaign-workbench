@@ -1,4 +1,9 @@
 import {
+  SharingGestures,
+  SharingDropTarget,
+  SharingDrag,
+} from '../src/app/sharing/sharing-gestures';
+import {
   Component,
   OnDestroy,
   inject,
@@ -110,10 +115,18 @@ function readSaved(): Saved {
 }
 @Component({
   selector: 'player-root',
-  imports: [MatButtonModule, SharedCardTray],
+  providers: [SharingGestures],
+  imports: [MatButtonModule, SharedCardTray, SharingDropTarget],
   template: ` <header class="player-header">
       <h1>{{ screen() === 'group' ? 'Group Cards' : 'My Cards' }}</h1>
-      <button matButton type="button" (click)="navigate(screen() === 'group' ? 'mine' : 'group')">
+      <button
+        matButton
+        type="button"
+        [sharingTarget]="{ kind: 'claim' }"
+        [accepts]="acceptClaim"
+        (dropped)="claimDrop($event.source.id)"
+        (click)="navigate(screen() === 'group' ? 'mine' : 'group')"
+      >
         {{ screen() === 'group' ? 'My Cards' : 'Group Cards' }}
         {{ arrivals()[screen() === 'group' ? 'mine' : 'group'] ? '· New' : '' }} ›
       </button>
@@ -128,6 +141,8 @@ function readSaved(): Saved {
       @if (identity()) {
         <section class="collection">
           <shared-card-tray
+            [collection]="screen() === 'group' ? 'group' : identity()!.player"
+            [claimable]="screen() === 'group'"
             [cards]="screen() === 'group' ? group() : mine()"
             [piles]="screen() === 'group' ? groupPiles() : myPiles()"
             [organizer]="screen() === 'mine'"
@@ -229,6 +244,19 @@ function readSaved(): Saved {
 export class PlayerApp implements OnDestroy {
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(PlayerAccessControllerService);
+  readonly gestures = inject(SharingGestures);
+  readonly acceptClaim = (source: SharingDrag) =>
+    this.screen() === 'group' &&
+    this.state() === 'connected' &&
+    !this.commandBusy() &&
+    source.kind === 'card' &&
+    source.collection === 'group' &&
+    source.mode === 'INVENTORY';
+  private readonly collectionTray = viewChild(SharedCardTray);
+  claimDrop(id: string) {
+    const card = this.group().find((c) => c.id === id);
+    if (card) this.collectionTray()?.invoke(card, 'Claim');
+  }
   private readonly transport = inject(PlayerCardTransport);
   readonly commandBusy = signal(false);
   readonly removeCard = signal<SharedCardData | null>(null);
@@ -402,6 +430,7 @@ export class PlayerApp implements OnDestroy {
     else void this.reconnect();
   }
   navigate(screen: 'group' | 'mine') {
+    this.gestures.cancel();
     this.screen.set(screen);
     this.arrivals.update((value) => ({ ...value, [screen]: false }));
     history.pushState(null, '', `/player/${screen}`);

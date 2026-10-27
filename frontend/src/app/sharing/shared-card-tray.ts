@@ -1,3 +1,5 @@
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { CdkDropList } from '@angular/cdk/drag-drop';
 import {
   Component,
   ElementRef,
@@ -10,6 +12,15 @@ import {
   OnDestroy,
   untracked,
 } from '@angular/core';
+import {
+  SharingGestures,
+  SharingDragSource,
+  SharingDropTarget,
+  SharingDrag,
+  SharingDrop,
+  SharingDestination,
+} from './sharing-gestures';
+import { inject } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PlayingCard } from '../shared/playing-card/playing-card';
@@ -19,7 +30,15 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
 
 @Component({
   selector: 'shared-card-tray',
-  imports: [PlayingCard, NgTemplateOutlet, FormsModule],
+  imports: [
+    CdkScrollable,
+    CdkDropList,
+    PlayingCard,
+    NgTemplateOutlet,
+    FormsModule,
+    SharingDragSource,
+    SharingDropTarget,
+  ],
   template: ` <div #tray tabindex="-1" aria-label="Shared cards">
       <div class="heading">
         <h3>Piles</h3>
@@ -29,7 +48,13 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
       </div>
       <div class="piles">
         @for (pile of piles(); track pile.id; let i = $index) {
-          <section class="pile" [attr.aria-label]="pile.name">
+          <section
+            class="pile"
+            [attr.aria-label]="pile.name"
+            [sharingTarget]="{ kind: 'location', collection: collection(), pile: pile.id }"
+            [accepts]="acceptLocation"
+            (dropped)="drop($event)"
+          >
             <div class="heading">
               <h4>{{ pile.name }}{{ arrivals()[pile.id] ? ' · New' : '' }}</h4>
               <span
@@ -94,10 +119,29 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
           <p>No named piles.</p>
         }
       </div>
+      @if (!shownPile()) {
+        <ng-container *ngTemplateOutlet="targets" />
+      }
       <h3>Unsorted</h3>
-      <div class="tray">
+      <div
+        class="tray"
+        cdkScrollable
+        [sharingTarget]="{ kind: 'location', collection: collection(), pile: null }"
+        [accepts]="acceptLocation"
+        (dropped)="drop($event)"
+      >
         @for (card of members(null); track card.id) {
-          <div class="entry">
+          <div
+            class="entry"
+            [sharingTarget]="{
+              kind: 'location',
+              collection: collection(),
+              pile: card.pile || null,
+              before: card.id,
+            }"
+            [accepts]="acceptOrder(card)"
+            (dropped)="drop($event)"
+          >
             <ng-container *ngTemplateOutlet="surface; context: { $implicit: card }" />
           </div>
         } @empty {
@@ -105,15 +149,26 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
         }
       </div>
     </div>
-    <dialog #all aria-label="Show all cards" (close)="allClosed()">
+    <dialog #all cdkScrollable aria-label="Show all cards" (close)="allClosed()">
       <div class="heading">
         <h3>{{ shownPile()?.name }}</h3>
         <button type="button" (click)="all.close()">Close pile</button>
       </div>
       @if (shownPile()) {
+        <ng-container *ngTemplateOutlet="targets" />
         <div class="grid">
           @for (card of members(shown()); track card.id) {
-            <div class="entry">
+            <div
+              class="entry"
+              [sharingTarget]="{
+                kind: 'location',
+                collection: collection(),
+                pile: card.pile || null,
+                before: card.id,
+              }"
+              [accepts]="acceptOrder(card)"
+              (dropped)="drop($event)"
+            >
               <ng-container *ngTemplateOutlet="surface; context: { $implicit: card }" />
             </div>
           } @empty {
@@ -193,20 +248,88 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
       </button>
       <button type="button" (click)="editor.close()">Cancel</button>
     </dialog>
+    <ng-template #targets>
+      @if (gestures.active(); as source) {
+        <div class="drop-destinations" aria-label="Card destinations">
+          @if (organizer()) {
+            @for (location of locations(); track location.id) {
+              <div
+                class="drop-target"
+                [sharingTarget]="{ kind: 'location', collection: collection(), pile: location.id }"
+                [accepts]="acceptLocation"
+                (dropped)="drop($event)"
+              >
+                {{ source.kind === 'source' ? 'Share to' : 'Move to' }} {{ location.name }}
+              </div>
+            }
+          }
+          @for (destination of destinations(); track destination.id + (destination.pile || '')) {
+            @if (acceptCollection(destination.id)(source)) {
+              <div
+                class="drop-target"
+                [sharingTarget]="{
+                  kind: 'collection',
+                  collection: destination.id,
+                  pile: destination.pile,
+                }"
+                [accepts]="acceptCollection(destination.id)"
+                (dropped)="drop($event)"
+              >
+                {{ destination.name }}
+              </div>
+            }
+          }
+          @if (
+            shownPile() && claimable() && source.kind === 'card' && source.mode === 'INVENTORY'
+          ) {
+            <div
+              class="drop-target"
+              [sharingTarget]="{ kind: 'claim' }"
+              [accepts]="acceptClaim"
+              (dropped)="drop($event)"
+            >
+              My Cards · Claim
+            </div>
+          }
+          @if (
+            source.kind === 'card' &&
+            source.collection === collection() &&
+            actionsFor(source.id).length
+          ) {
+            <div
+              class="drop-target"
+              [sharingTarget]="{ kind: 'remove' }"
+              [accepts]="acceptRemove"
+              (dropped)="drop($event)"
+            >
+              {{ actionsFor(source.id)[0] }} · confirm
+            </div>
+          }
+        </div>
+      }
+    </ng-template>
     <ng-template #surface let-card>
-      <playing-card
-        [title]="card.visible.title"
-        [type]="card.visible.type"
-        [summary]="card.visible.summary"
-        [tags]="card.visible.tags"
-        [backText]="card.visible.backText"
-        [context]="card.id"
-        [artwork]="artwork()(card)"
-        [documentAvailable]="false"
-        [selectable]="true"
-        [selectionLabel]="'Expand ' + card.visible.title"
-        (select)="open(card.id)"
-      />
+      <div cdkDropList [cdkDropListSortingDisabled]="true">
+        <div
+          [sharingDrag]="dragSource(card)"
+          [dragDisabled]="disabled() || (!organizer() && !actions()(card).length)"
+          [attr.data-shared-card]="card.id"
+        >
+          <playing-card
+            [title]="card.visible.title"
+            [type]="card.visible.type"
+            [summary]="card.visible.summary"
+            [tags]="card.visible.tags"
+            [backText]="card.visible.backText"
+            [context]="card.id"
+            [artwork]="artwork()(card)"
+            [documentAvailable]="false"
+            [selectable]="true"
+            [selectionLabel]="'Expand ' + card.visible.title"
+            (select)="open(card.id)"
+          />
+        </div>
+      </div>
       <ng-container *ngTemplateOutlet="menu; context: { $implicit: card }" />
       <small>{{ card.mode === 'HANDOUT' ? 'Handout' : 'Inventory' }}</small>
     </ng-template>
@@ -330,6 +453,71 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
   `,
 })
 export class SharedCardTray implements OnDestroy {
+  readonly gestures = inject(SharingGestures);
+  readonly collection = input('group');
+  readonly claimable = input(false);
+  readonly destinations = input<SharingDestination[]>([]);
+  readonly externalDrop = output<SharingDrop>();
+  readonly locations = computed(() => [
+    { id: null as string | null, name: 'Unsorted' },
+    ...this.piles().map((p) => ({ id: p.id, name: p.name })),
+  ]);
+  dragSource(card: SharedCardData): SharingDrag {
+    return {
+      kind: 'card',
+      id: card.id,
+      collection: this.collection(),
+      pile: card.pile || null,
+      mode: card.mode,
+    };
+  }
+  readonly acceptLocation = (source: SharingDrag) =>
+    !this.disabled() &&
+    (source.kind === 'source'
+      ? this.collection() === 'group'
+      : this.organizer() && source.collection === this.collection());
+  acceptOrder(card: SharedCardData) {
+    return (source: SharingDrag) =>
+      source.kind === 'card' && source.id !== card.id && this.acceptLocation(source);
+  }
+  acceptCollection(id: string) {
+    return (source: SharingDrag) =>
+      !this.disabled() &&
+      (source.kind === 'source' || (source.mode === 'INVENTORY' && source.collection !== id));
+  }
+  readonly acceptClaim = (source: SharingDrag) =>
+    !this.disabled() &&
+    this.claimable() &&
+    source.kind === 'card' &&
+    source.collection === 'group' &&
+    source.mode === 'INVENTORY';
+  actionsFor(id: string) {
+    const card = this.cards().find((c) => c.id === id);
+    return (card ? this.actions()(card) : []).filter((a) => a === 'Remove' || a === 'Withdraw');
+  }
+  readonly acceptRemove = (source: SharingDrag) =>
+    !this.disabled() &&
+    source.kind === 'card' &&
+    source.collection === this.collection() &&
+    this.cards().some((c) => c.id === source.id) &&
+    this.actionsFor(source.id).length > 0;
+  drop(event: SharingDrop) {
+    const { source, target } = event;
+    if (this.disabled()) return;
+    if (target.kind === 'location' && source.kind === 'card' && this.acceptLocation(source)) {
+      this.emit({
+        kind: 'MOVE',
+        card: source.id,
+        source: source.pile || undefined,
+        pile: target.pile || undefined,
+        before: target.before,
+      });
+    } else if (target.kind === 'remove' || target.kind === 'claim') {
+      const card = this.cards().find((c) => c.id === source.id);
+      if (card) this.invoke(card, target.kind === 'claim' ? 'Claim' : this.actionsFor(card.id)[0]);
+    } else this.externalDrop.emit(event);
+  }
+
   readonly cards = input.required<SharedCardData[]>();
   readonly piles = input<SharedPile[]>([]);
   readonly organizer = input(false);
@@ -365,6 +553,7 @@ export class SharedCardTray implements OnDestroy {
   constructor() {
     effect(() => {
       this.identity();
+      this.gestures.cancel();
       this.commandCard.set('');
       this.close();
       this.all()?.nativeElement.close();
@@ -485,8 +674,11 @@ export class SharedCardTray implements OnDestroy {
   private emit(request: OrganizeCollection) {
     if (this.organizer() && !this.disabled()) this.organize.emit(request);
   }
+  rememberCommand(id: string) {
+    this.commandCard.set(id);
+  }
   invoke(card: SharedCardData, action: string) {
-    this.commandCard.set(card.id);
+    this.rememberCommand(card.id);
     this.command.emit({ card, action });
   }
   show(id: string) {
@@ -497,6 +689,7 @@ export class SharedCardTray implements OnDestroy {
     this.all()?.nativeElement.showModal();
   }
   allClosed() {
+    this.gestures.cancel();
     this.shown.set(null);
     if (!this.expanded()?.nativeElement.open) this.restoreScroll();
     if (!this.expanded()?.nativeElement.open) this.returnFocus(this.allTarget);
@@ -525,10 +718,10 @@ export class SharedCardTray implements OnDestroy {
     (this.all()?.nativeElement.open
       ? this.all()?.nativeElement
       : this.tray()?.nativeElement
-    )?.focus();
+    )?.focus({ preventScroll: true });
   }
   private returnFocus(target: HTMLElement | null) {
-    if (target?.isConnected) target.focus();
+    if (target?.isConnected) target.focus({ preventScroll: true });
     else this.focusFallback();
   }
   private lock() {
@@ -542,6 +735,7 @@ export class SharedCardTray implements OnDestroy {
     }
   }
   ngOnDestroy() {
+    this.gestures.cancel();
     this.restoreScroll();
   }
 }

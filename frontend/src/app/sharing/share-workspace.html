@@ -118,10 +118,14 @@
                 placeholder="Search titles"
             /></label>
           </div>
-          <div class="source-tray">
+          <div class="source-tray" cdkScrollable cdkDropList [cdkDropListSortingDisabled]="true">
             @for (item of visibleItems(); track item.id) {
               @let card = source(item);
-              <div class="source-entry">
+              <div
+                class="source-entry"
+                [sharingDrag]="{ kind: 'source', id: item.id }"
+                [dragDisabled]="busy() || lifecycleBusy() || !access()"
+              >
                 <playing-card
                   [title]="card.title"
                   [type]="card.type"
@@ -132,7 +136,14 @@
                   [context]="item.id"
                   [documentAvailable]="false"
                 />
-                <button matButton type="button" [disabled]="busy()" (click)="share(item)">
+                <button
+                  matButton
+                  type="button"
+                  [disabled]="busy()"
+                  (mousedown)="$event.stopPropagation()"
+                  (touchstart)="$event.stopPropagation()"
+                  (click)="share(item)"
+                >
                   Share {{ card.title }}
                 </button>
               </div>
@@ -151,23 +162,36 @@
           <div class="section-title">
             <h2>Collections</h2>
             <button matButton type="button" (click)="openRecovery()">Removed cards</button>
-            <select
-              aria-label="Collection"
-              [ngModel]="collection()"
-              (ngModelChange)="chooseCollection($event)"
-            >
-              <option value="group">
-                Group {{ newDestinations().includes('group') ? '· New' : '' }}
-              </option>
-              @for (player of players(); track player.id) {
-                <option [value]="player.id">
-                  {{ player.displayName }}
-                  {{ newDestinations().includes(player.id) ? '· New' : '' }}
-                </option>
+            <nav class="collection-destinations" aria-label="Collections">
+              @for (destination of collectionDestinations(); track destination.id) {
+                <button
+                  type="button"
+                  [attr.aria-pressed]="collection() === destination.id"
+                  [attr.aria-label]="destination.name"
+                  [sharingTarget]="{ kind: 'collection', collection: destination.id }"
+                  [accepts]="acceptDestination(destination.id)"
+                  (dropped)="gestureDrop($event)"
+                  (click)="chooseCollection(destination.id)"
+                >
+                  {{ destination.name
+                  }}{{ newDestinations().includes(destination.id) ? ' · New' : '' }}
+                </button>
               }
-            </select>
+            </nav>
           </div>
+          @if (gestures.active(); as source) {
+            <p role="status">
+              {{
+                source.kind === 'source'
+                  ? 'Share a new copy: drop on a destination, then review and confirm.'
+                  : 'Move within Group, transfer Inventory to another collection, or drop on Remove and confirm.'
+              }}
+            </p>
+          }
           <shared-card-tray
+            [collection]="collection()"
+            [destinations]="dropDestinations()"
+            (externalDrop)="gestureDrop($event)"
             [cards]="sharedCards()"
             [piles]="sharedPiles()"
             [organizer]="collection() === 'group'"

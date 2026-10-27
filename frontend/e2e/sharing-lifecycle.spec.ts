@@ -151,7 +151,10 @@ test('G3.3 contextual claim transfer removal recovery and withdrawal during read
       (await (await request.get(`${prefix}/collection?recipient=${player.id}`)).json()).cards[0].id,
     ).toBe(inventory.id);
     await recovery.getByRole('button', { name: 'Close removed cards' }).click();
-    await page.getByLabel('Collection', { exact: true }).selectOption(player.id);
+    await page
+      .getByRole('navigation', { name: 'Collections' })
+      .getByRole('button', { name: 'Mira', exact: true })
+      .click();
     await expect(page.locator('shared-card-tray .entry')).toHaveCount(1);
     await page.getByLabel('Actions for Harbour guide').click();
     await page.getByRole('button', { name: 'Transfer', exact: true }).click();
@@ -177,7 +180,10 @@ test('G3.3 contextual claim transfer removal recovery and withdrawal during read
     await expanded.getByRole('button', { name: 'Flip to back' }).click();
     await expect(expanded.locator('article')).toHaveAttribute('data-side', 'back');
     await tablet.screenshot({ path: info.outputPath('expanded-800.png'), fullPage: true });
-    await page.getByLabel('Collection', { exact: true }).selectOption('group');
+    await page
+      .getByRole('navigation', { name: 'Collections' })
+      .getByRole('button', { name: 'Group', exact: true })
+      .click();
     await expect(page.locator('shared-card-tray .entry small')).toHaveText('Handout');
     await page.getByLabel('Actions for Harbour guide').click();
     await page.getByRole('button', { name: 'Withdraw', exact: true }).click();

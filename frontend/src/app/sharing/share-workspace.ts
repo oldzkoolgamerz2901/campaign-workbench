@@ -1,3 +1,13 @@
+import { CdkScrollable } from '@angular/cdk/scrolling';
+import { CdkDropList } from '@angular/cdk/drag-drop';
+import {
+  SharingGestures,
+  SharingDragSource,
+  SharingDropTarget,
+  SharingDrag,
+  SharingDrop,
+  SharingDestination,
+} from './sharing-gestures';
 import {
   Component,
   OnDestroy,
@@ -46,11 +56,77 @@ import {
 
 @Component({
   selector: 'share-workspace',
-  imports: [FormsModule, WorkbenchHeader, PlayingCard, MatButtonModule, SharedCardTray],
+  providers: [SharingGestures],
+  imports: [
+    CdkScrollable,
+    CdkDropList,
+    SharingDragSource,
+    SharingDropTarget,
+    FormsModule,
+    WorkbenchHeader,
+    PlayingCard,
+    MatButtonModule,
+    SharedCardTray,
+  ],
   templateUrl: './share-workspace.html',
   styleUrl: './share-workspace.css',
 })
 export class ShareWorkspace implements OnDestroy {
+  readonly gestures = inject(SharingGestures);
+  readonly collectionDestinations = computed(() => [
+    { id: 'group', name: 'Group' },
+    ...this.players().map((p) => ({ id: p.id, name: p.displayName })),
+  ]);
+  readonly dropDestinations = computed<SharingDestination[]>(() => [
+    ...this.collectionDestinations(),
+    ...(this.collection() !== 'group'
+      ? this.groupPiles().map((p) => ({ id: 'group', name: 'Group · ' + p.name, pile: p.id }))
+      : []),
+  ]);
+  acceptDestination(id: string) {
+    return (source: SharingDrag) =>
+      !this.busy() &&
+      !this.lifecycleBusy() &&
+      !!this.access() &&
+      (source.kind === 'source' || (source.mode === 'INVENTORY' && source.collection !== id));
+  }
+  async gestureDrop(event: SharingDrop) {
+    if (this.busy() || this.lifecycleBusy() || !this.access()) return;
+    const { source, target } = event,
+      destination = target.collection || 'group';
+    if (source.kind === 'source') {
+      const item = this.items().find((i) => i.id === source.id);
+      if (item) await this.share(item, destination, target.pile || '');
+    } else {
+      const card = this.sharedCards().find((c) => c.id === source.id);
+      if (!card || card.mode !== 'INVENTORY' || source.collection === destination) return;
+      this.transferDestination.set(destination);
+      this.transferPile.set(target.pile || '');
+      await this.transferCard(card, destination, target.pile || undefined);
+    }
+  }
+  private readonly collectionTray = viewChild(SharedCardTray);
+  private async transferCard(card: SharedCardData, destination: string, pile?: string) {
+    this.collectionTray()?.rememberCommand(card.id);
+    await this.runLifecycle(
+      () =>
+        firstValueFrom(
+          this.lifecycle.transferSharedCard(
+            this.campaign(),
+            card.id,
+            {
+              recipient: destination === 'group' ? null : destination,
+              pile: destination === 'group' ? pile : undefined,
+            },
+            'body',
+            false,
+            this.json,
+          ),
+        ),
+      destination,
+    );
+  }
+
   private readonly json = { httpHeaderAccept: 'application/json' as const, transferCache: false };
   private readonly api = inject(SharingControllerService);
   private readonly organization = inject(OrganizationControllerService);
@@ -133,30 +209,16 @@ export class ShareWorkspace implements OnDestroy {
     if (!card || this.lifecycleBusy() || !this.access()) return;
     const action = this.lifecycleAction(),
       campaign = this.campaign();
-    await this.runLifecycle(
-      () =>
+    if (action === 'Transfer')
+      await this.transferCard(card, this.transferDestination(), this.transferPile() || undefined);
+    else
+      await this.runLifecycle(() =>
         firstValueFrom(
-          action === 'Transfer'
-            ? this.lifecycle.transferSharedCard(
-                campaign,
-                card.id,
-                {
-                  recipient:
-                    this.transferDestination() === 'group' ? null : this.transferDestination(),
-                  pile:
-                    this.transferDestination() === 'group'
-                      ? this.transferPile() || undefined
-                      : undefined,
-                },
-                'body',
-                false,
-                this.json,
-              )
-            : this.lifecycle.removeSharedCard(campaign, card.id, 'body', false, this.json),
+          this.lifecycle.removeSharedCard(campaign, card.id, 'body', false, this.json),
         ),
-      action === 'Transfer' ? this.transferDestination() : undefined,
-    );
+      );
   }
+
   async restoreCard(entry: RemovedSharedCard) {
     if (this.lifecycleBusy() || !this.access()) return;
     await this.runLifecycle(
@@ -255,12 +317,14 @@ export class ShareWorkspace implements OnDestroy {
         }
       : null;
   async chooseCollection(value: string) {
+    this.gestures.cancel();
     this.collection.set(value);
     this.newDestinations.update((values) => values.filter((id) => id !== value));
     this.sharedCards.set([]);
     this.sharedPiles.set([]);
     try {
       await this.refreshCollection();
+      if (value !== 'group') await this.loadGroupPiles();
     } catch {
       this.error.set('Cannot refresh this collection. Retry when connected.');
     }
@@ -305,15 +369,15 @@ export class ShareWorkspace implements OnDestroy {
       if (epoch === this.epoch) this.groupPiles.set([]);
     }
   }
-  async share(item: PreparedItemData) {
+  async share(item: PreparedItemData, destination = this.collection(), pile = '') {
     this.rememberFocus();
     if (this.uncertain() && this.delivery && this.preview()) {
       this.deliveryDialog()?.nativeElement.showModal();
       return;
     }
     this.sourceItem = item.id;
-    this.destination.set(this.collection());
-    this.deliveryPile.set('');
+    this.destination.set(destination);
+    this.deliveryPile.set(pile);
     this.newPileName.set('');
     void this.loadGroupPiles();
     this.deliveryMode.set('');
@@ -510,6 +574,7 @@ export class ShareWorkspace implements OnDestroy {
     );
   }
   private async load() {
+    this.gestures.cancel();
     const epoch = ++this.epoch;
     this.closeDialogs();
     this.busy.set(true);
@@ -566,6 +631,7 @@ export class ShareWorkspace implements OnDestroy {
       if (epoch !== this.epoch) return;
       this.players.set(players.players);
       await this.refreshCollection();
+      if (this.collection() !== 'group') await this.loadGroupPiles();
       if (
         this.pairing() &&
         (this.access()?.gateway?.port !== access.gateway?.port ||
