@@ -184,10 +184,19 @@ test('G3.5 direct distribution, organization, modal claim, transfer and confirme
     ).json();
     const tablet = await context.newPage();
     await tablet.goto(`http://127.0.0.1:${gateway.port}/player/pair#token=${invite.token}`);
-    await tablet
-      .getByRole('region', { name: 'Found', exact: true })
-      .getByRole('button', { name: 'Show all', exact: true })
-      .click();
+    const groupPile = tablet.getByRole('region', { name: 'Found', exact: true });
+    await expect(groupPile.getByRole('button', { name: 'Show all', exact: true })).toHaveCount(0);
+    await expect(groupPile.locator('.pile-menu')).toHaveCount(0);
+    await expect(tablet.getByText('Card actions', { exact: true })).toHaveCount(0);
+    await drag(
+      tablet,
+      groupPile.locator('[data-shared-card]'),
+      tablet.getByText('Move to Unsorted', { exact: true }),
+    );
+    await expect.poll(async () => (await collection()).cards[0].pile).toBeNull();
+    await drag(tablet, tablet.locator('.tray [data-shared-card]'), groupPile);
+    await expect.poll(async () => (await collection()).cards[0].pile).not.toBeNull();
+    await tablet.getByRole('region', { name: 'Found', exact: true }).locator('article').click();
     const modal = tablet.getByRole('dialog', { name: 'Show all cards', exact: true });
     await expect(modal.getByText('My Cards · Claim', { exact: true })).toHaveCount(0);
     await drag(
@@ -213,7 +222,7 @@ test('G3.5 direct distribution, organization, modal claim, transfer and confirme
     await expect(equipment).toBeVisible();
     await drag(tablet, personal, equipment);
     await expect.poll(async () => (await collection(player.id)).cards[0].pile).not.toBeNull();
-    await equipment.getByRole('button', { name: 'Show all', exact: true }).click();
+    await equipment.locator('article').click();
     const personalAll = tablet.getByRole('dialog', { name: 'Show all cards', exact: true });
     await drag(
       tablet,
@@ -288,6 +297,14 @@ test('G3.5 touch hold claims, swipe scrolls and cancellation never mutates', asy
     await tablet.goto(`http://127.0.0.1:${gateway.port}/player/pair#token=${invite.token}`);
     const cards = tablet.locator('[data-shared-card]');
     await expect(cards).toHaveCount(3);
+    const image = cards.first().locator('img');
+    await expect(image).toHaveCSS('user-select', 'none');
+    expect(
+      await image.evaluate(
+        (el) =>
+          !el.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })),
+      ),
+    ).toBe(true);
     const cdp = await context.newCDPSession(tablet);
     async function touch(type: string, x?: number, y?: number) {
       await cdp.send('Input.dispatchTouchEvent', {
@@ -307,6 +324,16 @@ test('G3.5 touch hold claims, swipe scrolls and cancellation never mutates', asy
     expect((await (await request.get(`${prefix}/collection`)).json()).cards).toHaveLength(3);
     await cards.first().scrollIntoViewIfNeeded();
     let box = (await cards.first().boundingBox())!;
+    await touch('touchStart', box.x + 100, box.y + 100);
+    await expect(cards.first()).toHaveClass(/sharing-grabbed/);
+    await expect(tablet.locator('.sharing-drop-eligible').first()).toBeVisible();
+    await touch('touchEnd');
+    await expect(tablet.locator('.sharing-grabbed')).toHaveCount(0);
+    await expect(
+      tablet.getByRole('dialog', { name: 'Expanded card', exact: true }),
+    ).not.toBeVisible();
+    expect((await (await request.get(`${prefix}/collection`)).json()).cards).toHaveLength(3);
+
     await touch('touchStart', box.x + 100, box.y + 100);
     await tablet.waitForTimeout(230);
     await touch('touchMove', box.x + 115, box.y + 105);
@@ -487,9 +514,27 @@ test('G3.5 anchored modal reorder preserves cover, polling preserves drag and ha
     await tablet.mouse.move(h.x + 100, h.y + 90);
     await tablet.mouse.down();
     await tablet.mouse.move(h.x + 125, h.y + 95);
-    await expect(tablet.locator('.sharing-drop-eligible')).toHaveCount(0);
+    await expect(tablet.getByText('My Cards · Claim', { exact: true })).toHaveCount(0);
+    await expect(tablet.getByText('Remove · confirm', { exact: true })).toHaveCount(0);
+    await tablet.mouse.move(2, 2);
     await tablet.mouse.up();
     expect((await collection()).cards).toHaveLength(3);
+    const handoutId = await handout.getAttribute('data-shared-card');
+    await drag(tablet, handout, tablet.getByRole('region', { name: 'Handouts', exact: true }));
+    await expect
+      .poll(async () => (await collection()).cards.find((c: any) => c.id === handoutId).pile)
+      .toBe(pile.id);
+    await tablet.getByRole('region', { name: 'Handouts', exact: true }).locator('article').click();
+    const playerAll = tablet.getByRole('dialog', { name: 'Show all cards', exact: true });
+    await drag(
+      tablet,
+      playerAll.locator(`[data-shared-card="${handoutId}"]`),
+      playerAll.getByText('Move to Unsorted', { exact: true }),
+    );
+    await expect
+      .poll(async () => (await collection()).cards.find((c: any) => c.id === handoutId).pile)
+      .toBeNull();
+    await playerAll.getByRole('button', { name: 'Close pile' }).click();
     await tablet.setViewportSize({ width: 390, height: 844 });
     expect(await tablet.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

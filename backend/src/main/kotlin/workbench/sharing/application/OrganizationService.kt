@@ -12,6 +12,13 @@ class OrganizationService(private val campaigns: Campaigns, private val identity
         val player=identity.identify(campaign,credential).bind()
         apply(campaign,player.player,request)
     } }
+    override fun organizeGroup(campaign: UUID, credential: String?, request: OrganizeCollection) = tx.run { either {
+        identity.identify(campaign,credential).bind()
+        ensure(request.kind == "MOVE") {
+            Failure.Invalid("sharing.group-organization-command", "Players can move Group cards only.")
+        }
+        apply(campaign,null,request)
+    } }
     fun organizeGroup(campaign: UUID, request: OrganizeCollection) = tx.run { either {
         campaigns.configuration(campaign).bind()
         apply(campaign,null,request)

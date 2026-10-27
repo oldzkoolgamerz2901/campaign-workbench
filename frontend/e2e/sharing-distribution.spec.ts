@@ -174,7 +174,7 @@ test('G3.2 confirmed distribution, private collections, HTTP reading and stable 
     await expect(
       tablet.getByRole('status', { name: '' }).filter({ hasText: 'Connected' }),
     ).toBeVisible({ timeout: 12000 });
-    await expanded.getByRole('button', { name: 'Close expanded card' }).click();
+    await expanded.press('Escape');
     await tablet.getByRole('button', { name: /My Cards/ }).click();
     await expect(tablet.locator('shared-card-tray .entry')).toHaveCount(1);
     await tablet.reload();
@@ -325,7 +325,7 @@ test('G3.2 illustrated preview, lost delivery response, source deletion and comp
     );
     await reader.getByRole('button', { name: 'Close card text' }).click();
     await expect(expanded).toBeVisible();
-    await expanded.getByRole('button', { name: 'Close expanded card' }).click();
+    await expanded.press('Escape');
     await expect(card.locator('article')).toBeFocused();
   } finally {
     await request.post('/api/gateway/disable', { data: {} });

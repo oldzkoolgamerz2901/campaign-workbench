@@ -300,78 +300,84 @@
   class="delivery-dialog"
 >
   <h2 id="delivery-title">Share card</h2>
-  @if (deliveryError()) {
-    <p role="alert">{{ deliveryError() }}</p>
-  }
-  @if (preview(); as p) {
-    <p>Review the front, back and artwork players will receive.</p>
-    <playing-card
-      [title]="p.visible.title"
-      [type]="p.visible.type"
-      [summary]="p.visible.summary"
-      [tags]="p.visible.tags"
-      [backText]="p.visible.backText"
-      [artwork]="previewArtwork()"
-      [context]="p.fingerprint"
-      [documentAvailable]="false"
-    />
-    <label
-      >Recipient
-      <select
-        aria-label="Recipient"
-        [disabled]="deliveryBusy() || uncertain()"
-        [ngModel]="destination()"
-        (ngModelChange)="destination.set($event)"
-      >
-        <option value="group">Group Unsorted</option>
-        @for (player of players(); track player.id) {
-          <option [value]="player.id">{{ player.displayName }} · Unsorted</option>
-        }
-      </select></label
-    >
-    @if (destination() === 'group') {
-      <label
-        >Group destination
-        <select
-          aria-label="Group destination"
-          [disabled]="deliveryBusy() || uncertain()"
-          [ngModel]="deliveryPile()"
-          (ngModelChange)="deliveryPile.set($event)"
-        >
-          <option value="">Unsorted</option>
-          @for (pile of groupPiles(); track pile.id) {
-            <option [value]="pile.id">{{ pile.name }}</option>
-          }
-          <option value="new">New pile…</option>
-        </select>
-      </label>
-      @if (deliveryPile() === 'new') {
-        <label
-          >New pile name
-          <input
-            aria-label="New pile name"
-            maxlength="200"
-            [disabled]="deliveryBusy() || uncertain()"
-            [ngModel]="newPileName()"
-            (ngModelChange)="newPileName.set($event)"
-        /></label>
-      }
+  <div class="delivery-body">
+    @if (deliveryError()) {
+      <p role="alert">{{ deliveryError() }}</p>
     }
-    <label
-      >Mode
-      <select
-        aria-label="Mode"
-        [disabled]="deliveryBusy() || uncertain()"
-        [ngModel]="deliveryMode()"
-        (ngModelChange)="deliveryMode.set($event)"
-      >
-        <option value="">Choose mode</option>
-        <option value="HANDOUT">Handout</option>
-        <option value="INVENTORY">Inventory</option>
-      </select></label
-    >
-  }
-  <div class="dialog-actions">
+    @if (preview(); as p) {
+      <p>Review the front, back and artwork players will receive.</p>
+      <div class="delivery-content">
+        <playing-card
+          [title]="p.visible.title"
+          [type]="p.visible.type"
+          [summary]="p.visible.summary"
+          [tags]="p.visible.tags"
+          [backText]="p.visible.backText"
+          [artwork]="previewArtwork()"
+          [context]="p.fingerprint"
+          [documentAvailable]="false"
+        />
+        <div class="delivery-controls">
+          <label
+            >Recipient
+            <select
+              aria-label="Recipient"
+              [disabled]="deliveryBusy() || uncertain()"
+              [ngModel]="destination()"
+              (ngModelChange)="destination.set($event)"
+            >
+              <option value="group">Group Unsorted</option>
+              @for (player of players(); track player.id) {
+                <option [value]="player.id">{{ player.displayName }} · Unsorted</option>
+              }
+            </select></label
+          >
+          @if (destination() === 'group') {
+            <label
+              >Group destination
+              <select
+                aria-label="Group destination"
+                [disabled]="deliveryBusy() || uncertain()"
+                [ngModel]="deliveryPile()"
+                (ngModelChange)="deliveryPile.set($event)"
+              >
+                <option value="">Unsorted</option>
+                @for (pile of groupPiles(); track pile.id) {
+                  <option [value]="pile.id">{{ pile.name }}</option>
+                }
+                <option value="new">New pile…</option>
+              </select>
+            </label>
+            @if (deliveryPile() === 'new') {
+              <label
+                >New pile name
+                <input
+                  aria-label="New pile name"
+                  maxlength="200"
+                  [disabled]="deliveryBusy() || uncertain()"
+                  [ngModel]="newPileName()"
+                  (ngModelChange)="newPileName.set($event)"
+              /></label>
+            }
+          }
+          <label
+            >Mode
+            <select
+              aria-label="Mode"
+              [disabled]="deliveryBusy() || uncertain()"
+              [ngModel]="deliveryMode()"
+              (ngModelChange)="deliveryMode.set($event)"
+            >
+              <option value="">Choose mode</option>
+              <option value="HANDOUT">Handout</option>
+              <option value="INVENTORY">Inventory</option>
+            </select></label
+          >
+        </div>
+      </div>
+    }
+  </div>
+  <div class="dialog-actions delivery-footer">
     <button matButton type="button" [disabled]="deliveryBusy()" (click)="deliveryDialog.close()">
       Cancel
     </button>

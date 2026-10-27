@@ -43,11 +43,16 @@ export class SharingGestures {
   readonly active = signal<SharingDrag | null>(null);
   readonly hovered = signal<SharingDropTarget | null>(null);
   readonly targets = new Set<SharingDropTarget>();
+  readonly generation = signal(0);
   private suppressedUntil = 0;
+  suppressRelease() {
+    this.suppressedUntil = Date.now() + 350;
+  }
   newPointer() {
     if (!this.active()) this.suppressedUntil = 0;
   }
   cancel() {
+    this.generation.update((value) => value + 1);
     this.active.set(null);
     this.hovered.set(null);
   }
@@ -129,7 +134,7 @@ export class SharingDropTarget implements OnDestroy {
 
 @Directive({
   selector: '[sharingDrag]',
-  host: { class: 'sharing-drag-source' },
+  host: { class: 'sharing-drag-source', '[class.sharing-grabbed]': 'grabbed' },
   hostDirectives: [CdkDrag],
   providers: [
     {
@@ -144,8 +149,68 @@ export class SharingDragSource implements OnDestroy {
   private readonly drag = inject(CdkDrag);
   private readonly gestures = inject(SharingGestures);
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private holdTimer?: ReturnType<typeof setTimeout>;
+  private holdPoint: { x: number; y: number } | null = null;
+  private dragging = false;
+  private holding = false;
+  get grabbed() {
+    return this.gestures.active()?.id === this.sharingDrag().id;
+  }
+  private clearHold() {
+    clearTimeout(this.holdTimer);
+    this.holdPoint = null;
+    this.holding = false;
+  }
+  @HostListener('pointerdown', ['$event']) hold(event: PointerEvent) {
+    this.clearHold();
+    if (
+      event.pointerType === 'mouse' ||
+      !event.isPrimary ||
+      this.dragDisabled() ||
+      (event.target as HTMLElement).closest('button, input, select, summary, a')
+    )
+      return;
+    const source = { ...this.sharingDrag() };
+    const generation = this.gestures.generation();
+    this.holdPoint = { x: event.clientX, y: event.clientY };
+    this.holdTimer = setTimeout(() => {
+      if (
+        this.holdPoint &&
+        !this.dragDisabled() &&
+        generation === this.gestures.generation() &&
+        this.element.nativeElement.isConnected &&
+        JSON.stringify(source) === JSON.stringify(this.sharingDrag())
+      ) {
+        this.holding = true;
+        this.gestures.active.set(source);
+      }
+    }, 180);
+  }
+  @HostListener('document:pointermove', ['$event']) pendingMove(event: PointerEvent) {
+    if (
+      this.holdPoint &&
+      !this.grabbed &&
+      Math.hypot(event.clientX - this.holdPoint.x, event.clientY - this.holdPoint.y) > 8
+    )
+      this.clearHold();
+  }
+  @HostListener('document:pointerup') releaseHold() {
+    const holding = this.holding;
+    this.clearHold();
+    if (holding && !this.dragging && this.grabbed) {
+      this.gestures.suppressRelease();
+      this.gestures.cancel();
+    }
+  }
+  @HostListener('document:pointercancel') cancelHold() {
+    const holding = this.holding;
+    this.clearHold();
+    if (holding && !this.dragging && this.grabbed) this.gestures.cancel();
+  }
   private readonly subscriptions = [
     this.drag.started.subscribe(() => {
+      this.clearHold();
+      this.dragging = true;
       this.element.nativeElement
         .querySelector<HTMLElement>('article[tabindex]')
         ?.focus({ preventScroll: true });
@@ -153,16 +218,25 @@ export class SharingDragSource implements OnDestroy {
     }),
     this.drag.moved.subscribe((e) => this.gestures.point(e.pointerPosition)),
     this.drag.ended.subscribe((e) => {
+      this.dragging = false;
       this.drag.reset();
       this.gestures.finish(e.dropPoint, e.event);
     }),
   ];
+  @HostListener('contextmenu', ['$event']) preventNativeMenu(event: Event) {
+    if (
+      !this.dragDisabled() &&
+      !(event.target as HTMLElement).closest('button, input, select, summary')
+    )
+      event.preventDefault();
+  }
   private readonly freshPointer = () => this.gestures.newPointer();
   private readonly capture = (e: Event) => this.gestures.suppressClick(e);
   constructor() {
     this.drag.previewContainer = this.element.nativeElement.closest('dialog') || 'global';
     effect(() => {
       this.drag.disabled = this.dragDisabled();
+      if (this.dragDisabled()) this.clearHold();
       const source = this.sharingDrag(),
         active = this.gestures.active();
       if (
@@ -178,10 +252,13 @@ export class SharingDragSource implements OnDestroy {
     this.gestures.newPointer();
   }
   @HostListener('document:keydown.escape') cancel() {
+    this.clearHold();
+    this.dragging = false;
     this.gestures.cancel();
     this.drag.reset();
   }
   ngOnDestroy() {
+    this.clearHold();
     if (this.gestures.active()?.id === this.sharingDrag().id) this.gestures.cancel();
     this.subscriptions.forEach((s) => s.unsubscribe());
     this.element.nativeElement.removeEventListener('click', this.capture, true);

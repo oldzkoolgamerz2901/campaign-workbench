@@ -119,6 +119,28 @@ function readSaved(): Saved {
   imports: [MatButtonModule, SharedCardTray, SharingDropTarget],
   template: ` <header class="player-header">
       <h1>{{ screen() === 'group' ? 'Group Cards' : 'My Cards' }}</h1>
+      <div class="player-info">
+        @if (identity(); as person) {
+          <span class="identity" [title]="'Playing as ' + person.displayName"
+            >Playing as {{ person.displayName }}</span
+          >
+        }
+        <span
+          class="connection"
+          [attr.role]="message() === 'Connected' || message() === 'Connecting…' ? 'status' : null"
+          [attr.data-state]="state()"
+          ><span class="status-dot" aria-hidden="true"></span
+          >{{
+            state() === 'connected'
+              ? 'Connected'
+              : state() === 'connecting'
+                ? 'Connecting…'
+                : state() === 'stale'
+                  ? 'Disconnected'
+                  : 'Access unavailable'
+          }}</span
+        >
+      </div>
       <button
         matButton
         type="button"
@@ -132,12 +154,11 @@ function readSaved(): Saved {
       </button>
     </header>
     <main>
-      @if (identity(); as person) {
-        <p class="identity">Playing as {{ person.displayName }}</p>
+      @if (message() !== 'Connected' && message() !== 'Connecting…') {
+        <p role="status" [class.error]="state() === 'denied' || state() === 'unpaired'">
+          {{ message() }}
+        </p>
       }
-      <p role="status" [class.error]="state() === 'denied' || state() === 'unpaired'">
-        {{ message() }}
-      </p>
       @if (identity()) {
         <section class="collection">
           <shared-card-tray
@@ -146,6 +167,8 @@ function readSaved(): Saved {
             [cards]="screen() === 'group' ? group() : mine()"
             [piles]="screen() === 'group' ? groupPiles() : myPiles()"
             [organizer]="screen() === 'mine'"
+            [playerView]="true"
+            [movable]="true"
             (organize)="organize($event)"
             [artwork]="artwork"
             [actions]="cardActions"
@@ -175,12 +198,49 @@ function readSaved(): Saved {
       display: block;
       min-height: 100vh;
     }
+    .player-info {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 8rem;
+      align-items: center;
+      gap: 0.7rem;
+      font-size: 0.85rem;
+    }
+    .identity {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .status-dot {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: #c59759;
+      flex: none;
+    }
+    .connection[data-state='connected'] .status-dot {
+      background: #80bc93;
+      box-shadow: 0 0 0 3px #80bc9318;
+    }
+    .player-header > button,
+    h1 {
+      flex-shrink: 0;
+    }
     .player-header {
       position: sticky;
       top: 0;
       z-index: 5;
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
       gap: 1rem;
       align-items: center;
       background: var(--panel);
@@ -190,6 +250,12 @@ function readSaved(): Saved {
     h1 {
       margin: 0;
       font-size: 1.5rem;
+    }
+    .player-header > button {
+      justify-self: end;
+      width: 100%;
+      max-width: 100%;
+      min-height: 44px;
     }
     button {
       min-height: 44px;
@@ -231,10 +297,25 @@ function readSaved(): Saved {
       .player-header {
         padding: 0.8rem;
         gap: 0.5rem;
+        grid-template-columns: 6rem minmax(0, 1fr) 7.5rem;
       }
       h1 {
-        font-size: 1.2rem;
+        font-size: 0.95rem;
       }
+      .player-info {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 0.15rem;
+        font-size: 0.68rem;
+      }
+      .connection {
+        font-size: 0.65rem;
+      }
+      .player-header > button {
+        font-size: 0.75rem;
+        padding: 0 0.25rem;
+      }
+
       main {
         padding: 1rem;
       }
@@ -320,13 +401,7 @@ export class PlayerApp implements OnDestroy {
     }
   }
   async organize(request: OrganizeCollection) {
-    if (
-      this.screen() !== 'mine' ||
-      this.state() !== 'connected' ||
-      this.commandBusy() ||
-      !this.credential
-    )
-      return;
+    if (this.state() !== 'connected' || this.commandBusy() || !this.credential) return;
     const epoch = this.epoch;
     this.commandBusy.set(true);
     ++this.readGeneration;
@@ -334,9 +409,22 @@ export class PlayerApp implements OnDestroy {
     clearTimeout(this.timer);
     try {
       await firstValueFrom(
-        this.transport.api
-          .organizePlayerCollection(request, `Bearer ${this.credential}`, 'body', false, this.json)
-          .pipe(timeout(8000)),
+        (this.screen() === 'group'
+          ? this.transport.api.organizePlayerGroupCollection(
+              request,
+              `Bearer ${this.credential}`,
+              'body',
+              false,
+              this.json,
+            )
+          : this.transport.api.organizePlayerCollection(
+              request,
+              `Bearer ${this.credential}`,
+              'body',
+              false,
+              this.json,
+            )
+        ).pipe(timeout(8000)),
       );
       if (epoch === this.epoch) await this.refresh(true);
     } catch (error) {

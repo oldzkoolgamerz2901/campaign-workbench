@@ -1,3 +1,4 @@
+import { drag } from './sharing-drag';
 import { test, expect, APIRequestContext } from '@playwright/test';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -117,25 +118,33 @@ test('G3.3 contextual claim transfer removal recovery and withdrawal during read
     const tablet = await tabletContext.newPage();
     await tablet.goto(`http://127.0.0.1:${gateway.port}/player/pair#token=${invite.token}`);
     await expect(tablet.locator('shared-card-tray .entry')).toHaveCount(1);
-    const actions = tablet.getByLabel('Actions for Harbour guide');
-    await actions.focus();
-    await tablet.keyboard.press('Enter');
-    await tablet.getByRole('button', { name: 'Claim', exact: true }).click();
+    await drag(
+      tablet,
+      tablet.locator('.tray [data-shared-card]'),
+      tablet.getByRole('button', { name: /My Cards/ }),
+    );
     await expect(tablet.getByRole('heading', { name: 'Group Cards', exact: true })).toBeVisible();
     await expect(tablet.locator('shared-card-tray .entry')).toHaveCount(0);
     await expect(tablet.getByLabel('Shared cards', { exact: true })).toBeFocused();
     await expect(tablet.getByRole('button', { name: /My Cards.*New/ })).toBeVisible();
     await tablet.getByRole('button', { name: /My Cards/ }).click();
     await expect(tablet.locator('shared-card-tray .entry')).toHaveCount(1);
-    await tablet.getByLabel('Actions for Harbour guide').click();
-    await tablet.getByRole('button', { name: 'Remove', exact: true }).click();
+    await drag(
+      tablet,
+      tablet.locator('.tray [data-shared-card]'),
+      tablet.getByText('Remove · confirm', { exact: true }),
+    );
     let confirmation = tablet.getByRole('dialog', { name: 'Remove inventory' });
     await expect(confirmation).toBeVisible();
     await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
     expect(
       (await (await request.get(`${prefix}/collection?recipient=${player.id}`)).json()).cards[0].id,
     ).toBe(inventory.id);
-    await tablet.getByRole('button', { name: 'Remove', exact: true }).click();
+    await drag(
+      tablet,
+      tablet.locator('.tray [data-shared-card]'),
+      tablet.getByText('Remove · confirm', { exact: true }),
+    );
     await confirmation.getByRole('button', { name: 'Confirm removal' }).click();
     await expect(tablet.locator('shared-card-tray .entry')).toHaveCount(0);
     await expect(tablet.getByLabel('Shared cards', { exact: true })).toBeFocused();
@@ -156,15 +165,16 @@ test('G3.3 contextual claim transfer removal recovery and withdrawal during read
       .getByRole('button', { name: 'Mira', exact: true })
       .click();
     await expect(page.locator('shared-card-tray .entry')).toHaveCount(1);
-    await page.getByLabel('Actions for Harbour guide').click();
-    await page.getByRole('button', { name: 'Transfer', exact: true }).click();
-    const transfer = page.getByRole('dialog', { name: 'Transfer card', exact: true });
-    await transfer.getByLabel('Transfer destination').selectOption('group');
-    await transfer.getByRole('button', { name: 'Transfer now' }).click();
-    await expect(transfer).not.toBeVisible();
-    expect((await (await request.get(`${prefix}/collection`)).json()).cards[0].id).toBe(
-      inventory.id,
+    await drag(
+      page,
+      page.locator('.tray [data-shared-card]'),
+      page
+        .getByRole('navigation', { name: 'Collections' })
+        .getByRole('button', { name: 'Group', exact: true }),
     );
+    await expect
+      .poll(async () => (await (await request.get(`${prefix}/collection`)).json()).cards[0]?.id)
+      .toBe(inventory.id);
     await request.put(`${prefix}/players/${player.id}/active`, { data: { active: true } });
     await tablet.getByRole('button', { name: /Group Cards/ }).click();
     await tablet.reload();
@@ -185,8 +195,11 @@ test('G3.3 contextual claim transfer removal recovery and withdrawal during read
       .getByRole('button', { name: 'Group', exact: true })
       .click();
     await expect(page.locator('shared-card-tray .entry small')).toHaveText('Handout');
-    await page.getByLabel('Actions for Harbour guide').click();
-    await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+    await drag(
+      page,
+      page.locator('.tray [data-shared-card]'),
+      page.getByText('Withdraw · confirm', { exact: true }),
+    );
     await page
       .getByRole('dialog', { name: 'Withdraw card' })
       .getByRole('button', { name: 'Confirm removal' })
@@ -250,21 +263,25 @@ test('G3.3 interrupted command reconnects and competing claim refreshes without 
     const tablet = await context.newPage();
     await tablet.goto(`${origin}/player/pair#token=${invite.token}`);
     await expect(tablet.locator('shared-card-tray .entry')).toHaveCount(1);
-    await tablet.getByLabel('Actions for Harbour guide').click();
     await tablet.screenshot({ path: info.outputPath('actions-390.png'), fullPage: true });
     await tablet.route('**/player-api/cards/*/claim', (route) => route.abort('connectionfailed'));
-    await tablet.getByRole('button', { name: 'Claim', exact: true }).click();
+    await drag(
+      tablet,
+      tablet.locator('.tray [data-shared-card]'),
+      tablet.getByRole('button', { name: /My Cards/ }),
+    );
     await expect(tablet.getByText(/Connection lost/)).toBeVisible();
-    await expect(tablet.getByRole('button', { name: 'Claim', exact: true })).toBeDisabled();
+    await expect(tablet.locator('.tray .sharing-drag-source')).toHaveClass(/cdk-drag-disabled/);
     await tablet.locator('shared-card-tray .entry article').click();
     const expanded = tablet.getByRole('dialog', { name: 'Expanded card', exact: true });
     await expanded.getByRole('button', { name: 'Flip to back' }).click();
     await expect(expanded.locator('article')).toHaveAttribute('data-side', 'back');
-    await expanded.getByRole('button', { name: 'Close expanded card' }).click();
+    await expanded.press('Escape');
     await tablet.unroute('**/player-api/cards/*/claim');
-    await expect(tablet.getByRole('button', { name: 'Claim', exact: true })).toBeEnabled({
-      timeout: 12000,
-    });
+    await expect(tablet.locator('.tray .sharing-drag-source')).not.toHaveClass(
+      /cdk-drag-disabled/,
+      { timeout: 12000 },
+    );
     const invitation = await (
       await request.post(`${prefix}/players/${other.id}/pairing`, { data: {} })
     ).json();
@@ -279,7 +296,11 @@ test('G3.3 interrupted command reconnects and competing claim refreshes without 
       expect(won.ok()).toBe(true);
       await route.continue();
     });
-    await tablet.getByRole('button', { name: 'Claim', exact: true }).click();
+    await drag(
+      tablet,
+      tablet.locator('.tray [data-shared-card]'),
+      tablet.getByRole('button', { name: /My Cards/ }),
+    );
     await expect(
       tablet.getByText('This card is no longer available for that action.', { exact: true }),
     ).toBeVisible();

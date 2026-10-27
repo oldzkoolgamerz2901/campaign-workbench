@@ -56,6 +56,12 @@ class PlayerCardsController(private val cards: PlayerCards, private val commands
     fun organize(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@RequestBody command: OrganizeCollection) =
         admitted(request) { organization.organize(it,credential(auth),command) }.response(noStore=true)
 
+    @Operation(operationId="organizePlayerGroupCollection")
+    @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCollection::class))])
+    @PostMapping("/group/organization",consumes=["application/json"],produces=["application/json"])
+    fun organizeGroup(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@RequestBody command: OrganizeCollection) =
+        admitted(request) { organization.organizeGroup(it,credential(auth),command) }.response(noStore=true)
+
     private fun credential(auth: String?)=auth?.let { Regex("Bearer ([A-Za-z0-9_-]{43})",RegexOption.IGNORE_CASE).matchEntire(it)?.groupValues?.get(1) }
     private fun <T> admitted(request: HttpServletRequest, call: (UUID)->Either<Failure,T>): Either<Failure,T> {
         val operation=request.getAttribute(PlayerRoutes.OPERATION) as? GatewayService.Operation

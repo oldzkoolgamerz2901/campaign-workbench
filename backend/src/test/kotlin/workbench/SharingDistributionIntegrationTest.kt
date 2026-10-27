@@ -343,6 +343,56 @@ class SharingDistributionIntegrationTest : StringSpec({
         distribution().artwork(campaign,card.id).getOrNull()!!.content.sha256 shouldBe bytes
     }
 
+    "players move Group inventory and handouts but cannot manage Group piles or personal cards" {
+        val org=context!!.getBean(OrganizationService::class.java)
+        val (player,device)=paired()
+        val group=org.organizeGroup(campaign,OrganizeCollection("CREATE",name="Group move")).getOrNull()!!.piles.last()
+        val personal=org.organize(campaign,device.credential,OrganizeCollection("CREATE",name="Private")).getOrNull()!!.piles.last()
+        val inventory=distribution().distribute(campaign,request()).getOrNull()!!
+        val handout=distribution().distribute(campaign,request().copy(mode=SharingMode.HANDOUT)).getOrNull()!!
+        val privateCard=distribution().distribute(campaign,request(player.id)).getOrNull()!!
+        for (kind in listOf("CREATE","RENAME","DELETE","ORDER","COVER"))
+            org.organizeGroup(campaign,device.credential,OrganizeCollection(kind,pile=group.id,name="Forbidden",card=inventory.id,confirmed=true)).isLeft() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",pile=personal.id,card=inventory.id)).isLeft() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",pile=group.id,card=privateCard.id)).isLeft() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",pile=group.id,card=inventory.id,before=privateCard.id)).isLeft() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",pile=group.id,card=inventory.id)).isRight() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",pile=group.id,card=handout.id,before=inventory.id)).getOrNull()!!.cards.filter { it.pile==group.id }.map { it.id } shouldBe listOf(handout.id,inventory.id)
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",card=handout.id)).isLeft() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",card=handout.id,source=group.id)).isRight() shouldBe true
+        collections().collections(campaign,device.credential).getOrNull()!!.mine.cards.map { it.id } shouldBe listOf(privateCard.id)
+        sharing().activate(campaign,player.id,false).isRight() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",source=group.id,card=inventory.id)).isLeft() shouldBe true
+        sharing().activate(campaign,player.id,true).isRight() shouldBe true
+        org.organizeGroup(other,device.credential,OrganizeCollection("MOVE",card=inventory.id)).isLeft() shouldBe true
+        sharing().revoke(campaign,device.identity.device).isRight() shouldBe true
+        org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",source=group.id,card=inventory.id)).isLeft() shouldBe true
+    }
+    "Group movement serializes stale competing moves and is explicitly admitted over the player gateway" {
+        val org=context!!.getBean(OrganizationService::class.java)
+        val (_,device)=paired()
+        val a=org.organizeGroup(campaign,OrganizeCollection("CREATE",name="A")).getOrNull()!!.piles.last()
+        val b=org.organizeGroup(campaign,OrganizeCollection("CREATE",name="B")).getOrNull()!!.piles.last()
+        val card=distribution().distribute(campaign,request()).getOrNull()!!
+        val pool=Executors.newFixedThreadPool(2)
+        try {
+            val go=CountDownLatch(1)
+            val moves=listOf(a,b).map { p -> pool.submit<Boolean> { go.await(); org.organizeGroup(campaign,device.credential,OrganizeCollection("MOVE",pile=p.id,card=card.id)).isRight() } }
+            go.countDown(); moves.count { it.get(5,TimeUnit.SECONDS) } shouldBe 1
+        } finally { pool.shutdownNow() }
+        val current=distribution().collection(campaign,null).getOrNull()!!.cards.find { it.id==card.id }!!
+        val gateway=context!!.getBean(GatewayService::class.java); gateway.select(campaign); gateway.enable()
+        try {
+            val client=HttpClient.newHttpClient()
+            val url=URI("http://127.0.0.1:${gateway.status().port!!}/player-api/group/organization")
+            fun post(body:String,auth:Boolean=true)=client.send(HttpRequest.newBuilder(url).header("Content-Type","application/json").apply { if(auth) header("Authorization","Bearer ${device.credential}") }.POST(HttpRequest.BodyPublishers.ofString(body)).build(),HttpResponse.BodyHandlers.ofString()).statusCode()
+            post("""{"kind":"MOVE","card":"${card.id}","source":"${current.pile}"}""") shouldBe 200
+            post("""{"kind":"CREATE","name":"Forbidden"}""") shouldBe 400
+            post("""{"kind":"MOVE","card":"${card.id}"}""",false) shouldBe 401
+            client.send(HttpRequest.newBuilder(url).GET().build(),HttpResponse.BodyHandlers.ofString()).statusCode() shouldBe 404
+        } finally { gateway.disable() }
+    }
+
     "organization enforces ownership stale sources deletion confirmation and deterministic order" {
         val org=context!!.getBean(OrganizationService::class.java)
         val (owner,device)=paired(); val (_,otherDevice)=paired()

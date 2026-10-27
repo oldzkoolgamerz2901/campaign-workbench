@@ -200,3 +200,56 @@ dialog::backdrop {
     width: 220px;
   }
 }
+
+.delivery-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  width: min(850px, calc(100vw - 2rem));
+  max-height: 92dvh;
+  overflow: hidden;
+}
+.delivery-dialog h2 {
+  flex: none;
+  margin: 0 0 0.5rem;
+}
+.delivery-body {
+  min-height: 0;
+  overflow: auto;
+}
+.delivery-content {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.delivery-content playing-card {
+  display: block;
+  width: 100%;
+}
+.delivery-controls {
+  min-width: 0;
+}
+.delivery-controls label {
+  display: block;
+  margin: 0.5rem 0;
+}
+.delivery-controls select,
+.delivery-controls input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.delivery-footer {
+  flex: none;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 600px) {
+  .delivery-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .delivery-content playing-card {
+    max-width: 230px;
+    margin: auto;
+  }
+}

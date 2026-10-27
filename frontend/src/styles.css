@@ -208,7 +208,7 @@ button.danger,
 }
 .sharing-drag-source.cdk-drag-preview {
   pointer-events: none;
-  opacity: 0.65;
+  opacity: 0.95;
   z-index: 1000 !important;
   max-width: 243px;
 }
@@ -224,4 +224,37 @@ button.danger,
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 0.5rem 0.7rem;
+}
+
+/* Sharing owns gesture policy; other artwork remains unaffected. */
+.sharing-drag-source:not(.cdk-drag-disabled),
+.sharing-drag-source:not(.cdk-drag-disabled) img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.sharing-drag-source.sharing-grabbed,
+.sharing-drag-source.cdk-drag-preview {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 6px #dfc77c33,
+    0 12px 32px #0008;
+  filter: brightness(1.12);
+  cursor: grabbing;
+}
+/* Hold feedback must not insert content above the stationary source. */
+.drop-destinations {
+  position: fixed;
+  top: auto;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 3rem));
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px #0008;
 }

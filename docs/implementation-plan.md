@@ -1,5 +1,100 @@
 # Implementation plan reading map
 
+## Pile and player layout refinement — accepted increment — 2026-10-27
+
+Owner approved the focused presentation scope, including DM Share mode labels, and explicitly approved skipping separate requirements, architecture and planning phases because existing components own all affected behavior. Implementation is authorized in this conversation; formal verification remains separate.
+
+Keep rename controls beside titles within flexible name groups in Tabletop and SharedCardTray. SharedCardTray owns the above-card Handout/Inventory labels and decorative multi-card layers, reserving the same space for single/multi-card covers. PlayerApp owns stable responsive header columns using existing identity, connection and navigation state. Preserve commands, persistence, canonical card rendering and module boundaries; no backend, API or dependency changes. Scope: these three components and their templates/styles, focused browser geometry checks and approved requirements/developer evidence in existing documents.
+
+Completion checks: frontend tests, DM/player production builds, and focused Chromium checks of label placement, title/pencil proximity, single/multi-card dimensions and player header stability at desktop and narrow widths. Owner visual acceptance and formal verification remain separate.
+
+### Developer evidence
+
+Delivered title-adjacent pencils in Play and Sharing, above-card mode labels on DM/player surfaces, tabletop-style decorative Sharing stack layers, and stable responsive player header columns. Empty Sharing covers reserve the same label/card footprint; single/multi-card covers reserve identical stack clearance. Existing command ownership, canonical rendering and persistence are preserved.
+
+Final checks passed: **136 frontend tests in 16 files**, version agreement, DM production build and player production build; **9 Chromium journeys** covering Sharing distribution, gestures/touch, lifecycle, organization and the Play compact-pile regression (1.8 minutes). The organization journey checks above-card label geometry on DM/player, actual decorative stack layers, unchanged cover width when a pile becomes single-card, pencil/title proximity, and identical identity/status/navigation bounds across Group/My Cards at 800px and 390px. Reviewed desktop, tablet and narrow screenshots. Existing bundle/style/CommonJS warnings remain; the tabletop stylesheet is now 6.06 kB against its unchanged 4 kB warning budget. An initial sandboxed DM build exited prematurely; authorized external builds completed, including the final stable candidate.
+
+The isolated test backend was stopped after checks; the pre-existing smoke database and normal development services were retained. No backend code changes were made for this increment, and backend tests were not rerun. Physical devices, Safari, owner visual acceptance and formal verification remain unverified. Pre-existing working-tree changes were preserved; no commit was created.
+
+## Sharing gesture and Group organization follow-up — accepted architecture — 2026-10-27
+
+The owner approved this revised architecture after approving removal of Sharing card menus, pile/header refinements, hold feedback and player movement of Group cards. The owner approved the bounded increment; implementation and verification evidence are recorded below and in `docs/verification.md`. The subsequent player identity/status header requirements are also approved; the player component owns their presentation using existing identity/connection state.
+
+- SharedCardTray removes Card actions presentation on every surface but retains gesture command handlers. Explicit presentation context distinguishes DM from player; movement and pile-management capabilities are separate. Players can move Group cards without receiving Group pile-management or saved-cover controls.
+- Piles follow Play's single-row name/icon/count arrangement with truncated long names, word-labelled overflow commands and a card-sized empty surface. Player headers omit Show all; populated covers retain activation. DM retains Show all.
+- SharingGestures distinguishes held from dragging. The existing touch delay activates source highlighting and permitted destinations before movement; CDK owns actual dragging. Release without dragging cancels without a command or card activation. Preserve swipe scrolling and all existing cancellation conditions. Sharing-scoped styles strengthen held/preview visibility.
+- Add a dedicated player Group organization endpoint admitting MOVE only after authentication. Reuse Sharing's existing transaction, movement, ordering, source/anchor validation and cover repair. Preserve personal organization independently; do not accept arbitrary recipient identity from a player.
+- Gateway owns explicit route admission and HTTP adaptation; Sharing owns access and command rules. Group pile creation, rename, pile order, deletion and saved-cover control remain DM-only. Group movement accepts both Inventory and Handouts; Claim remains a separate Inventory-only transition.
+- Regenerate the frontend client for the added API. No database migration or new dependency is expected. Validate forbidden commands, foreign cards/piles, inactive/revoked credentials and competing moves as well as the revised gestures.
+
+## Sharing gesture and Group organization follow-up — approved bounded increment — 2026-10-27
+
+**Status: APPROVED.** One increment delivers the approved follow-up requirements and architecture, including the player identity/status header. Delivered implementation and formal verification evidence are recorded below and in `docs/verification.md`.
+
+### Scope and expected components
+
+- `frontend/src/app/sharing/shared-card-tray.ts`: remove Card actions presentation from all surfaces, preserve internal gesture handlers, separate card-movement and pile-management capability, and distinguish DM/player presentation. Player Group supports card movement while pile management and saved-cover changes remain DM-only. Retain local Group cover browsing. Implement the single-row pile header, truncation, textual overflow options, player Show all removal and card-sized empty surface. Preserve cover activation and modal reading.
+- `frontend/src/app/sharing/sharing-gestures.ts` and Sharing rules in `frontend/src/styles.css`: implement held-state feedback before movement using the existing touch delay and CDK drag controller. Suppress accidental release activation and ensure release without drag never dispatches a command. Cancel timers/state on swipe-before-hold, touch cancellation, Escape, navigation, source change, lost access and destruction. Make held sources and drag previews clearly visible without obscuring drop destinations.
+- `frontend/player/main.ts`: compose separate movement/pile permissions, dispatch Group movement through the dedicated endpoint and keep personal organization on its existing endpoint. Move identity and compact connection status into the sticky header with the approved row arrangement, truncated name, text-labelled indicator and readable longer messages below. Preserve navigation, claim target, arrival indicators and denial behavior.
+- `backend/src/main/kotlin/workbench/sharing/api/Organization.kt`, `sharing/application/OrganizationService.kt`, `gateway/adapter/web/PlayerCardsController.kt` and `gateway/adapter/http/PlayerRoutes.kt`: add explicitly admitted `POST /player-api/group/organization`, authenticate in Sharing and allow MOVE only against Group. Reuse the existing transactional movement logic, stale source/anchor checks and cover repair. Preserve all existing personal collection and lifecycle restrictions. Generate the client from live Spring OpenAPI rather than editing generated files.
+- Update relevant Sharing backend integration and gateway tests and existing Sharing browser journeys. Replace menu-driven setup/actions with real gestures or direct test setup APIs as appropriate; retain server assertions for ownership and state. Update the user guide, record developer evidence here and formal evidence separately if verification is authorized.
+
+### Completion and checks
+
+- Group Inventory and Handouts move/reorder between existing piles and Unsorted without recipient/mode/instance changes. A competing Claim/transfer/move yields one authoritative result or a stale conflict. Deny unsupported Group pile commands, foreign/private cards, foreign piles/anchors and inactive/revoked/wrong-campaign credentials; no arbitrary personal-recipient control is exposed.
+- No Sharing Card actions menus remain, including expanded readers and Show all. Player pile headers have no Show all button; DM retains it. Count/name/permitted icons remain on one row at tablet and narrow widths. Overflow actions render as words; empty piles preserve the intended card-sized layout without Empty pile text.
+- A stationary eligible touch hold visibly highlights its source and reveals permitted targets before movement. Quick swipe scrolls; release without movement causes neither mutation nor expansion. Dragging after hold uses the same commands; Claim, removal confirmation, modal targets and cancellation remain correct. Controls do not initiate dragging. Physical-device gesture acceptance remains distinct from emulation.
+- Player header identity/status/navigation fit at 390px and tablet widths with long names and both collections. Error/denial/stale messaging and status announcements remain accurate; identity is hidden when access is denied.
+- Run focused backend organization/gateway tests, regenerate the client, frontend unit checks, DM/player builds and all Sharing Chromium journeys against an isolated Docker-backed real backend. Broaden only for failures or identified regression risk. Use a free isolated gateway port without disturbing the owner's listener.
+- Exclude new dependencies, database migrations, Play changes, unrelated refactoring and restoration of removed non-drag alternatives. Stop after implementation/developer handover; formal verification requires explicit authorization for this increment.
+
+### Follow-up implementation and developer evidence
+
+Delivered the approved follow-up in existing Sharing owners. The dedicated player Group organization endpoint authenticates and accepts MOVE only, reusing the transactional movement and cover-repair path; generated the frontend client from live Spring OpenAPI. Shared presentation separates player view, card movement and pile management. Removed all Sharing Card actions presentation while retaining the gesture command handlers. Player pile headers omit Show all and keep name/icons/count on one line; empty surfaces preserve card proportions. Player header now contains identity and connection state with longer feedback below.
+
+Hold feedback uses the existing 180ms touch delay with local gesture ownership, cancellation generation and no-movement release suppression. Permitted destinations float without shifting the stationary source. Strengthened source/preview visibility and corrected overflow stacking so flip controls cannot paint over menu labels. A source displayed simultaneously as a cover and in Show all no longer allows the inactive surface to cancel the active surface's release.
+
+Developer checks: all **157 backend tests across 35 suites** and bootJar passed (`/tmp/sharing-followup-backend.log`), including Group command restrictions, foreign/private targets, inactive/revoked/wrong-campaign credentials, concurrent moves and explicit LAN route admission. Live-contract client generation passed. Final **136 frontend tests**, player build and DM build passed; existing bundle/style and CommonJS warnings remain. Focused browser checks established Group Inventory/Handout movement, stationary hold feedback and release cancellation, modal movement, Claim/removal, connection-loss recovery and competing-claim feedback. The final formal run passed all 12 Sharing Chromium journeys (2.3 minutes); the assessment is recorded separately in verification evidence.
+
+Corrections during developer checks: fixed a test service-name typo and an empty Show all template reference; isolated hold release ownership by surface; preserved connected-state operation feedback and made status announcements exclusive between header and detailed message; corrected async test assertions, long-name selectors and header geometry checks that included hidden menu descendants. Sandbox Gradle cache access was denied and player compilation exited without completion; authorized external reruns passed. The isolated Docker-backed backend uses gateway port 18081 and a copied built JAR; existing development listeners are untouched. No migration, dependency or Play changes. Physical-device/Safari and owner visual acceptance remain unverified.
+
+## Sharing UX improvements — accepted architecture — 2026-10-27
+
+Owner accepted this architecture after approving the five Sharing UX refinements in the product specification. Implementation requires separate approval of the bounded increment.
+
+- SharedCardTray owns pile presentation and activation. Copy Play's visual arrangement without importing its stateful component or workspace state; retain existing Sharing organization commands and permissions.
+- SharedCardTray owns explicit outside-only expanded-reader dismissal, Escape, focus return and existing contextual card actions.
+- Sharing drag surfaces own native image callout/selection suppression, scoped to draggable Sharing cards. Retain installed CDK gestures and swipe scrolling; physical-device/browser evidence remains necessary.
+- ShareWorkspace owns a viewport-bounded distribution dialog with persistent actions, preview and compact controls alongside each other when space permits, and stacked content with internal scrolling on smaller screens. Existing delivery review, validation and retry handlers remain authoritative.
+- No API, persistence, migration or dependency change is expected. Play behavior and general PlayingCard responsibilities remain unchanged.
+
+## Sharing UX improvements — approved bounded implementation increment — 2026-10-27
+
+**Status: APPROVED.** One increment covers the five approved requirements. The owner approved the increment and authorized implementation, formal verification, Docker builds, sandbox tests and in-scope fixes in the conversation.
+
+### Scope and expected components
+
+- Update `frontend/src/app/sharing/shared-card-tray.ts`: Play-style pile arrangement, organizer overflow controls, contextual cover activation, explicit outside dismissal without the expanded Close button, and preserved card actions/focus.
+- Update `frontend/src/app/sharing/sharing-gestures.ts` and narrowly scoped Sharing styles as necessary to suppress native image interactions on draggable surfaces without disabling ordinary scrolling or card controls.
+- Update `frontend/src/app/sharing/share-workspace.html` and `.css`: compact distribution controls, responsive preview layout, internally scrolling content and always-visible confirmation/cancel actions. Keep existing delivery handlers unless an in-scope layout integration correction is necessary.
+- Adjust relevant existing browser journeys in `frontend/e2e/sharing-gestures.spec.ts`, `sharing-organization.spec.ts`, `sharing-distribution.spec.ts` and lifecycle journeys only where changed interactions require it. Update `docs/user-guide.md` and record developer evidence here.
+
+### Completion and developer checks
+
+- Check pile-cover activation versus individual-card expansion; one-card and empty piles; side arrows, rename and overflow permissions; cover dragging; Show all and expanded contextual movement/claim/removal; outside dismissal, internal controls, Escape and focus return.
+- Exercise touch hold-drag, swipe scrolling and suppression of post-drag activation/native context-menu handling. Automated emulation cannot establish physical-device acceptance; report that limitation until actual device/browser evidence exists.
+- Check distribution footer visibility and usable content at laptop/tablet and narrow viewports, including long names, errors, new-pile input and uncertain-delivery retry. Preserve artwork/mode validation and reviewed-delivery behavior.
+- Run frontend unit checks, DM/player builds and the affected browser journeys against the real backend as developer checks. Expand testing only for failures or identified regression risks. No backend source changes are planned.
+- No unrelated refactoring, shared Play state extraction, backend changes or new dependencies. Stop after implementation/developer handover; formal verification and owner device/visual acceptance require their own approval.
+
+### Sharing UX implementation and developer evidence
+
+Implemented the five approved refinements in the existing Sharing presentation and gesture owners. Pile covers open Show all; individual cards open the reader; side controls and contextual commands retain their existing handlers. The expanded reader closes only on backdrop activation or Escape, without a Close expanded card button. Sharing drag sources suppress native context menus and image callout/selection. Pile headers use a compact grid with rename and overflow controls; the distribution dialog has a bounded, internally scrolling body and persistent actions.
+
+Developer checks: 136 frontend unit tests passed; final DM and player production builds passed. Existing production bundle/style and CommonJS warnings remain. Eight affected real-backend Chromium journeys passed before the final header alignment adjustment. The initial sandbox browser launch could not bind its local port; the initial external run failed because gateway port 8081 was occupied. Restarting only the owned isolated backend with gateway port 18081 resolved that environment issue; the existing listener was untouched. Sandbox player compilation exited before completion; the authorized external player build passed. Final formal browser evidence is recorded separately in `docs/verification.md`.
+
+No backend source, API, database schema, dependency or Play behavior changes. The browser tests use the existing Docker-backed isolated smoke database. Physical-device/browser and owner visual acceptance remain outstanding.
+
 ## Player sharing — accepted architecture reconciliation — 2026-10-26
 
 The owner approved the reconciliation of the [accepted sharing UX](player-card-sharing-ux-design.md) with G1/G2 and authorized planning. This section supersedes conflicting earlier snapshot/document and connectivity proposals. G1/G2 remain delivered foundations; no G3 implementation is authorized by this record. Responsibilities remain hexagonal: Sharing owns domain rules and application use cases; Gateway owns listener/admission/HTTP and player-asset transport; Preparation owns frozen prepared content; frontend components own presentation. Campaigns does not depend on Sharing or Gateway.

@@ -16,5 +16,6 @@ data class OrganizeCollection(
     val source: UUID? = null, val before: UUID? = null, val confirmed: Boolean = false)
 
 interface PlayerOrganization {
+    fun organizeGroup(campaign: UUID, credential: String?, request: OrganizeCollection): Either<Failure, SharedCollection>
     fun organize(campaign: UUID, credential: String?, request: OrganizeCollection): Either<Failure, SharedCollection>
 }

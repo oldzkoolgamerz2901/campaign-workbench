@@ -6,6 +6,10 @@ Status: Requirements approved by the owner on 2026-10-17, with subsequent accept
 
 ## Reading and decision precedence
 
+### Accepted pile and player layout refinement — 2026-10-27
+
+Pile rename pencils sit directly beside their titles in Play, DM Share and player views. Shared card mode labels (Handout/Inventory) appear above the card at its left edge in both DM Share and player views. Multi-card Sharing piles use the tabletop's decorative layered-card treatment; one-card piles retain the same card dimensions. Player identity, connection status and navigation remain in stable positions when switching Group Cards/My Cards or displaying arrival indicators. Long titles and names truncate where needed without displacing adjacent controls; narrow layouts remain usable.
+
 ### G1 — accepted local gateway prerequisite — 2026-10-26
 
 The owner approved a bounded gateway foundation for future player sharing. The DM's existing API and PostgreSQL remain localhost-only. The player listener is disabled on every application startup and enabled/disabled explicitly through private controls. G1 exposes only a content-free readiness response; it does not expose campaign content, player operations, credentials or the Angular development server. This prerequisite does not deliver the deferred Sharing feature.
@@ -33,6 +37,27 @@ The owner approved the [player-sharing UX](player-card-sharing-ux-design.md) and
 Add Share to existing navigation with save/navigation protections. Its integrated screen contains compact roster/LAN controls, genuine read-only prepared source cards for the selected session and an empty collection shell. Add/rename/activation/device management and per-player Pair device actions follow the accepted contextual composition. No automatic enable on player creation, accounts, avatars, fake cards or inactive distribution/pile commands. An enabled player-ready gateway and chosen local address permit an expiring real QR and matching selectable link; Regenerate preserves already paired devices, and closing makes no success claim.
 
 Scanning exchanges the temporary fragment token, removes it from the address bar, stores the returned campaign credential and opens Group Cards. My Cards is a separate shell with mirrored sticky navigation; both remain empty until a later distribution increment. Same-origin reload/reconnect selects a valid stored campaign credential without a player selector or deleting another campaign's credential on denial. Access denial hides identity/collections and stops ordinary polling; unknown transport failure keeps stale in-memory information and retries safely. Retry of an interrupted exchange may reuse the in-memory temporary token, but a consumed token cannot recover a lost credential. Serve only completed compiled player assets through Spring; keep DM assets/API and the Angular dev server private. Full session-use packaging remains excluded.
+
+### Sharing gesture and pile follow-up — accepted requirements — 2026-10-27
+
+The owner approved the following follow-up. It supersedes conflicting earlier Sharing menu, keyboard-alternative and expanded-reader action requirements; the owner explicitly accepts the consequences of removing these alternatives. Play behavior remains unchanged.
+
+- Remove Card actions menus from every Sharing card surface for DM and player, including Show all and expanded readers. Existing gesture commands, permission rules and confirmation requirements remain.
+- Player pile headers have no Show all button; activating a populated cover opens Show all. Retain the DM Show all button. Name, pencil (when permitted), card count and overflow menu (when permitted) occupy one row; long names truncate as in Play.
+- Pile overflow actions use words, including Move pile later. Replace Empty pile text with a card-sized empty surface following Play's layout.
+- Clearly highlight the held card and reveal permitted destinations when the hold delay completes, before movement. Release without dragging cancels cleanly; ordinary swipe scrolling remains available. Preserve cancellation on navigation, lost access/connectivity, changed source, Escape and touch cancellation.
+- Active, authenticated players may move and reorder both Inventory and Handouts between existing Group piles and Group Unsorted. Cards remain in Group; Claim remains the separate Inventory-only action into My Cards Unsorted. Group pile creation, rename, pile ordering and deletion remain DM-only. Players' Group cover browsing remains local rather than granting control of saved default covers. This supersedes the earlier DM-only Group card organization restriction; personal collection access boundaries remain unchanged.
+- Player identity and compact connection status move into the header row: collection title left, Playing as [name] and a text-labelled status indicator in the middle, collection navigation right. Use clear typography and a status dot accompanied by text. Truncate long names to retain one row; display longer connection errors below the header so they remain readable. Authentication and connection behavior remain unchanged.
+
+### Sharing UX improvements — accepted requirements — 2026-10-27
+
+The owner approved these refinements for the shared DM/player collection presentation and DM distribution dialog. They supersede conflicting earlier Sharing interaction descriptions; Play behavior is unchanged.
+
+- Expanded Sharing cards have no Close expanded card button. Outside activation dismisses the reader; card content and controls do not. Escape and focus return to the originating card remain available.
+- Touch hold-drag avoids native image menus, native image dragging and accidental selection while preserving swipe scrolling, tap activation, flip and card actions. Acceptance includes actual device/browser evidence as well as automated touch checks.
+- Sharing piles match Play's arrangement: title, pencil rename action, count and Show all above the cover, with previous/next arrows beside it. Organizers have a compact overflow menu for Move pile earlier, Move pile later and Delete pile. Existing permissions and nonempty-deletion confirmation remain.
+- Activating a pile cover opens Show all, including a one-card pile. Activating an individual card in Show all or Unsorted expands it. Arrows, flip and menus perform their own actions without opening Show all. Cover dragging continues to act on that individual card. Permitted Move / reorder, Claim and Remove actions remain available in Show all and the expanded reader.
+- The DM distribution dialog fits the available viewport and keeps Cancel and Confirm sharing / Retry delivery visible without scrolling to reach them. Destination and mode selection are compact; content may scroll internally when needed. Front/back/artwork review, Group pile creation, validation and uncertain-delivery retry semantics remain. Errors and long names do not push confirmation out of view.
 
 ### G3.2–G3.5 — accepted sharing requirements and staged delivery boundaries — 2026-10-27
 
