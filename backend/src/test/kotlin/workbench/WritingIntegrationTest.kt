@@ -23,7 +23,7 @@ class WritingIntegrationTest : StringSpec({
     fun start() = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run("--server.port=0", "--spring.datasource.url=${database.jdbcUrl}", "--spring.datasource.username=${database.username}", "--spring.datasource.password=${database.password}")
     beforeSpec { database.start(); context = start() }
     afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively(); other.toFile().deleteRecursively() }
-    "working drafts preserve incomplete fields, isolate campaigns, reject stale writes and survive restart" {
+    "WSD-R1.1 WSD-R1.2 WSD-R2.1 WSD-R2.2 WSD-R3.1 WSD-R3.2: durable drafts and revision guards" {
         val campaigns = context!!.getBean(CampaignService::class.java)
         val first = campaigns.register(RegisterCampaign("Writing A", root.toString())).getOrNull()!!.id
         val second = campaigns.register(RegisterCampaign("Writing B", other.toString())).getOrNull()!!.id
