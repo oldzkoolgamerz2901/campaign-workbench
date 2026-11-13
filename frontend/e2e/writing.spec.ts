@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-test('writes grouped durable drafts with card and safe full-document previews', async ({
+test('WSD-R5.1 WSD-R5.3 writes grouped durable drafts with guarded save recovery and previews', async ({
   page,
   request,
 }, info) => {
