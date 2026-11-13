@@ -46,6 +46,14 @@ Each phase has a deliverable and an exit gate. Present the deliverable and stop.
 - **Deliverable:** Verification evidence, pass/fail assessment, unverified areas, deviations, defects, and remaining risks.
 - **Exit:** Present the assessment and stop. Owner accepts the increment or authorizes corrective work. Verification does not authorize code changes or the next increment.
 
+## Capability contracts (SBCE-P1 pilot)
+
+The accepted product specification remains the authority for product intent and scope. A capability-local contract is authoritative for its explicitly covered current behaviour, subject to accepted architecture decisions. Uncontracted behaviour retains its existing approved sources. Contract disagreement with a product decision, implementation, or test is a finding, not an invitation to silently edit either side.
+
+During Requirements, propose or revise observable behaviour and seek owner approval before making it authoritative. During Architecture, confirm responsibility, dependency boundaries and representation. During Planning, identify the contract-to-code/test gap. During an expressly authorized Implementation increment, edit the approved contract and related traceability/tests within scope. Passing tests establishes technical evidence only; formal Verification remains separately authorized. Neither a capability contract nor a skill's internal workflow overrides these gates.
+
+The `writing` package contract is an SBCE-P1 experiment, not blanket authorization to apply contracts to other modules.
+
 ## Skipping, revisiting, and scope
 
 - A phase may be skipped only after the agent identifies it, explains why its deliverable is unnecessary or already satisfied, and receives explicit owner approval. Record the approved skip and reason in the conversation. A skip does not authorize later phases.
