@@ -169,7 +169,7 @@ test('writes grouped durable drafts with card and safe full-document previews', 
   }
 });
 
-test('protects session edits on entry and conflicting draft edits on return', async ({
+test('WSD-R5.2 WSD-R5.3 protects session edits on entry and conflicting draft edits on return', async ({
   page,
   request,
 }) => {
