@@ -878,3 +878,22 @@ The owner approved the interaction and presentation refinements detailed in [Pla
 - **Acceptance:** Existing behavior and save/conflict protections must be regressed alongside browser-verified card gestures, wrapped-grid ordering, overlay drop targets, responsive layout, keyboard access, and draft retention. UI approval is still pending.
 
 No new pile types, card copies, changes to Scene activation, or note schema are authorized by this refinement.
+
+
+## SBCE-P1 — capability-contract harness pilot — approved 2026-11-13
+
+This section records approved **development-method requirements**, not new Campaign Workbench application functionality. Scope: the existing Writing Save Draft operation only. Preserve all existing behaviour and previous accepted decisions.
+
+- **CC1:** Identify one coherent business capability and responsibility per contract.
+- **CC2:** Specify observable behaviour, errors and invariants, not implementation mechanics.
+- **CC3:** A contract governs approved current behaviour within its explicit scope, subordinate to accepted product intent and architecture.
+- **CC4:** Use stable behaviour identifiers traceable to verification evidence.
+- **CC5:** Preserve accepted requirements and their provenance when extracting a contract.
+- **CC6:** Identify conflicting documentation, contracts, code or tests; do not silently reconcile contradictions.
+- **CC7:** Discover a contract from the owning capability without reconstructing historical plans.
+- **CC8:** Preserve the six development phases and human approval gates.
+- **CC9:** Reuse existing stack, testing tools and architectural conventions.
+- **CC10:** Prefer deterministic contract completeness and test-trace checks where practical.
+- **CC11:** Keep contracts concise; avoid duplicating implementation and architectural history.
+
+In scope: revisioned Save Draft, campaign isolation and durability, incomplete content and limits, artwork actions, failure/retry/navigation and delayed-save handling, and mapping to existing tests. Excluded: new product behaviour, draft create/delete/export/approval, application refactors, dependency and framework changes, or roll-out to other capabilities. Approved architecture is recorded in `docs/implementation-plan.md`; pilot evaluation in `docs/sbce-p1-evaluation.md`.
