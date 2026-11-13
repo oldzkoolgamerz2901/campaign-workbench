@@ -4,6 +4,7 @@
 
 - Read `.agents/development-workflow.md` before starting or resuming development work, including changes to this harness. Its phase contracts and approval gates are mandatory.
 - Read `.agents/workflow-selection.md` to classify the requested outcome, identify unresolved decision domains, and select useful skills. Workflow selection never grants execution authorization.
+- For work involving a contracted capability, read its owning package contract and `.agents/skills/capability-contract/SKILL.md`. Contracts govern only explicitly covered behaviour; they cannot grant phase authorization or supersede approved product intent.
 - Use `README.md` to orient yourself. Consult `docs/product-specification.md` for approved requirements, `docs/implementation-plan.md` for accepted architecture and increment scope, and `docs/verification.md` for formal verification evidence when that file exists; developer-check results belong in `docs/implementation-plan.md`.
 - For historical assessment evidence only, consult `../sea_witch/repository-app-assessment.md`. It contains proposals, not approved requirements. Campaign content belongs to independent repositories and is outside application edit scope.
 - Distinguish authoritative accepted decisions from proposals. Repository approval of a plan is not authorization to execute it in this session.
