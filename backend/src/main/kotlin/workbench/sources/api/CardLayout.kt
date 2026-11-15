@@ -2,7 +2,7 @@ package workbench.sources.api
 
 import io.swagger.v3.oas.annotations.media.Schema
 
-data class CardLayoutInput(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String = "", @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val type: String = "", @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val summary: String = "", @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val tags: List<String> = emptyList(), @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val backText: String = "")
+data class CardLayoutInput(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val title: String = "", @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val type: String = "", @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val summary: String = "", @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val tags: List<String> = emptyList(), @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val backText: String = "", val quote: String = "")
 data class CardTextLine(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val field: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val text: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val font: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val size: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val x: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val baseline: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val width: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val ascent: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val descent: Double)
 data class CardLayoutBox(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val role: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val x: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val y: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val width: Double, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val height: Double)
 data class CardFitIssue(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val field: String, @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val code: String)
@@ -13,4 +13,4 @@ data class CardLayout(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
 interface CardLayoutCalculator { fun layout(input: CardLayoutInput): CardLayout }
 
 /** Fit exactly the normalized metadata frozen by Preparation. */
-fun CardMetadata.layoutInput() = CardLayoutInput(title, type, summary.orEmpty(), tags, backText)
+fun CardMetadata.layoutInput() = CardLayoutInput(title, type, summary.orEmpty(), tags, backText, quote)

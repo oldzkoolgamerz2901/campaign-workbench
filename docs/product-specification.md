@@ -914,6 +914,21 @@ Exclusions remain unchanged: no combat automation, extra piles, card backs, free
 
 **Delivery priority approved in the reconciliation:** tabletop foundation and UI, then P5, revised P7, P6 and P8. This is ordering direction, not an accepted detailed increment plan or implementation authorization.
 
+## Card front visibility, quote and summary — accepted requirements — 2026-11-15
+
+**Status: ACCEPTED.** The owner approved these requirements and authorized recording them and architecture design. Implementation and formal verification require separate authorization. These requirements supersede earlier front-panel requirements only where they conflict.
+
+- Each viewer independently controls Show text / Hide text for each displayed full card. The control is available in every DM tab displaying full cards, including previews, contextual references, recovery and expanded views, and in player collection and expanded views. Thumbnails and catalogue rows retain their existing presentation.
+- Hide text hides the entire parchment front panel, including title, type, quote and summary, revealing the artwork beneath. Card controls remain available, including Show text and flip; existing full-document access remains available where supported. Visibility changes do not select, expand, move, flip or mutate a card, or affect another viewer.
+- Front text starts visible. Remember the choice for that displayed card while its view remains open; it is not a synchronized preference or durable application setting.
+- Remove tags from the front panel, retaining stored tags and existing search/filter behaviour.
+- Add a new optional, separately authored plain-text quote field and a distinct summary area using the existing summary field. Omit an empty quote or summary area. Existing cards have an empty quote and retain their summaries.
+- Quote is card content and must survive save/reload, Markdown export/capture, preparation freezing and explicit replacement, supported session archives, Writing recovery and frozen sharing. Existing frozen content is not automatically rewritten.
+- Preserve canonical card dimensions, scroll-free sides, explicit fit feedback and complete external reading when content cannot fit. Hiding text does not bypass session-addition or replacement fit requirements. Complete front reading includes the quote and summary; retained tags remain accessible through the existing complete front-text fallback.
+- Acceptance covers independent DM/player visibility, every full-card location, keyboard and touch controls, empty fields, existing cards, quote durability and complete overflow reading. Existing flip, selection, expansion, drag and document actions remain independently operable.
+
+The owner also approved a bounded extension of the SBCE-P1 approach for changed capabilities: capability-local behavioral contracts, stable requirement IDs and assertion-level traceability. Assess concrete discoveries, useful coverage, overhead and rework during implementation; record uncertainty and avoid claiming causal productivity gains without a comparison. This is feature-scoped adoption, not a blanket contract rollout.
+
 ## Flippable cards — accepted requirements — 2026-10-24
 
 **Status: ACCEPTED, including refinements.** The owner approved the original requirements following investigation, then approved scroll-free fronts, the detailed flip animation and overflow handling below. This supersedes the tabletop reconciliation's exclusion of card backs and the existing scrollable-front presentation; other exclusions remain. Architecture and subsequent phases retain their separate approval gates.

@@ -67,16 +67,16 @@ class SharingDistributionIntegrationTest : StringSpec({
     }
     beforeTest {
         val image=context!!.getBean(ImageProcessor::class.java).process(ImageFixtures.png(60,40).inputStream()).getOrNull()!!
-        sources().source=PreparedCard(CardLayoutInput("Visible title","item","Visible summary",listOf("key"),"Visible back"),image,
+        sources().source=PreparedCard(CardLayoutInput("Visible title","item","Visible summary",listOf("key"),"Visible back", "Visible quote"),image,
             PreparedCardProvenance(campaign,session,item,null,"DM_PRIVATE_PATH",null,"DM_DOCUMENT_HASH","DM_CONTENT_HASH","source",null,null,null,null))
     }
     afterSpec { context?.close(); db.stop(); root.toFile().deleteRecursively() }
 
-    "real Preparation contract excludes authored originals documents notes and links even from retained private provenance" {
+    "PCP-R1.2: real Preparation contract excludes authored originals documents notes and links even from retained private provenance" {
         val sessionId=UUID.randomUUID(); val itemId=UUID.randomUUID(); val fallbackId=UUID.randomUUID()
         val origin=workbench.preparation.domain.AuthoredOrigin(UUID.randomUUID(),UUID.randomUUID(),1,UUID.randomUUID(),Instant.now().toString(),
             "PRIVATE_ORIGINAL_DOCUMENT", "hash",campaign,null,"original.md",emptyList())
-        val metadata=workbench.preparation.domain.CapturedCard(1,origin.card,"Visible","npc","session","draft",listOf("tag"),"Visible summary","Visible back")
+        val metadata=workbench.preparation.domain.CapturedCard(1,origin.card,"Visible","npc","session","draft",listOf("tag"),"Visible summary","Visible back", "Frozen quote")
         val captured=workbench.preparation.domain.CapturedSource(1,0,workbench.preparation.domain.CapturedClassification(metadata,emptyList()),emptyList())
         val item=workbench.preparation.domain.PreparedItem(itemId,"Fallback title","PRIVATE_CURRENT_DOCUMENT",
             workbench.preparation.domain.Provenance(campaign,null,"card.md",null,"hash","hash","authored",origin),emptyMap(),"PRIVATE_NOTES",captured)
@@ -90,6 +90,7 @@ class SharingDistributionIntegrationTest : StringSpec({
         val prepared=context!!.getBean(workbench.preparation.application.PreparedCardService::class.java)
         val source=prepared.card(campaign,sessionId,itemId).getOrNull()!!
         source.visible.summary shouldBe "Visible summary"
+        source.visible.quote shouldBe "Frozen quote"
         source.provenance.draft shouldBe origin.draft
         prepared.card(campaign,sessionId,fallbackId).getOrNull()!!.visible shouldBe CardLayoutInput("Fallback title","card","",emptyList(),"")
         prepared.card(campaign,sessionId,UUID.randomUUID()).isLeft() shouldBe true
@@ -99,9 +100,9 @@ class SharingDistributionIntegrationTest : StringSpec({
         val retained=jdbc().queryForObject("SELECT provenance::text FROM sharing.card_content WHERE campaign=? AND id=?",String::class.java,campaign,card.id)!!
         listOf("PRIVATE_ORIGINAL_DOCUMENT","PRIVATE_CURRENT_DOCUMENT","PRIVATE_NOTES","PRIVATE_SESSION_NOTES","original","links").forEach { retained.contains(it) shouldBe false }
     }
-    "exact preview rejects changed visible content and artwork without partial distribution" {
+    "SCP-R1.1: exact preview rejects changed quote content and artwork without partial distribution" {
         val req=request(); val count=jdbc().queryForObject("SELECT count(*) FROM sharing.shared_card",Long::class.java)
-        sources().source=sources().source!!.copy(visible=sources().source!!.visible.copy(backText="Changed"))
+        sources().source=sources().source!!.copy(visible=sources().source!!.visible.copy(quote="Changed"))
         (distribution().distribute(campaign,req).swap().getOrNull() is Failure.Conflict) shouldBe true
         distribution().previewArtwork(campaign,req).isLeft() shouldBe true
         jdbc().queryForObject("SELECT count(*) FROM sharing.shared_card",Long::class.java) shouldBe count
@@ -114,10 +115,11 @@ class SharingDistributionIntegrationTest : StringSpec({
         val card=distribution().distribute(campaign,req).getOrNull()!!
         val data=collections().collections(campaign,device.credential).getOrNull()!!
         data.mine.cards.map { it.id }.contains(card.id) shouldBe true
+        data.mine.cards.single { it.id == card.id }.visible.quote shouldBe "Visible quote"
         val json=context!!.getBean(ObjectMapper::class.java).writeValueAsString(data)
         listOf("provenance","markdown","notes","DM_","OTHER_PRIVATE_PATH","documentHash").forEach { json.contains(it) shouldBe false }
     }
-    "concurrent retries create one immutable instance with one event and recover after source removal" {
+    "SCP-R1.2: concurrent retries create one immutable instance with one event and recover quote after source removal" {
         val req=request(); val pool=Executors.newFixedThreadPool(2); val go=CountDownLatch(1)
         try {
             val attempts=(1..2).map { pool.submit<SharedCardData> { go.await(); distribution().distribute(campaign,req).getOrNull()!! } }
@@ -126,9 +128,23 @@ class SharingDistributionIntegrationTest : StringSpec({
             jdbc().queryForObject("SELECT count(*) FROM sharing.card_event WHERE card=?",Long::class.java,ids.first()) shouldBe 1L
             sources().source=null
             distribution().distribute(campaign,req).getOrNull()!!.id shouldBe ids.first()
+            distribution().distribute(campaign,req).getOrNull()!!.visible.quote shouldBe "Visible quote"
             distribution().artwork(campaign,ids.first()).isRight() shouldBe true
             distribution().distribute(campaign,req.copy(mode=SharingMode.HANDOUT)).isLeft() shouldBe true
         } finally { pool.shutdownNow() }
+    }
+    "SCP-R1.3: empty quote uses predecessor fingerprint and legacy stored payload stays retryable" {
+        sources().source = sources().source!!.copy(visible = CardLayoutInput("Legacy", "npc", "Summary", listOf("old"), "Back"), artwork = null)
+        // Fixed predecessor protocol vector; do not calculate expectations using current production code.
+        val previous = "e819c4b9d084d0abd66fac55a7670d9a349fe0dbb12a856c86c8dc411dfdfb88"
+        val req = request()
+        req.fingerprint shouldBe previous
+        val card = distribution().distribute(campaign, req).getOrNull()!!
+        jdbc().update("UPDATE sharing.card_content SET visible = visible - 'quote' WHERE campaign = ? AND id = (SELECT content FROM sharing.shared_card WHERE campaign = ? AND id = ?)", campaign, campaign, card.id)
+        sources().source = null
+        val recovered = distribution().distribute(campaign, req).getOrNull()!!
+        recovered.id shouldBe card.id
+        recovered.visible.quote shouldBe ""
     }
     "fresh operations create distinct copies and failed insert rolls back content artwork placement event and retry record" {
         val req=request(); val first=distribution().distribute(campaign,req).getOrNull()!!

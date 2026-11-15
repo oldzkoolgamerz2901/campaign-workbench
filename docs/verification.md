@@ -1,5 +1,41 @@
 # Verification evidence
 
+## CF1 — quote lifecycle and bounded contracts — formal assessment — 2026-11-15
+
+**PASS within the approved CF1 scope.** No implementation defect was found in the assessed source paths and executed cases. This verifies quote content and its preservation; it does not verify or complete CF2's quote/summary front presentation, quote-aware fit, front-tag removal or viewer-local Show/Hide controls. Owner acceptance and subsequent execution remain separate decisions.
+
+The owner authorized formal verification after the CF1 developer handover. Assessment was performed by the implementing agent, without an independent reviewer. References: accepted card-front requirements in the product specification, the accepted architecture and CF1 increment in the implementation plan, six capability-local contract sources, and the [implementation case study](card-front-contract-evaluation.md). Only this verification evidence was written during the phase; application code, tests, configuration and contract sources were not changed.
+
+### Candidate and executed evidence
+
+- Baseline HEAD: `e7caf9a`; candidate includes the uncommitted CF1 work and its preceding approved requirements/architecture records. A SHA-256 manifest of the 57 changed/untracked candidate files was captured before execution and checked unchanged afterward: `4c6d1904c1129026c7a31925cbff1cb9ceff8c92649b1e5b345b2d47537684fa`. The subsequently added verification record is excluded. Manifest: `/tmp/cf1-verification-candidate.json`.
+- Fresh `./gradlew test bootJar --rerun-tasks`: **160 tests across 35 suites, zero failures/errors**, plus compilation and bootJar. This includes Modulith/ArchUnit, revision/conflict/transaction checks, current and historical recovery, session/illustrated archives, Sharing and final multipart/payload/fixed-fingerprint assertions. Evidence: `/tmp/cf1-verification-backend.log` and the Gradle XML reports.
+- Fresh frontend suite: **136 tests across 16 files passed**. Fresh DM and player production builds passed; existing bundle/style budget and CommonJS warnings remain. Live OpenAPI exposes quote strings on DraftFields, CardMetadata, CardLayoutInput and CapturedCardData, matching the generated client used by the builds. No client source was regenerated or edited during verification.
+- All **3 Chromium Writing journeys passed** against the real isolated backend. Assertions cover quote save/reload, temporary failure and explicit retry, guarded navigation, stale-save local retention and explicit reload, alongside existing export/source-evidence behavior. Evidence: `/tmp/cf1-verification-browser.log` (15.8 seconds).
+- An additional disposable-database Flyway check migrated through V26, seeded a real Draft at revision 7/encoding 2, and applied V27. The quote became empty; comparing the complete row before/after with only the new quote column excluded proved all preceding fields unchanged. Evidence: `/tmp/cf1-verification-upgrade.log`; diagnostic source: `/tmp/VerifyQuoteMigration.java`.
+- Eight additional live HTTP probes passed: exact Unicode/CRLF/LF/whitespace/literal-markup quote preservation through save and authoring preview; atomic rejection of null, numeric, list, mapping and missing current quote fields; complete quote recovery; predecessor v5 normalization to an empty quote while retaining encoding 2. Each rejected restore left the workspace count unchanged. Evidence: `/tmp/cf1-verification-probes.json`; diagnostic source: `/tmp/cf1-verification-probes.py`.
+
+### Contract and acceptance assessment
+
+| Scope / requirements | Assessment and evidence |
+| --- | --- |
+| Save Draft — WSD-R7.1 and existing WSD invariants | **PASS.** Quote is an independent bounded working field with revision, campaign and failure protections. WritingIntegrationTest checks persistence/restart, stale save and oversized quote rejection without replacement. Frontend assertions preserve quote edits during delayed ordinary/multipart saves; Chromium covers failure/retry and conflict/discard. |
+| Sources — SQA-R1.1–R1.3 | **PASS.** Current interpretation 3 encodes/decodes quote separately; absent quote is empty. AuthoringCodecTest covers exact text, invalid types, historical interpretation 2 and retained-key collision; historical interpretation 1 preservation was also reviewed in the shared version branch. CardBackIntegrationTest exercises current Source capture/editing. Live probes confirm exact line-break/Unicode and plain-text fidelity. |
+| Preparation — PCP-R1.1–R1.2 | **PASS.** Exact approved content is frozen and projected through Preparation's public boundary. CardBackIntegrationTest verifies independent sessions and explicit revision replacement; SharingDistributionIntegrationTest verifies the real prepared quote projection without exposing private provenance. No automatic frozen-content rewrite was introduced. |
+| Sharing — SCP-R1.1–R1.2 | **PASS.** A changed quote invalidates the reviewed preview with no partial distribution. Tests assert frozen quote payloads, identical completed-operation retry after source removal, restart equality and player collection exposure. Existing access/lifecycle/isolation regressions pass. |
+| Sharing predecessor compatibility — SCP-R1.3 | **PASS.** A fixed predecessor fingerprint vector verifies empty-quote compatibility. The test removes quote from stored legacy JSON and recovers the same instance with an empty quote. Nonempty quotes participate in the separate fingerprint profile. |
+| Session portability — SAP-R1.1–R1.2 | **PASS.** Current v12 round trip/import retains frozen quotes. Supported v10/v11 reads supply empty quotes where missing. Current missing quote fields are rejected; source review confirms exact version-specific fields and string checks, with broad malformed-archive atomicity regressions passing. |
+| Writing portability — WCP-R1.1–R1.2 | **PASS.** Quotes reach Markdown/export snapshots, recovery/copy and illustrated archives through existing owners. Current JSON/illustrated output is v7/v8; predecessor v3/v5 and v4/v6 readers retain snapshot interpretations. Historical Markdown/hash assertions, strict recovery tests, current complete-quote restore and malformed-quote HTTP probes pass. |
+| Architecture and scope | **PASS.** Existing modules own interpretation, working state, frozen state and transport. V27 adds one defaulted Draft column. No module, dependency, framework, synchronized visibility preference, campaign-source write, development-data reset or CF2 rendering change was introduced. |
+| Contract approach assessment | **PASS as a bounded qualitative case study.** Thirteen quote-specific requirement IDs across six scoped contract sources map to reviewed assertions and explicit phase exclusions. The case study distinguishes observed rework and compatibility discoveries from unproven counterfactual benefit. No causal productivity, token saving or independent A/B improvement is established. |
+
+### Limits and disposition
+
+CF1 is not a complete feature delivery: quote rendering and fit composition still intentionally use the pre-CF2 presentation. Physical tablets, Safari, exhaustive assistive-technology behavior, all historical/corrupt payload combinations and owner functional/visual acceptance remain unverified. Legacy version branches have both execution and source-review evidence; not every version/metadata combination has its own literal fixture. No independent agent comparison or reviewer was used.
+
+The verification backend on 18080 and disposable PostgreSQL container on 55439 were stopped after checks. The existing development database was not used or reset. Temporary scripts, logs and manifests under `/tmp` are not guaranteed durable; this record preserves the assessment and material results. No corrective implementation was needed or authorized in this phase. Owner acceptance of CF1 and authorization for CF2 remain separate.
+
+
 ## Sharing gesture and Group organization follow-up — formal assessment — 2026-10-27
 
 **PASS within automated backend/Chromium and source-review scope.** Physical-device/Safari behavior and owner functional/visual acceptance remain outstanding. This assessment supersedes earlier Sharing menu/keyboard-alternative and DM-only Group card-organization expectations only where changed by the approved follow-up requirements.

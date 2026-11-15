@@ -50,6 +50,12 @@
 /// - **WSD-R6.1** — While a save is pending, when newer edits are made, Write shall
 ///   not acknowledge the newer edits as saved on receipt of the earlier response.
 ///
+/// ### WSD-R7: Authored quote
+/// - **WSD-R7.1** — When an existing draft is saved successfully, Writing shall
+///   retain the submitted optional plain-text quote as a working field independently
+///   of summary and body, with the same revision, durability, limits and unsaved-edit
+///   guarantees as other working text fields.
+///
 /// ## Invariants
 /// - Saved drafts are campaign-scoped.
 /// - A successful save advances the draft's working revision.
@@ -62,6 +68,7 @@
 /// - Describing general Writing behaviour outside Save Draft.
 ///
 /// ## Provenance
+/// - Accepted card-front requirements (2026-11-15), CF1 — separately authored quote.
 /// - `MW2`, `MW3` — manual editing and durable, conflict-safe drafts.
 /// - Approved per-card artwork requirements (2026-10-21) — revisioned artwork edits,
 ///   failure retention, and preserved prepared artwork.

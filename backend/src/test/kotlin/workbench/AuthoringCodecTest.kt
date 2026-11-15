@@ -10,6 +10,29 @@ import java.util.UUID
 
 class AuthoringCodecTest : StringSpec({
     val codec = MarkdownAuthoring(CommonmarkMarkdown())
+    "SQA-R1.1 SQA-R1.2 SQA-R1.3: quotes round trip while historical unknown keys retain their meaning" {
+        val quote = "  Stay afloat.\n<script>literal</script>\n"
+        val input = AuthoredDocument(UUID.randomUUID(), "Mira", "npc", "current", emptyList(), "Summary", "Body", quote = quote)
+        val encoded = codec.encode(input)
+        encoded.errors shouldBe emptyList()
+        encoded.preview.classification.metadata!!.quote shouldBe quote
+        codec.decode(encoded.markdown).quote shouldBe quote
+        codec.decode(encoded.markdown).summary shouldBe "Summary"
+        codec.decode(encoded.markdown).body shouldBe "Body"
+        codec.decode(codec.encode(input.copy(quote = "")).markdown).quote shouldBe ""
+        for (value in listOf("null", "7", "{legacy: true}", "[one]")) {
+            val raw = "---\nworkbench: {quote: $value}\n---\nBody"
+            codec.decode(raw).errors.isNotEmpty() shouldBe true
+            val historical = codec.decode(raw, 2)
+            historical.errors shouldBe emptyList()
+            historical.quote shouldBe ""
+            historical.retainedEnvelope.contains("quote") shouldBe true
+            codec.encode(input.copy(quote = "", interpretation = 2), historical.retainedEnvelope).errors shouldBe emptyList()
+            codec.encode(input, historical.retainedEnvelope).errors.isNotEmpty() shouldBe true
+        }
+        codec.encode(input.copy(interpretation = 2)).errors.isNotEmpty() shouldBe true
+        codec.decode("---\nworkbench: {quote: '${"x".repeat(65_537)}'}\n---\nBody").errors.isNotEmpty() shouldBe true
+    }
     "retained scalar types and unknown fields survive canonical encoding without changing body text" {
         val raw = "---\ncustom: {text: '007', numeric: 7, bool: true, nil: null, values: [x, 2]}\nworkbench: {schema: 1, extension: {text: 'false'}}\n---\n---\nA thematic break\n\r\n🌊"
         val decoded = codec.decode(raw)

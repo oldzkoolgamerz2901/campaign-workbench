@@ -48,22 +48,24 @@ class CardBackIntegrationTest : StringSpec({
         calculate("{broken").statusCode() shouldBe 400
     }
 
-    "separate back survives freeze replacement archives and recovery while fit gates remain atomic" {
+    "WCP-R1.1 PCP-R1.1: quote and separate back survive freeze replacement archives and recovery while fit gates remain atomic" {
         val c = context!!
         val campaign = c.getBean(CampaignService::class.java).register(RegisterCampaign("Back text", root.toString())).getOrNull()!!.id
         val writing = c.getBean(WritingService::class.java)
         val preparation = c.getBean(PreparationService::class.java)
         val created = writing.create(campaign, CreateDraft("npc", false)).getOrNull()!!
         val back = "Motivation\nProtect the harbour.\n\n<script>plain text</script>"
-        var d = writing.save(campaign, created.id, SaveDraft(0, created.fields.copy(title = "Mira", summary = "Harbour keeper.", backText = back))).getOrNull()!!
+        var d = writing.save(campaign, created.id, SaveDraft(0, created.fields.copy(title = "Mira", summary = "Harbour keeper.", backText = back, quote = "Keep watch.\nAlways."))).getOrNull()!!
         val preview = writing.preview(campaign, d.id, d.fields).getOrNull()!!
         preview.layout!!.back.fits shouldBe true
         preview.preview.classification.metadata!!.backText shouldBe back
+        preview.preview.classification.metadata!!.quote shouldBe "Keep watch.\nAlways."
         var first = preparation.create(campaign, CreateSession("First", "")).getOrNull()!!
         first = preparation.addDraft(campaign, first.id, AddDraft(first.revision, d.id, d.revision)).getOrNull()!!
         var second = preparation.create(campaign, CreateSession("Second", "")).getOrNull()!!
         second = preparation.addDraft(campaign, second.id, AddDraft(second.revision, d.id, d.revision)).getOrNull()!!
         first.items.single().capturedSource!!.classification.metadata!!.backText shouldBe back
+        first.items.single().capturedSource!!.classification.metadata!!.quote shouldBe d.fields.quote
         d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = "Too much text\n".repeat(40)))).getOrNull()!!
         writing.preview(campaign, d.id, d.fields).getOrNull()!!.layout!!.back.fits shouldBe false
         preparation.replaceDraft(campaign, first.id, first.items.single().id, AddDraft(first.revision, d.id, d.revision)).leftOrNull()!!.code shouldBe "writing.card-does-not-fit"
@@ -72,16 +74,19 @@ class CardBackIntegrationTest : StringSpec({
         val inspection = exports.inspect(campaign, d.id, InspectExport(d.revision, null)).getOrNull()!!
         inspection.errors shouldBe emptyList()
         exports.create(campaign, d.id, CreateExport(d.revision, null, inspection.fingerprint, true)).isRight() shouldBe true
-        d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = "A revised secret."))).getOrNull()!!
+        d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = "A revised secret.", quote = "A revised quote."))).getOrNull()!!
         val itemId = first.items.single().id
         first = preparation.replaceDraft(campaign, first.id, itemId, AddDraft(first.revision, d.id, d.revision)).getOrNull()!!
         first.items.single().id shouldBe itemId
+        first.items.single().capturedSource!!.classification.metadata!!.quote shouldBe "A revised quote."
+        second.items.single().capturedSource!!.classification.metadata!!.quote shouldBe "Keep watch.\nAlways."
         first.items.single().capturedSource!!.classification.metadata!!.backText shouldBe "A revised secret."
         preparation.open(campaign, second.id).getOrNull() shouldBe second
         val codec = c.getBean(SessionArchiveReader::class.java)
         val archive = preparation.export(campaign, ExportSessions(listOf(first.id, second.id))).getOrNull()!!
-        archive.version shouldBe 11
+        archive.version shouldBe 12
         codec.read(codec.write(archive)).getOrNull() shouldBe archive
+        archive.sessions.first().items.single().capturedSource!!.classification.metadata!!.quote shouldBe "A revised quote."
         val imported = preparation.import(campaign, archive).getOrNull()!!
         preparation.open(campaign, imported.sessions.first().id).getOrNull()!!.items.single().capturedSource!!.classification.metadata!!.backText shouldBe "A revised secret."
         val recovery = c.getBean(RecoveryService::class.java)
@@ -90,6 +95,7 @@ class CardBackIntegrationTest : StringSpec({
         recovery.detail(restored.id, "draft:${d.id}").getOrNull()!!.snapshot.fields.backText shouldBe "A revised secret."
         val copy = recovery.copy(restored.id, CopyRecovery(d.id, campaign)).getOrNull()!!
         copy.fields.backText shouldBe "A revised secret."
+        copy.fields.quote shouldBe "A revised quote."
         writing.open(campaign, copy.id).getOrNull() shouldBe copy
     }
 
@@ -114,7 +120,7 @@ class CardBackIntegrationTest : StringSpec({
         val detail = recovery.detail(restored.id, "draft:$draft").getOrNull()!!
         detail.snapshot.encoding shouldBe 1
         detail.snapshot.fields.backText shouldBe ""
-        mapper.readTree(recovery.archive(restored.id).getOrNull()!!).path("version").intValue() shouldBe 5
+        mapper.readTree(recovery.archive(restored.id).getOrNull()!!).path("version").intValue() shouldBe 7
         val historical = mapper.readTree(literal) as ObjectNode
         val oldSnapshot = historical.path("drafts")[0] as ObjectNode
         (oldSnapshot.path("fields") as ObjectNode).put("body", old.body)
@@ -158,9 +164,10 @@ class CardBackIntegrationTest : StringSpec({
         val imported = prep.import(campaign, archive).getOrNull()!!.sessions.single()
         prep.open(campaign, imported.id).getOrNull()!!.items.single().markdown shouldBe markdown
         val authoring = c.getBean(Authoring::class.java)
+        val quote = "A spoken quote.\n<script>literal</script>"
         val back = "A motive.\n\nA secret.\n<script>plain</script>\n"
         authoring.decode("---\nworkbench:\n  backText: null\n---\nBody").errors.isNotEmpty() shouldBe true
-        val encoded = authoring.encode(AuthoredDocument(UUID.randomUUID(), "Mira", "npc", "current", emptyList(), "Keeper.", "# Body", back))
+        val encoded = authoring.encode(AuthoredDocument(UUID.randomUUID(), "Mira", "npc", "current", emptyList(), "Keeper.", "# Body", back, quote = quote))
         authoring.decode(encoded.markdown).backText shouldBe back
         val path = Files.createTempDirectory(root, "source")
         Files.writeString(path.resolve("mira.md"), encoded.markdown)
@@ -168,7 +175,60 @@ class CardBackIntegrationTest : StringSpec({
         val version = c.getBean(workbench.sources.application.SourceService::class.java).refresh(sourceCampaign).getOrNull()!!.capture!!
         val draft = c.getBean(CardLibraries::class.java).editSource(sourceCampaign, EditLibrarySource(version, "mira.md")).getOrNull()!!
         draft.fields.backText shouldBe back
-        draft.origin!!.interpretation shouldBe 2
+        draft.fields.quote shouldBe quote
+        authoring.decode(encoded.markdown).quote shouldBe quote
+        draft.origin!!.interpretation shouldBe 3
+    }
+
+    "WCP-R1.2 SAP-R1.1 SAP-R1.2: predecessor quote shapes preserve hashes and reject version mismatches" {
+        val c = context!!
+        val recovery = c.getBean(RecoveryService::class.java)
+        val codec = c.getBean(RecoveryCodec::class.java)
+        val mapper = c.getBean(ObjectMapper::class.java)
+        val authoring = c.getBean(Authoring::class.java)
+        val campaign = UUID.randomUUID()
+        val id = UUID.randomUUID()
+        val snapshot = DraftData(id, campaign, UUID.randomUUID(), 0,
+            DraftFields("Old", "npc", "current", emptyList(), "", "Body", "old.md"), encoding = 2)
+        val encoded = authoring.encode(AuthoredDocument(snapshot.card, "Old", "npc", "current", emptyList(), "", "Body", interpretation = 2))
+        val archive = WritingArchive("workbench-writing-recovery", 7, campaign, "Historical quote", "2026-11-15T00:00:00Z", listOf(snapshot),
+            listOf(RecoveryApproval(snapshot, encoded.markdown, contentHash(encoded.markdown), null, emptyList())), emptyList())
+        val old = mapper.valueToTree<ObjectNode>(archive)
+        old.put("version", 5)
+        (old.path("drafts")[0].path("fields") as ObjectNode).remove("quote")
+        (old.path("approved")[0].path("snapshot").path("fields") as ObjectNode).remove("quote")
+        val restored = recovery.restore(mapper.writeValueAsBytes(old)).getOrNull()!!
+        val detail = recovery.detail(restored.id, "approved:$id:0").getOrNull()!!
+        detail.snapshot.fields.quote shouldBe ""
+        detail.snapshot.encoding shouldBe 2
+        detail.hash shouldBe contentHash(encoded.markdown)
+        detail.markdown shouldBe encoded.markdown
+        recovery.restore(recovery.archive(restored.id).getOrNull()!!).isRight() shouldBe true
+        val badOld = old.deepCopy()
+        (badOld.path("drafts")[0].path("fields") as ObjectNode).put("quote", "unexpected")
+        recovery.restore(mapper.writeValueAsBytes(badOld)).isLeft() shouldBe true
+        val badCurrent = mapper.valueToTree<ObjectNode>(archive)
+        (badCurrent.path("drafts")[0].path("fields") as ObjectNode).remove("quote")
+        recovery.restore(mapper.writeValueAsBytes(badCurrent)).isLeft() shouldBe true
+        // Exact session v11 shape: metadata has backText, but no quote field.
+        val preparation = c.getBean(PreparationService::class.java)
+        val actualCampaign = c.getBean(CampaignService::class.java).list().getOrNull()!!.campaigns.first { it.name == "Back text" }.id
+        val session = preparation.list(actualCampaign).getOrNull()!!.sessions.first()
+        val current = preparation.export(actualCampaign, ExportSessions(listOf(session.id))).getOrNull()!!
+        val sessionCodec = c.getBean(SessionArchiveReader::class.java)
+        val historical = mapper.valueToTree<ObjectNode>(current)
+        historical.put("version", 11)
+        historical.path("sessions").forEach { a -> a.path("items").forEach { item ->
+            (item.path("capturedSource").path("classification").path("metadata") as? ObjectNode)?.remove("quote")
+        } }
+        val parsed = sessionCodec.read(mapper.writeValueAsBytes(historical)).getOrNull()!!
+        parsed.sessions.flatMap { it.items }.mapNotNull { it.capturedSource?.classification?.metadata }.all { it.quote.isEmpty() } shouldBe true
+        preparation.import(actualCampaign, parsed).isRight() shouldBe true
+        sessionCodec.read(sessionCodec.write(current)).getOrNull() shouldBe current
+        val bad = mapper.valueToTree<ObjectNode>(current)
+        val metadata = bad.path("sessions")[0].path("items")[0].path("capturedSource").path("classification").path("metadata") as ObjectNode
+        metadata.remove("quote")
+        sessionCodec.read(mapper.writeValueAsBytes(bad)).isLeft() shouldBe true
     }
 
     "retained approval is not an exemption from the new fit gate" {

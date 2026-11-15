@@ -60,8 +60,9 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
         DataOutputStream(bytes).use { out ->
             fun field(value: String) { val b=value.toByteArray(Charsets.UTF_8); out.writeInt(b.size); out.write(b) }
             val v=source.visible
-            field("shared-card-1"); field(v.title); field(v.type); field(v.summary); out.writeInt(v.tags.size)
+            field(if (v.quote.isEmpty()) "shared-card-1" else "shared-card-2"); field(v.title); field(v.type); field(v.summary); out.writeInt(v.tags.size)
             v.tags.forEach(::field); field(v.backText)
+            if (v.quote.isNotEmpty()) field(v.quote)
             field(source.artwork?.metadata?.hash.orEmpty())
             source.artwork?.derivatives?.sortedBy { it.variant.name }?.forEach { field(it.variant.name); field(it.content.sha256) }
         }

@@ -19,7 +19,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
         fields(tree, "version", "sessions", "workspaces", "notes")
-        integer(tree.path("version")); require(tree.path("version").intValue() in 10..11)
+        integer(tree.path("version")); require(tree.path("version").intValue() in 10..12)
         val notes = tree.path("notes")
         require(notes.isArray && notes.size() <= 10000)
         val counts = mutableMapOf<String, Int>()
@@ -94,7 +94,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version in 10..11)
+        require(version in 10..12)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
@@ -181,8 +181,11 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(node, "metadata", "issues")
         val metadata = node.path("metadata")
         if (!metadata.isNull) {
-            fields(metadata, *(arrayOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary") + if (version == 11) arrayOf("backText") else emptyArray()))
-            if (version == 11) string(metadata.path("backText"))
+            fields(metadata, *(arrayOf("schema", "id", "title", "type", "purpose", "status", "tags", "summary") +
+                (if (version >= 11) arrayOf("backText") else emptyArray()) +
+                (if (version >= 12) arrayOf("quote") else emptyArray())))
+            if (version >= 12) string(metadata.path("quote"))
+            if (version >= 11) string(metadata.path("backText"))
             integer(metadata.path("schema")); uuid(metadata.path("id"))
             strings(metadata, "title", "type", "purpose", "status"); nullableString(metadata.path("summary"))
             val tags = metadata.path("tags")

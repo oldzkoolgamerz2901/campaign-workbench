@@ -57,7 +57,7 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
     }
     fun newDraft(campaign: UUID, title: String): DraftData {
         val d = writing().create(campaign, CreateDraft("npc", false)).getOrNull()!!
-        return writing().save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(title = title, summary = "A portrait", body = "# $title\nExact body"))).getOrNull()!!
+        return writing().save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(title = title, summary = "A portrait", quote = "Portrait quote", body = "# $title\nExact body"))).getOrNull()!!
     }
     fun replace(campaign: UUID, draft: DraftData, width: Int): DraftData = writing().replaceImage(campaign, draft.id, SaveDraft(draft.revision, draft.fields, "replace"), ImageFixtures.png(width, 7).inputStream()).getOrNull()!!
     fun bytes(download: PortableDownload): ByteArray = download.use { it.input().use { source -> source.readBytes() } }
@@ -74,11 +74,12 @@ class ArtworkLifecycleIntegrationTest : StringSpec({
         val campaign = context!!.getBean(CampaignService::class.java).register(RegisterCampaign("Artwork", root.toString())).getOrNull()!!.id
         val other = context!!.getBean(CampaignService::class.java).register(RegisterCampaign("Other", otherRoot.toString())).getOrNull()!!.id
         val d = newDraft(campaign, "First")
-        val savedResponse = multipart(campaign, d, ImageFixtures.webp("transparent"), SaveDraft(d.revision, d.fields.copy(body = "# Saved together"), "replace"))
+        val savedResponse = multipart(campaign, d, ImageFixtures.webp("transparent"), SaveDraft(d.revision, d.fields.copy(body = "# Saved together", quote = "Quote saved with image"), "replace"))
         savedResponse.statusCode() shouldBe 200
         val saved = mapper().readValue(savedResponse.body(), DraftData::class.java)
         saved.revision shouldBe d.revision + 1
         saved.fields.body shouldBe "# Saved together"
+        saved.fields.quote shouldBe "Quote saved with image"
         saved.image!!.mime shouldBe "image/webp"
         val path = "/api/campaigns/$campaign/drafts/${d.id}/artwork/DISPLAY"
         val read = request(path)

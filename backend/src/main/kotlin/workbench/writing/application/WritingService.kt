@@ -23,7 +23,7 @@ class WritingService(private val campaigns: Campaigns, private val store: DraftS
         ensure(request.type in authoring.catalog().types) { invalid("Choose a supported content type.") }
         ensure(store.list(campaign).size < 1000) { invalid("This campaign has reached the 1,000 draft limit.") }
         val id = UUID.randomUUID()
-        val draft = Draft(id, campaign, UUID.randomUUID(), 0, "", request.type, "draft", emptyList(), "", if (request.template) authoring.catalog().templates.getValue(request.type) else "", "${request.type}s/$id.md", encoding = 2)
+        val draft = Draft(id, campaign, UUID.randomUUID(), 0, "", request.type, "draft", emptyList(), "", if (request.template) authoring.catalog().templates.getValue(request.type) else "", "${request.type}s/$id.md", encoding = 3)
         store.put(draft); data(draft)
     } }
     fun save(campaign: UUID, id: UUID, request: SaveDraft): Either<Failure, DraftData> = commit(campaign, id, request, null)
@@ -43,7 +43,7 @@ class WritingService(private val campaigns: Campaigns, private val store: DraftS
         replacement?.let { images.put(owner, it) }
         val artwork = when (request.imageAction) { "replace" -> replacement!!.metadata; "remove" -> null; else -> before.image }
         // Incomplete metadata is durable working content; interpretation reports readiness separately.
-        val after = before.copy(revision = before.revision + 1, title = f.title, type = f.type, status = f.status, tags = f.tags, summary = f.summary, body = f.body, path = f.path, image = artwork, backText = f.backText, encoding = 2)
+        val after = before.copy(revision = before.revision + 1, title = f.title, type = f.type, status = f.status, tags = f.tags, summary = f.summary, body = f.body, path = f.path, image = artwork, backText = f.backText, quote = f.quote, encoding = 3)
         store.put(after); images.prune(owner); data(after)
     } }
     fun delete(campaign: UUID, id: UUID, revision: Long): Either<Failure, Unit> = tx.run { either {
@@ -58,10 +58,10 @@ class WritingService(private val campaigns: Campaigns, private val store: DraftS
         val draft = load(campaign, id).bind()
         ensure(withinWorkingLimits(fields)) { invalid("Preview exceeds working draft limits.") }
         val effective = draft.copy(title = fields.title, type = fields.type, status = fields.status, tags = fields.tags,
-            summary = fields.summary, body = fields.body, path = fields.path, backText = fields.backText, encoding = 2)
+            summary = fields.summary, body = fields.body, path = fields.path, backText = fields.backText, quote = fields.quote, encoding = 3)
         val resolved = library.resolveLinks(campaign, effective).bind()
-        val preview = authoring.encode(AuthoredDocument(draft.card, fields.title, fields.type, fields.status, fields.tags, fields.summary, fields.body, fields.backText, 2), draft.origin?.retainedEnvelope.orEmpty()).preview
-        val input = preview.classification.metadata?.layoutInput() ?: CardLayoutInput(fields.title, fields.type, fields.summary, fields.tags, fields.backText)
+        val preview = authoring.encode(AuthoredDocument(draft.card, fields.title, fields.type, fields.status, fields.tags, fields.summary, fields.body, fields.backText, 3, fields.quote), draft.origin?.retainedEnvelope.orEmpty()).preview
+        val input = preview.classification.metadata?.layoutInput() ?: CardLayoutInput(fields.title, fields.type, fields.summary, fields.tags, fields.backText, fields.quote)
         DraftPreview(preview, exportPathErrors(fields.path), resolved.links, resolved.capture, layouts.layout(input))
     } }
 }

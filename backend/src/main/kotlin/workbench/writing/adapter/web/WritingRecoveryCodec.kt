@@ -25,7 +25,7 @@ class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
         require(tree.path("associations").isArray && tree.path("associations").size() <= 10000 &&
             tree.path("approved").size() + tree.path("exports").size() + tree.path("associations").size() <= 10000)
         val incomingVersion = tree.path("version")
-        require(incomingVersion.isIntegralNumber && incomingVersion.canConvertToInt() && incomingVersion.intValue() in setOf(version, version + 2))
+        require(incomingVersion.isIntegralNumber && incomingVersion.canConvertToInt() && incomingVersion.intValue() in setOf(version, version + 2, version + 4))
         if (incomingVersion.intValue() == version) {
             val snapshots = mutableListOf<JsonNode>()
             tree.path("drafts").forEach { snapshots.add(it) }
@@ -37,8 +37,17 @@ class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
                 (snapshot.path("fields") as tools.jackson.databind.node.ObjectNode).put("backText", "")
             }
         }
+        val snapshots = mutableListOf<JsonNode>()
+        tree.path("drafts").forEach { snapshots.add(it) }
+        tree.path("approved").forEach { snapshots.add(it.path("snapshot")) }
+        tree.path("exports").forEach { snapshots.add(it.path("snapshot")) }
+        if (incomingVersion.intValue() < 7) snapshots.forEach { snapshot ->
+            val fields = snapshot.path("fields")
+            require(fields.isObject && !fields.has("quote"))
+            (fields as tools.jackson.databind.node.ObjectNode).put("quote", "")
+        }
         val archive = mapper.treeToValue(tree, WritingArchive::class.java)
-        require(archive.version in setOf(version, version + 2))
+        require(archive.version in setOf(version, version + 2, version + 4))
         if (version == 3) require((archive.drafts + archive.approved.map { it.snapshot } + archive.exports.map { it.snapshot }).all { it.image == null })
         // Round-trip shape comparison rejects unknown/missing fields, scalar coercions, noncanonical UUIDs
         // and nulls supplied for primitive fields; never accepts an entity's incidental schema.

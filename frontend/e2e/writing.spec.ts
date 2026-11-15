@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-test('WSD-R5.1 WSD-R5.3 writes grouped durable drafts with guarded save recovery and previews', async ({
+test('WSD-R5.1 WSD-R5.3 WSD-R7.1 writes grouped durable drafts with guarded save recovery and previews', async ({
   page,
   request,
 }, info) => {
@@ -38,6 +38,7 @@ test('WSD-R5.1 WSD-R5.3 writes grouped durable drafts with guarded save recovery
       .getByRole('navigation', { name: 'Editing tabs' })
       .getByRole('button', { name: 'Document', exact: true })
       .click();
+    await page.getByLabel('Card quote', { exact: true }).fill('Keep the harbour safe.\nAlways.');
     await page
       .getByLabel('Markdown body')
       .fill(
@@ -85,6 +86,9 @@ test('WSD-R5.1 WSD-R5.3 writes grouped durable drafts with guarded save recovery
       .getByRole('button', { name: /Captain Mira/ })
       .click();
     await expect(page.getByLabel('Markdown body')).toHaveValue(/Protect the crew/);
+    await expect(page.getByLabel('Card quote', { exact: true })).toHaveValue(
+      'Keep the harbour safe.\nAlways.',
+    );
     await page.locator('.new-draft > summary').click();
     await page.getByLabel('New card type').selectOption('scene');
     await page.getByRole('button', { name: 'Create document', exact: true }).click();
@@ -153,12 +157,25 @@ test('WSD-R5.1 WSD-R5.3 writes grouped durable drafts with guarded save recovery
     );
     await page.getByLabel('Title', { exact: true }).fill('Keep my local edit');
     await expect(page.getByLabel('Draft save status')).toHaveText('Save failed');
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Document', exact: true })
+      .click();
+    await page.getByLabel('Card quote', { exact: true }).fill('Keep my unsaved quote.');
+    await expect(page.getByLabel('Draft save status')).toHaveText('Save failed');
     page.once('dialog', (dialog) => dialog.dismiss());
     await page.getByRole('button', { name: 'Prepare', exact: true }).click();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Keep my local edit');
+    await expect(page.getByLabel('Card quote', { exact: true })).toHaveValue(
+      'Keep my unsaved quote.',
+    );
     await page.unroute(`**/api/campaigns/${campaign.id}/drafts/${draft.id}`);
     await page.getByRole('button', { name: 'Retry save', exact: true }).click();
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
+    const quoteSaved = await (
+      await request.get(`/api/campaigns/${campaign.id}/drafts/${draft.id}`)
+    ).json();
+    expect(quoteSaved.fields.quote).toBe('Keep my unsaved quote.');
     await page.getByRole('button', { name: 'Prepare', exact: true }).click();
     await expect(
       page.getByRole('button', { name: 'Sessions / New session', exact: true }),
@@ -213,7 +230,7 @@ test('WSD-R5.2 WSD-R5.3 protects session edits on entry and conflicting draft ed
       .getByRole('button', { name: /Untitled npc/ })
       .click();
     await expect(page.getByLabel('Title', { exact: true })).toBeEnabled();
-    const outside = { ...draft.fields, title: 'Other browser edit' };
+    const outside = { ...draft.fields, title: 'Other browser edit', quote: 'Other browser quote' };
     expect(
       (
         await request.put(`/api/campaigns/${campaign.id}/drafts/${draft.id}`, {
@@ -222,15 +239,24 @@ test('WSD-R5.2 WSD-R5.3 protects session edits on entry and conflicting draft ed
       ).ok(),
     ).toBe(true);
     await page.getByLabel('Title', { exact: true }).fill('My conflicting title');
+    await page
+      .getByRole('navigation', { name: 'Editing tabs' })
+      .getByRole('button', { name: 'Document', exact: true })
+      .click();
+    await page.getByLabel('Card quote', { exact: true }).fill('My conflicting quote');
     await expect(page.getByLabel('Draft save status')).toHaveText('Save failed');
     await expect(page.getByRole('alert')).toContainText('changed elsewhere');
     await expect(page.getByRole('button', { name: 'Retry save', exact: true })).toHaveCount(0);
     page.once('dialog', (dialog) => dialog.dismiss());
     await page.getByRole('button', { name: 'Prepare', exact: true }).click();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My conflicting title');
+    await expect(page.getByLabel('Card quote', { exact: true })).toHaveValue(
+      'My conflicting quote',
+    );
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Reload / discard local edits', exact: true }).click();
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Other browser edit');
+    await expect(page.getByLabel('Card quote', { exact: true })).toHaveValue('Other browser quote');
     await page.getByRole('button', { name: 'Prepare', exact: true }).click();
     await expect(page.getByLabel('Session Markdown notes')).toHaveValue('Keep session work');
   } finally {

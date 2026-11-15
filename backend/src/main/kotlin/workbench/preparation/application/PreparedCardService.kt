@@ -21,7 +21,7 @@ class PreparedCardService(private val preparation: PreparationService, private v
         val provenance = current.provenance
         val authored = provenance.authored
         PreparedCard(CardLayoutInput(metadata?.title?.takeIf { it.isNotEmpty() } ?: current.title, metadata?.type?.takeIf { it.isNotEmpty() } ?: "card",
-            metadata?.summary.orEmpty(), metadata?.tags.orEmpty(), metadata?.backText.orEmpty()), artwork,
+            metadata?.summary.orEmpty(), metadata?.tags.orEmpty(), metadata?.backText.orEmpty(), metadata?.quote.orEmpty()), artwork,
             PreparedCardProvenance(campaign,session,item,provenance.capture,provenance.path,provenance.section,
                 provenance.documentHash,provenance.contentHash,provenance.kind,authored?.draft,authored?.card,authored?.revision,authored?.approval))
     } }

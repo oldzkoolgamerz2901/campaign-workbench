@@ -23,7 +23,7 @@ class WritingIntegrationTest : StringSpec({
     fun start() = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run("--server.port=0", "--spring.datasource.url=${database.jdbcUrl}", "--spring.datasource.username=${database.username}", "--spring.datasource.password=${database.password}")
     beforeSpec { database.start(); context = start() }
     afterSpec { context?.close(); database.stop(); root.toFile().deleteRecursively(); other.toFile().deleteRecursively() }
-    "WSD-R1.1 WSD-R1.2 WSD-R2.1 WSD-R2.2 WSD-R3.1 WSD-R3.2: durable drafts and revision guards" {
+    "WSD-R1.1 WSD-R1.2 WSD-R2.1 WSD-R2.2 WSD-R3.1 WSD-R3.2 WSD-R7.1: durable drafts and revision guards" {
         val campaigns = context!!.getBean(CampaignService::class.java)
         val first = campaigns.register(RegisterCampaign("Writing A", root.toString())).getOrNull()!!.id
         val second = campaigns.register(RegisterCampaign("Writing B", other.toString())).getOrNull()!!.id
@@ -32,20 +32,23 @@ class WritingIntegrationTest : StringSpec({
         draft.fields.status shouldBe "draft"
         draft.fields.body shouldContain "## Motivation"
         (draft.id != draft.card) shouldBe true
-        val fields = draft.fields.copy(title = "Captain: 'Mira'\n# literal", tags = listOf(" Harbour ", "HARBOUR"), summary = "A captain.", body = "# Mira\r\nExact text\r\n## Secret\r\nHidden")
+        val fields = draft.fields.copy(title = "Captain: 'Mira'\n# literal", tags = listOf(" Harbour ", "HARBOUR"), summary = "A captain.", quote = "Stay afloat.\n<script>literal</script>", body = "# Mira\r\nExact text\r\n## Secret\r\nHidden")
         val saved = writing.save(first, draft.id, SaveDraft(0, fields)).getOrNull()!!
         saved.revision shouldBe 1
+        saved.fields.quote shouldBe fields.quote
         writing.open(second, draft.id).isLeft() shouldBe true
         writing.save(second, draft.id, SaveDraft(1, fields)).isLeft() shouldBe true
         writing.preview(second, draft.id, fields).isLeft() shouldBe true
         writing.list(second).getOrNull()!!.drafts.isEmpty() shouldBe true
-        writing.save(first, draft.id, SaveDraft(0, fields.copy(title = "Stale"))).leftOrNull()!!.code shouldBe "writing.stale-revision"
+        writing.save(first, draft.id, SaveDraft(0, fields.copy(title = "Stale", quote = "Must not overwrite"))).leftOrNull()!!.code shouldBe "writing.stale-revision"
         val preview = writing.preview(first, draft.id, fields).getOrNull()!!.preview
         preview.classification.metadata!!.title shouldBe fields.title
         preview.classification.metadata!!.tags shouldBe listOf("harbour")
         val incomplete = writing.save(first, draft.id, SaveDraft(1, fields.copy(title = "", summary = "s".repeat(1001)))).getOrNull()!!
         writing.preview(first, draft.id, incomplete.fields).getOrNull()!!.preview.classification.issues.any { it.field == "title" } shouldBe true
         writing.save(first, draft.id, SaveDraft(2, fields.copy(body = "x".repeat(2 * 1024 * 1024 + 1)))).isLeft() shouldBe true
+        writing.open(first, draft.id).getOrNull() shouldBe incomplete
+        writing.save(first, draft.id, SaveDraft(2, fields.copy(quote = "x".repeat(2 * 1024 * 1024 + 1)))).isLeft() shouldBe true
         writing.open(first, draft.id).getOrNull() shouldBe incomplete
         val transactions = context!!.getBean(Transactions::class.java)
         transactions.run<DraftData> {

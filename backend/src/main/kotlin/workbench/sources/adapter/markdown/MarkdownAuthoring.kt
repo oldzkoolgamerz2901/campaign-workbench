@@ -27,8 +27,8 @@ class MarkdownAuthoring(private val markdown: CommonmarkMarkdown) : Authoring {
         else -> false
     }
     override fun decode(raw: String, interpretation: Int): DecodedAuthoring {
-        require(interpretation in 1..2)
-        val owned = legacyOwned + if (interpretation == 2) setOf("backText") else emptySet()
+        require(interpretation in 1..3)
+        val owned = legacyOwned + (if (interpretation >= 2) setOf("backText") else emptySet()) + (if (interpretation >= 3) setOf("quote") else emptySet())
         val front = WorkbenchFrontMatter(interpretation).extract(raw)
         val errors = mutableListOf<String>()
         val root = front.data ?: emptyMap<String, Any?>()
@@ -37,7 +37,7 @@ class MarkdownAuthoring(private val markdown: CommonmarkMarkdown) : Authoring {
         if (!safe(root)) errors += "Retained metadata requires string mapping keys and safe scalar/list/mapping values."
         if (fields.containsKey("schema") && fields["schema"] != 1) errors += "Unsupported Workbench schema; copying would change its interpretation."
         if (fields["purpose"] in setOf("guidance", "tooling")) errors += "Guidance/tooling cannot be copied into session-purpose drafts."
-        for (key in (listOf("title", "type", "summary") + if (interpretation == 2) listOf("backText") else emptyList())) if ((fields[key] != null || (key == "backText" && fields.containsKey(key))) && fields[key] !is String) errors += "Source $key has an incompatible value; resolve it before copying."
+        for (key in (listOf("title", "type", "summary") + (if (interpretation >= 2) listOf("backText") else emptyList()) + (if (interpretation >= 3) listOf("quote") else emptyList()))) if ((fields[key] != null || (key in setOf("backText", "quote") && fields.containsKey(key))) && fields[key] !is String) errors += "Source $key has an incompatible value; resolve it before copying."
         val tags = fields["tags"]
         if (tags != null && (tags !is List<*> || tags.any { it !is String })) errors += "Source tags must be a list of text values before copying."
         val extras = root.entries.filter { it.key != "workbench" }.associate { it.key to it.value }.toMutableMap()
@@ -45,11 +45,11 @@ class MarkdownAuthoring(private val markdown: CommonmarkMarkdown) : Authoring {
         if (extraFields.isNotEmpty()) extras["workbench"] = extraFields
         return DecodedAuthoring(!root.containsKey("workbench"), raw.substring(front.bodyStart), if (extras.isEmpty() || errors.isNotEmpty()) "" else dump(extras),
             fields["title"] as? String ?: "", fields["type"] as? String ?: "", (tags as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-            fields["summary"] as? String ?: "", front.classification.issues.map { it.message }, errors, front.declaredId, if (interpretation == 2) fields["backText"] as? String ?: "" else "")
+            fields["summary"] as? String ?: "", front.classification.issues.map { it.message }, errors, front.declaredId, if (interpretation >= 2) fields["backText"] as? String ?: "" else "", if (interpretation >= 3) fields["quote"] as? String ?: "" else "")
     }
     override fun encode(input: AuthoredDocument, retainedEnvelope: String): EncodedAuthoring {
-        require(input.interpretation in 1..2)
-        val owned = legacyOwned + if (input.interpretation == 2) setOf("backText") else emptySet()
+        require(input.interpretation in 1..3)
+        val owned = legacyOwned + (if (input.interpretation >= 2) setOf("backText") else emptySet()) + (if (input.interpretation >= 3) setOf("quote") else emptySet())
         val errors = mutableListOf<String>()
         val retained = if (retainedEnvelope.isBlank()) emptyMap<String, Any?>() else {
             val decoded = WorkbenchFrontMatter().extract("---\n$retainedEnvelope---\n")
@@ -60,10 +60,14 @@ class MarkdownAuthoring(private val markdown: CommonmarkMarkdown) : Authoring {
         }
         val fields = linkedMapOf<String, Any>("schema" to 1, "id" to input.card.toString(), "title" to input.title, "type" to input.type, "purpose" to "session", "status" to input.status, "tags" to input.tags)
         if (!input.summary.isNullOrBlank()) fields["summary"] = input.summary
-        if (input.interpretation == 2 && input.backText.isNotEmpty()) fields["backText"] = input.backText
+        if (input.interpretation >= 2 && input.backText.isNotEmpty()) fields["backText"] = input.backText
         if (input.interpretation == 1 && input.backText.isNotEmpty()) errors += "Legacy encoding cannot contain authored back text."
-        if (input.interpretation == 2 && (retained["workbench"] as? Map<*, *>)?.containsKey("backText") == true)
+        if (input.interpretation >= 2 && (retained["workbench"] as? Map<*, *>)?.containsKey("backText") == true)
             errors += "Historical retained metadata already contains backText. Preserve that evidence and create a fresh Draft to author a different back."
+        if (input.interpretation >= 3 && input.quote.isNotEmpty()) fields["quote"] = input.quote
+        if (input.interpretation < 3 && input.quote.isNotEmpty()) errors += "Historical encoding cannot contain authored quote text."
+        if (input.interpretation >= 3 && (retained["workbench"] as? Map<*, *>)?.containsKey("quote") == true)
+            errors += "Historical retained metadata already contains quote. Preserve that evidence and create a fresh Draft to author a quote."
         val root = retained.entries.filter { it.key != "workbench" }.associate { it.key to it.value }.toMutableMap()
         val unknown = (retained["workbench"] as? Map<*, *>)?.entries?.filter { it.key !in owned }?.associate { it.key to it.value } ?: emptyMap()
         root["workbench"] = unknown + fields

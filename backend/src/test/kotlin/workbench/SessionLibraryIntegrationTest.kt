@@ -272,7 +272,7 @@ class SessionLibraryIntegrationTest : StringSpec({
         view.items.first().source.links.single().target shouldBe "@$aItem#a"
         s.items.first().provenance.authored!!.revision shouldBe b2.revision
         val manifest = context!!.getBean(PortableSessionService::class.java).manifest(campaign, ExportSessions(listOf(s.id))).getOrNull()!!
-        manifest.version shouldBe 11
+        manifest.version shouldBe 12
         manifest.workspaces.single().workspace shouldBe null
         val archiveService = context!!.getBean(PortableSessionService::class.java)
         val imported = archiveService.restore(campaign, manifest).getOrNull()!!.sessions.single().id

@@ -18,7 +18,7 @@ class CardLibraryService(
     private data class View(val entry: LibraryEntry, val sources: List<CatalogueSource>, val draft: Draft?, val preview: DraftPreview?)
     private data class Snapshot(val capture: UUID?, val views: List<View>)
     internal data class LinkResolution(val capture: UUID?, val links: List<CheckedLink>, val targetRevisions: Map<String, Long>, val sourcePaths: Set<String>)
-    private fun encoded(d: Draft) = authoring.encode(AuthoredDocument(d.card, d.title, d.type, d.status, d.tags, d.summary, d.body, d.backText, d.encoding), d.origin?.retainedEnvelope.orEmpty())
+    private fun encoded(d: Draft) = authoring.encode(AuthoredDocument(d.card, d.title, d.type, d.status, d.tags, d.summary, d.body, d.backText, d.encoding, d.quote), d.origin?.retainedEnvelope.orEmpty())
     private fun targets(snapshot: Snapshot, origin: Draft? = null) = snapshot.views.map { view ->
         val d = if (view.draft?.id == origin?.id) origin else view.draft
         AuthoredLinkTarget(view.entry.key,
@@ -101,7 +101,7 @@ class CardLibraryService(
             val d = draftGroups[k]?.singleOrNull()
             val binding = (d?.card ?: material.firstOrNull()?.declaredId)?.let { bindingsByCard[it] }
                 ?: material.firstOrNull()?.let { bindingsByPath[it.path]?.singleOrNull() }
-            val encoded = d?.let { authoring.encode(AuthoredDocument(it.card, it.title, it.type, it.status, it.tags, it.summary, it.body, it.backText, it.encoding), it.origin?.retainedEnvelope.orEmpty()) }
+            val encoded = d?.let { authoring.encode(AuthoredDocument(it.card, it.title, it.type, it.status, it.tags, it.summary, it.body, it.backText, it.encoding, it.quote), it.origin?.retainedEnvelope.orEmpty()) }
             val baseClassification = encoded?.preview?.classification ?: material.first().document.classification
             val logical = d?.card ?: material.firstOrNull()?.declaredId ?: binding?.card
             val issues = conflicts[k].orEmpty().toList()
@@ -119,7 +119,7 @@ class CardLibraryService(
             }.ifEmpty { binding?.let { listOf(LibrarySourceState(it.path, null, it.declaredId, if (issues.isEmpty()) "unavailable" else "conflict", null)) }.orEmpty() }
             val title = d?.title?.takeIf { it.isNotBlank() } ?: d?.path ?: classification.metadata?.title ?: material.first().path
             val metadata = classification.metadata
-            val layout = layouts.layout(metadata?.layoutInput() ?: CardLayoutInput(d?.title ?: metadata?.title.orEmpty(), d?.type ?: metadata?.type.orEmpty(), d?.summary ?: metadata?.summary.orEmpty(), d?.tags ?: metadata?.tags.orEmpty(), d?.backText ?: metadata?.backText.orEmpty()))
+            val layout = layouts.layout(metadata?.layoutInput() ?: CardLayoutInput(d?.title ?: metadata?.title.orEmpty(), d?.type ?: metadata?.type.orEmpty(), d?.summary ?: metadata?.summary.orEmpty(), d?.tags ?: metadata?.tags.orEmpty(), d?.backText ?: metadata?.backText.orEmpty(), d?.quote ?: metadata?.quote.orEmpty()))
             val fitIssues = layout.front.issues + layout.back.issues
             val ready = layout.front.fits && layout.back.fits && issues.isEmpty() && classification.metadata?.purpose == "session" && classification.issues.none { it.severity == "error" } &&
                 if (d == null) material.singleOrNull()?.let { source ->
@@ -226,8 +226,8 @@ class CardLibraryService(
         val bindings = associations.list(campaign)
         val card = item.entry.card ?: UUID.randomUUID()
         ensure(bindings.any { it.card == card } || bindings.size < 10000) { Failure.Invalid("writing.association-limit", "Campaign has reached the 10,000 Source association limit.") }
-        val origin = DraftOrigin(campaign, request.capture, selected.path, selected.declaredId, selected.raw, selected.hash, decoded.retainedEnvelope, decoded.issues, 2)
-        val draft = Draft(UUID.randomUUID(), campaign, card, 0, decoded.title, decoded.type, "draft", decoded.tags, decoded.summary, decoded.body, selected.path, origin, backText = decoded.backText, encoding = 2)
+        val origin = DraftOrigin(campaign, request.capture, selected.path, selected.declaredId, selected.raw, selected.hash, decoded.retainedEnvelope, decoded.issues, 3)
+        val draft = Draft(UUID.randomUUID(), campaign, card, 0, decoded.title, decoded.type, "draft", decoded.tags, decoded.summary, decoded.body, selected.path, origin, backText = decoded.backText, quote = decoded.quote, encoding = 3)
         ensure(withinWorkingLimits(draftData(draft).fields)) { Failure.Invalid("writing.source-invalid", "Source exceeds working field limits.") }
         drafts.put(draft)
         associations.put(campaign, SourceAssociationData(card, selected.path, selected.declaredId, request.capture, selected.hash))

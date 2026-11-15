@@ -141,7 +141,11 @@ describe('Writing working edits', () => {
     state.selectArtwork(file);
     expect(state.localArtwork()).toBe('blob:pending');
     const saving = state.flush();
-    state.edit({ body: 'Text entered during upload', backText: 'Back entered during upload' });
+    state.edit({
+      body: 'Text entered during upload',
+      backText: 'Back entered during upload',
+      quote: 'Quote entered during upload',
+    });
     const image = { hash: 'saved-image' };
     upload.next({ ...draft(), revision: 1, image });
     upload.complete();
@@ -150,12 +154,13 @@ describe('Writing working edits', () => {
     expect(state.current()?.image).toEqual(image);
     expect(state.current()?.fields.body).toBe('Text entered during upload');
     expect(state.current()?.fields.backText).toBe('Back entered during upload');
+    expect(state.current()?.fields.quote).toBe('Quote entered during upload');
     expect(state.pendingArtwork()).toBe('keep');
     expect(revoke).toHaveBeenCalledWith('blob:pending');
     expect(api.saveDraft.mock.calls[0][2]).toMatchObject({
       revision: 1,
       imageAction: 'keep',
-      fields: { backText: 'Back entered during upload' },
+      fields: { backText: 'Back entered during upload', quote: 'Quote entered during upload' },
     });
     text.next({ ...draft(), revision: 2, image });
     text.complete();
@@ -257,9 +262,9 @@ describe('Writing working edits', () => {
     const first = new Subject<DraftData>(),
       second = new Subject<DraftData>();
     api.saveDraft.mockReturnValueOnce(first).mockReturnValueOnce(second);
-    state.edit({ body: 'first' });
+    state.edit({ body: 'first', quote: 'First quote' });
     const saving = state.flush();
-    state.edit({ body: 'newer' });
+    state.edit({ body: 'newer', quote: 'Newer quote' });
     expect(api.saveDraft).toHaveBeenCalledTimes(1);
     first.next({ ...draft(), revision: 1 });
     first.complete();
@@ -267,10 +272,11 @@ describe('Writing working edits', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(state.current()?.fields.body).toBe('newer');
+    expect(state.current()?.fields.quote).toBe('Newer quote');
     expect(state.status()).toBe('saving');
     expect(api.saveDraft.mock.calls[1][2]).toMatchObject({
       revision: 1,
-      fields: { body: 'newer' },
+      fields: { body: 'newer', quote: 'Newer quote' },
     });
     second.next({ ...draft(), revision: 2 });
     second.complete();
@@ -283,9 +289,10 @@ describe('Writing working edits', () => {
         () => new HttpErrorResponse({ status: 409, error: { detail: 'Changed elsewhere' } }),
       ),
     );
-    state.edit({ summary: 'Keep my edit' });
+    state.edit({ summary: 'Keep my edit', quote: 'Keep my quote' });
     expect(await state.flush()).toBe(false);
     expect(state.current()?.fields.summary).toBe('Keep my edit');
+    expect(state.current()?.fields.quote).toBe('Keep my quote');
     expect(state.conflict()).toBe(true);
     state.edit({ body: 'More local work' });
     expect(await state.flush()).toBe(false);

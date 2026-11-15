@@ -292,6 +292,14 @@
               </p>
             </details>
           </div>
+          <label [hidden]="editorTab() !== 'document'">
+            Quote (optional)
+            <textarea
+              [ngModel]="draft.fields.quote ?? ''"
+              (ngModelChange)="state.edit({ quote: $event })"
+              aria-label="Card quote"
+            ></textarea>
+          </label>
           <label [hidden]="editorTab() !== 'document'"
             >Card back text<textarea
               rows="6"
