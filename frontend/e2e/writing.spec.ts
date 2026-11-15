@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-test('writes grouped durable drafts with card and safe full-document previews', async ({
+test('WSD-R5.1 WSD-R5.3 writes grouped durable drafts with guarded save recovery and previews', async ({
   page,
   request,
 }, info) => {
@@ -169,7 +169,7 @@ test('writes grouped durable drafts with card and safe full-document previews', 
   }
 });
 
-test('protects session edits on entry and conflicting draft edits on return', async ({
+test('WSD-R5.2 WSD-R5.3 protects session edits on entry and conflicting draft edits on return', async ({
   page,
   request,
 }) => {

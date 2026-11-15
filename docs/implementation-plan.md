@@ -728,3 +728,24 @@ Version checks (`/tmp/pux3-versions.log`), **134 frontend unit tests in 15 files
 The initial formal run passed all new PUX-3 journeys but exposed an outdated authored-preparation test path: it tried to select the inner Preparation view after card reading had selected outer Document. The test now explicitly selects Notes → Preparation and checks visible read-only references. Both affected integration journeys passed as developer checks (`/tmp/pux3-affected.log`); application source needed no correction.
 
 The [PUX-3 formal assessment](verification.md#pux-3--notes-subviews-formal-assessment--2026-10-25) passes on the final candidate: fresh unchanged-backend **103 tests in 29 suites**, final **134 frontend tests in 15 files**, live client generation/version checks, production build, **72/72 browser journeys**, **4/4 layout-fixture journeys** and isolated database installation preservation across restart. All 375 snapshotted source/test/configuration/asset files stayed unchanged during the final full execution. The initial 71/72 run and test correction remain recorded. Existing build warnings remain; no new persistence/API/store or later increment was introduced. Owner functional/visual acceptance, other browsers and physical touch hardware remain separate.
+
+
+## SBCE-P1 — Writing Save Draft contract pilot — approved architecture and implementation increment — 2026-11-13
+
+**Approval:** CC1–CC11 approved; architecture AD1–AD8 and bounded Phase 5 implementation SBCE-P1 authorized. Formal verification and wider rollout are **not authorized**. The experiment preserves existing app behaviour and phase gates.
+
+**Architecture decisions**
+- **AD1:** Capability-local contracts govern explicitly covered current behaviour below accepted product intent and architecture.
+- **AD2:** Keep Writing and existing Spring Modulith architecture; do not create a Save Draft business module.
+- **AD3:** Pilot Java 25 Markdown doc comments in `backend/src/main/java/workbench/writing/package-info.java`; retain `writing/api/package-info.java` as the existing named interface.
+- **AD4:** Stable `WSD-Rn.m` identifiers trace to existing product requirements (`MW2`, `MW3`, artwork acceptance).
+- **AD5:** Reuse Kotest, frontend unit/Playwright and existing Gradle/Modulith/ArchUnit checks. Add trace tooling only if justified.
+- **AD6:** Respect six phases and explicit human approval for behaviour/contract changes.
+- **AD7:** Own a minimal project-specific contract skill rather than importing the entire Airails stack.
+- **AD8:** Treat the pilot as reversible; wider adoption requires measured benefit and approval.
+
+**SBCE-P1 bounded scope:** Freeze the starting `main` commit; record a baseline before edits; create the one Writing package contract; map requirements to existing assertions and minimally annotate test names; add one local skill and short AGENTS/workflow pointers; record evaluation limits and run applicable developer checks. No code, DTO, persistence, database, Angular production, build-tool or external dependency changes.
+
+**Evaluation:** The fixed baseline is `dd88518d22daac4601e6da8618b5be6c478de00b`. Read-only baseline findings are not independent A/B agent runs. See `docs/sbce-p1-evaluation.md` for scenarios, evidence, incomplete coverage, and comparison conditions. Never claim performance gains without isolated comparable executions.
+
+**Completion:** Contract and approved provenance discoverable; stable trace IDs; gaps explicit; no changes outside authorized scope; developer checks and limitations recorded. Stop after Phase 5 handover; separate formal verification only by later authorization.

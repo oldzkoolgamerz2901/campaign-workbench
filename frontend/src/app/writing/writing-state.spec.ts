@@ -130,7 +130,7 @@ describe('Writing working edits', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
-  it('acknowledges an image separately from text edited during upload and releases its preview', async () => {
+  it('WSD-R4.1 acknowledges an image separately from text edited during upload and releases its preview', async () => {
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pending');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     const upload = new Subject<DraftData>();
@@ -163,7 +163,7 @@ describe('Writing working edits', () => {
     expect(api.replaceDraftArtwork).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);
   });
-  it('retains a newer selection and removal while an older image is saving', async () => {
+  it('WSD-R4.1 retains a newer selection and removal while an older image is saving', async () => {
     vi.spyOn(URL, 'createObjectURL')
       .mockReturnValueOnce('blob:one')
       .mockReturnValueOnce('blob:two');
@@ -189,7 +189,7 @@ describe('Writing working edits', () => {
     expect(await saving).toBe(true);
     expect(state.current()?.image).toBeNull();
   });
-  it('rejects oversized files and retains a failed upload for retry and guarded discard', async () => {
+  it('WSD-R4.2 rejects oversized files and retains a failed upload for retry and guarded discard', async () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:retry');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     state.selectArtwork({ name: 'large.png', size: 10 * 1024 * 1024 + 1 } as File);
@@ -236,7 +236,7 @@ describe('Writing working edits', () => {
     expect(state.current()).toBeNull();
     expect(state.localArtwork()).toBeNull();
   });
-  it('keeps a conflicted image until explicit reload discards it', async () => {
+  it('WSD-R5.2 keeps a conflicted image until explicit reload discards it', async () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:conflict');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     state.selectArtwork(new File(['image'], 'conflict.png'));
@@ -253,7 +253,7 @@ describe('Writing working edits', () => {
     expect(state.pendingArtwork()).toBe('keep');
     expect(revoke).toHaveBeenCalledWith('blob:conflict');
   });
-  it('serializes slow saves and never acknowledges newer edits as saved', async () => {
+  it('WSD-R6.1 serializes slow saves and never acknowledges newer edits as saved', async () => {
     const first = new Subject<DraftData>(),
       second = new Subject<DraftData>();
     api.saveDraft.mockReturnValueOnce(first).mockReturnValueOnce(second);
@@ -277,7 +277,7 @@ describe('Writing working edits', () => {
     expect(await saving).toBe(true);
     expect(state.status()).toBe('saved');
   });
-  it('retains failures and blocks conflicting retries until explicit reload', async () => {
+  it('WSD-R5.2 retains failures and blocks conflicting retries until explicit reload', async () => {
     api.saveDraft.mockReturnValue(
       throwError(
         () => new HttpErrorResponse({ status: 409, error: { detail: 'Changed elsewhere' } }),
