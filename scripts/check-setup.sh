@@ -28,7 +28,7 @@ until curl -fsS http://127.0.0.1:18080/api/status > /dev/null 2>&1; do
 done
 curl -fsS http://127.0.0.1:18080/v3/api-docs -o backend/build/openapi.json
 (cd backend && ./gradlew generateFrontendClient -PopenapiInput=build/openapi.json)
-(cd frontend && npm run check:versions && npm test && npm run build && npm run test:e2e)
+(cd frontend && npm run build:player && npm run check:versions && npm test && npm run build && npm run test:e2e)
 before=$(docker compose -p campaign-workbench-smoke exec -T database sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select created_at from workbench_setup.installation where id = 1"')
 docker compose -p campaign-workbench-smoke restart database
 docker compose -p campaign-workbench-smoke up -d --wait database

@@ -2,12 +2,13 @@
 
 A local laptop workspace for discovering campaign material, writing Markdown, preparing frozen sessions and running play. Independent campaign directories retain authoritative content; the backend never rewrites their sources. PostgreSQL owns application state.
 
-The Angular frontend and Kotlin/Spring modular backend provide four workspaces:
+The Angular frontend and Kotlin/Spring modular backend provide four content workspaces and a Share onboarding surface:
 
 - **Library:** search captured Sources and saved Drafts, read full documents, edit associated material and explicitly Add a whole card to a chosen session.
 - **Write:** edit durable Drafts with separate card-back text, check physical front/back text fit, preview illustrated cards/documents and download reviewed Markdown for manual incorporation into campaign files.
 - **Prepare:** assemble ordered frozen items, edit preparation notes, plan explicit Scene associations and accept same-type revision replacements.
 - **Play:** arrange Session Cards, two covered piles, Used and an explicit active Scene; read frozen documents and record independent PlayNotes with pins and cross-session history.
+- **Share:** manage campaign players, pair tablets by QR and explicitly distribute frozen card fronts/backs/artwork to Group or one player's Unsorted. Tablets read separate Group/My Cards collections, claim Group Inventory and confirm removal of their own Inventory. DM transfer, removal/withdrawal, same-instance recovery and owner-controlled piles and direct mouse/touch manipulation are available.
 
 T1/T2, P5–P8 and FC1–FC3 have delivery and formal evidence. Full cards now flip between canonical scroll-free fronts and plain-text backs, with complete external reading when a side cannot fit. The latest FC3 assessment passed 103 backend tests, 134 frontend tests, 55 Chromium journeys and four layout journeys. Owner functional/visual acceptance of FC3 remains separate. AI assistance, authority assignments and general source history remain future work.
 
@@ -55,17 +56,99 @@ cd backend
 
 In IntelliJ, open the repository root and link `backend/build.gradle.kts` as a Gradle project. Select the shared **Campaign Workbench** run configuration and click Run, or run **application → dev** in the Gradle panel. Ensure IntelliJ's environment can find `docker`, `node`, and `npm` on `PATH`.
 
-The task loads `.env`, starts/waits for PostgreSQL, starts Spring, generates the API client from its live OpenAPI contract, then starts Angular. Open **http://127.0.0.1:4200** when the console prints `[dev] Ready`. Logs have service prefixes. Ports 8080 and 4200 must be available; existing unrelated processes are never terminated to free them.
+The task loads `.env`, starts/waits for PostgreSQL, starts Spring, generates the API client from its live OpenAPI contract, builds the compiled player application, then starts Angular for the DM. Open **http://127.0.0.1:4200** when the console prints `[dev] Ready`. Logs have service prefixes. Ports 8080 and 4200 must be available; existing unrelated processes are never terminated to free them.
 
 Press Ctrl-C or IntelliJ's Stop button to stop the owned backend/frontend processes. Startup failures also clean up owned processes. PostgreSQL remains running and its data is preserved; stop it separately from the repository root with `docker compose stop database`. The automated lifecycle check exercises Gradle Tooling API cancellation; the IntelliJ GUI itself has not been manually tested.
 
 Run-configuration/environment variables override `.env`. The launcher accepts `KEY=value`, optional `export`, quoted values, and comments; it treats values as data and does not execute shell commands or expand variables. Missing configuration/dependencies produce startup errors. Initial dependency installation remains `npm ci` in `frontend/`. Backend-only development remains available through `scripts/backend-dev.sh` with PostgreSQL already running; ordinary `bootRun` is unchanged.
 
-Startup lifecycle checks: `cd backend && ./gradlew checkDevStartup`. This opt-in task uses the separate `campaign-workbench-startup-check` Compose project/database volume on port 55433 and the usual server ports 8080/4200. It tests occupied-port failure, real startup and proxy connectivity, cancellation/relaunch, database preservation, and cleanup after client-generation failure. It stops its isolated database afterward. It is not part of ordinary `test` or `build`.
+Startup lifecycle checks: `cd backend && ./gradlew checkDevStartup`. This opt-in task uses the separate `campaign-workbench-startup-check` Compose project/database volume on port 55433 and the usual server ports 8080/4200. It tests occupied-port failure, real startup and proxy connectivity, cancellation/relaunch, database preservation, and cleanup after client-generation and player-build failure. It stops its isolated database afterward. It is not part of ordinary `test` or `build`.
 
 Backend checks: `cd backend && ./gradlew test bootJar`. Frontend checks after client generation: `cd frontend && npm run check:versions && npm test && npm run build`. The `test:e2e` command expects an isolated backend on port 18080; prefer the complete setup script.
 
-Session-use packaging, serving frontend assets through Spring, a session-use launcher, backup/restore and tablet/network access remain future work. The current development startup is not the session-use distribution.
+Session-use packaging, a session-use launcher, backup/restore and populated player card collections remain future work. Spring serves the separately compiled player onboarding assets; the current development startup is not the session-use distribution.
+
+### Local gateway foundation (G1)
+
+The player gateway is disabled on every startup. G1 provides listener/lifecycle infrastructure and a content-free readiness response; player pairing, cards and the tablet interface remain future work. The private API stays bound to `127.0.0.1`, including when `server.address` is overridden. PostgreSQL's existing localhost binding is unchanged.
+
+With the application running and a campaign selected, enable from the laptop:
+
+```sh
+curl -fsS -X POST -H 'Content-Type: application/json' http://127.0.0.1:8080/api/gateway/enable
+curl -fsS http://127.0.0.1:8080/api/gateway
+```
+
+The response reports enabled state, campaign, bound port and active requests. By default the player listener binds to `0.0.0.0:8081`; `workbench.gateway.address` and `workbench.gateway.port` configure that listener separately. On a device on the same trusted home Wi-Fi, open `http://<laptop-LAN-IP>:8081/player-api/readiness`. A successful response is `{"status":"ready"}`. Local HTTP is unencrypted. A successful enable response proves local binding, not device-to-device reachability.
+
+Disable from the laptop:
+
+```sh
+curl -fsS -X POST -H 'Content-Type: application/json' http://127.0.0.1:8080/api/gateway/disable
+```
+
+Switching to a different campaign disables the gateway. Admitted synchronous requests finish against their original campaign before selection changes; newcomers are rejected. The default drain timeout is 5000 milliseconds (`workbench.gateway.drain-timeout-ms`). On timeout/cleanup failure, selection fails and admission remains closed; retry after outstanding operations finish. Selecting the same campaign preserves an enabled gateway. Re-enabling creates a new activation. Only the readiness GET is admitted over the LAN in G1; DM APIs, OpenAPI, static files and gateway controls remain private.
+
+### Player identity and pairing backend (G2)
+
+G2 provides the identity backend; G3.1 adds the Share/onboarding UI described below. Flyway V23 adds Sharing-owned player, invitation and device tables, and V24 adds invitation identity/replacement state without replacing existing credentials. Existing content and archives are unchanged; session/Writing archives do not back up Sharing records or credentials.
+
+Private operations use the laptop API under `/api/campaigns/<campaign>/sharing`:
+
+| Method | Path below that prefix | Purpose |
+| --- | --- | --- |
+| GET / POST | `/players` | List players / create with `{"displayName":"Mira"}` |
+| PUT | `/players/<player>/active` | Set `{"active":false}` or `true` |
+| PUT | `/players/<player>/name` | Rename with `{"displayName":"Mira"}`; identity and credentials remain |
+| POST | `/players/<player>/pairing` | Issue a one-use token and its expiry |
+| GET | `/players/<player>/pairing/<id>` | Inspect non-secret invitation status |
+| POST | `/players/<player>/pairing/<id>/replace` | Replace that invitation without revoking devices |
+| GET | `/players/<player>/devices` | Inspect devices without exposing credentials or hashes |
+| POST | `/devices/<device>/revoke` | Permanently revoke that device |
+
+Send `Content-Type: application/json` for mutations, including bodyless pairing issuance and revocation. Enable the gateway for the selected campaign before using its player port. `POST /player-api/pair` accepts `{"token":"<invitation-token>"}` and returns a new `credential` plus the paired identity. `GET /player-api/me` requires `Authorization: Bearer <credential>`. Do not place secrets in query strings. Issuance/redemption responses are not cached, and only credential hashes are persisted. A lost redemption response requires a new invitation; replay cannot recover the credential.
+
+Invitations expire after 300 seconds by default (`workbench.sharing.invitation-lifetime-seconds`). Device credentials have no automatic expiry; they survive restart and gateway disable/re-enable for the same campaign until revoked. Inactive players are denied without deleting their devices; reactivation restores access for non-revoked devices. Wrong-campaign, expired, consumed or revoked credentials return 401; an inactive authenticated player returns 403. All management routes remain unreachable through the LAN listener. Trusted-LAN HTTP remains unencrypted.
+
+### Share tab and tablet onboarding (G3.1)
+
+Run the normal `./gradlew dev` task after installing dependencies. Startup generates the client from live Spring, builds the separate player application, then starts the private DM frontend. Open **Share** in the existing navigation. Select a campaign/session to inspect its prepared card fronts/backs; distribution and populated collections are subsequent increments.
+
+Add a player using a display name. Adding a player does not enable sharing. Click **Enable sharing**, select the correct local address (Wi-Fi is commonly `en0` on this laptop), then choose **Pair device** for an active player. The modal shows a real QR and matching selectable link with expiry. Scan with the tablet's normal camera on the same Wi-Fi. No browser-camera permission, registration or second DM approval is required. Successful pairing opens Group Cards with the player's name; My Cards is separate. Both collections are empty shells in G3.1; no cards or piles are fabricated.
+
+Rename/deactivate and device management are in the player's contextual menu. Device counts exclude revoked devices; inactive players retain their pairings. Regenerate invalidates the displayed invitation but never revokes a device that already paired. Closing the modal makes no pairing-success claim. Temporary tokens stay in URL fragments until player bootstrap removes them, then travel in the exchange body. Permanent credentials stay in origin/campaign-scoped localStorage and Authorization headers. Reload reconnects at the same origin; changing LAN IP/port can require re-pairing. Denied access hides identity/collections; unknown network loss retains stale in-memory information while reconnecting.
+
+Player assets come only from the completed `frontend/dist/player/browser` build manifest through Spring; the Angular dev server and DM assets remain private. Missing/partial builds disable QR readiness. For backend-only startup, build the player after generating the client (`cd frontend && npm run build:player`) and set `workbench.gateway.player-assets` to that directory's absolute path if the working directory is not the repository root. Full session-use packaging remains future work.
+
+### Frozen card distribution and tablet reading (G3.2)
+
+In Share, choose a prepared session and use the source card's **Share** action. Review the front, back and artwork, choose Group or one player's Unsorted, explicitly choose Handout or Inventory, and **Confirm sharing**. Artwork must finish loading before confirmation. Changed prepared content requires a fresh review. If delivery is uncertain, **Retry delivery** recovers the original instance; closing/reopening the dialog in the same workspace retains that retry identity. A new explicit distribution creates a separate copy.
+
+DM collection selection shows actual distributed cards. Paired tablets receive Group and their own collection only. Tap/click or keyboard-activate a card to expand, use its on-card flip, and read complete side text when layout is unavailable or does not fit. Close returns focus and preserves the tray's scroll position. New personal arrivals mark the My Cards destination without switching screens or interrupting reading. Network loss retains stale in-memory reading; authoritative denial hides collections. Reload requires reconnecting; no offline content storage or queued mutations is provided.
+
+Flyway V25 adds Sharing-owned frozen content/artwork, instances, Unsorted placement, distribution retry records and initial lifecycle events. Copies survive prepared-source removal and restart, independently of Preparation image pruning. Session/Writing archives do not include Sharing records or artwork. G3.2 delivered readable Inventory; G3.3 adds Claim, Transfer and Remove/Restore below. G3.4/G3.5 add piles and gestures below. Existing G3.1 shell descriptions above describe that earlier increment's scope.
+
+### Inventory lifecycle and recovery (G3.3)
+
+Use **Card actions** on a distributed card. On tablets, **Claim** takes Group Inventory into your My Cards Unsorted immediately, keeping you on Group; a competing claim refreshes the view with concise feedback. My Cards Inventory offers **Remove** with confirmation. Handouts remain read-only for players.
+
+In Share, the DM can **Transfer** active Inventory to Group or another player's Unsorted, **Remove** Inventory or **Withdraw** Handouts with confirmation. **Removed cards** opens one DM-only recovery view showing mode, state and previous recipient. **Restore** returns the same instance and frozen content to that recipient's Unsorted, including inactive players; it does not reactivate access. Transfer and recovery preserve instance identity. G3.4 adds named piles below; G3.5 adds drag/drop below.
+
+Every command rechecks current access/state in its transaction. Unknown connection loss disables mutations while retaining in-memory reading; reconnect refreshes authoritative state. Sharing lifecycle state and history survive restart, but remain outside session/Writing archives. No database migration or reset is needed beyond G3.2's V25.
+
+### Collection organization (G3.4)
+
+Sharing collections now have ordered named piles above a separate Unsorted tray. DM organizes Group; players organize My Cards across paired devices. Use **New pile**, contextual **Pile actions** and **Move / reorder** to create, rename, order, delete and arrange cards. Nonempty deletion confirms and appends cards to the same Unsorted in pile order; empty deletion is immediate. Organizer arrows save default covers; Group viewers browse locally. **Show all** opens a responsive card grid with expansion, flip and contextual actions.
+
+Distribution supports existing or newly created Group piles; new pile and card commit together with retry recovery. DM transfers can target Group piles; personal delivery, Claim and Restore retain Unsorted destinations. Flyway V26 adds pile membership and cover constraints while preserving existing cards and distribution records. No development reset is needed. G3.5 adds gestures below; formal verification and owner visual acceptance are separate.
+
+### Direct manipulation (G3.5)
+
+Drag a prepared source onto Group, a player or a Group pile to open the same reviewed distribution dialog with destination preselected. Choose mode and confirm. Drag distributed Inventory to another collection to transfer its existing instance immediately; player destinations always mean Unsorted. Group piles are available while inspecting personal collections. Select a Group/player destination to inspect that collection without dragging.
+
+Organizers drag individual cards between piles and Unsorted; dropping onto another card inserts before it, while a location target appends. Show all offers the same organization and permitted lifecycle destinations inside its modal. Tablet players drag Group Inventory onto sticky **My Cards**, or the conditional modal target, to claim without navigating. Eligible **Remove**/**Withdraw** targets appear during dragging and always require confirmation. Contextual actions remain the keyboard alternatives.
+
+Swipe to scroll; briefly hold then move to drag on touch screens. Flip, card-side reading and menus retain their controls. Escape, touch cancellation, release outside a destination, source disappearance/movement, navigation or lost access/connectivity cancels the gesture. Reconnection refreshes authoritative state before commands resume. G3.5 uses existing commands and V26 without a migration or development reset. Developer evidence is in the implementation plan; formal verification, physical-tablet/Safari and owner functional/visual acceptance remain separate.
 
 ### Optional development database reset
 

@@ -69,7 +69,7 @@
       </button>
     </div>
   }
-  @if (side() === 'front') {
+  @if (side() === 'front' && documentAvailable()) {
     <button
       class="document"
       type="button"

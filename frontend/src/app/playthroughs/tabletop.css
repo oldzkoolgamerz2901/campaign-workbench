@@ -207,14 +207,21 @@ dialog select {
   flex-wrap: nowrap;
   min-height: 32px;
 }
-.pile-heading h3 {
+.pile-name {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pile-heading h3 {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .pile-heading button {
+  flex-shrink: 0;
   padding: 4px 5px;
   white-space: nowrap;
 }

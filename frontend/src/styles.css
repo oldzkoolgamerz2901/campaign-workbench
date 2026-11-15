@@ -171,3 +171,90 @@ button.danger,
   --prepared-thumbnail-width: 30px;
   --prepared-thumbnail-height: 36px;
 }
+
+/* Sharing drag destinations stay readable in both DM and player applications. */
+.sharing-drop-eligible {
+  outline: 2px dashed var(--accent) !important;
+  outline-offset: -2px;
+}
+.sharing-drop-hover {
+  outline: 4px solid var(--accent) !important;
+  background: var(--panel);
+}
+.drop-destinations,
+.collection-destinations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.drop-destinations {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--panel);
+  padding: 0.6rem;
+  max-height: 35dvh;
+  overflow: auto;
+}
+.drop-target {
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.sharing-drag-source {
+  cursor: grab;
+}
+.sharing-drag-source.cdk-drag-preview {
+  pointer-events: none;
+  opacity: 0.95;
+  z-index: 1000 !important;
+  max-width: 243px;
+}
+.collection-destinations [aria-pressed='true'] {
+  border: 2px solid var(--accent);
+}
+
+.collection-destinations button {
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+}
+
+/* Sharing owns gesture policy; other artwork remains unaffected. */
+.sharing-drag-source:not(.cdk-drag-disabled),
+.sharing-drag-source:not(.cdk-drag-disabled) img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.sharing-drag-source.sharing-grabbed,
+.sharing-drag-source.cdk-drag-preview {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 6px #dfc77c33,
+    0 12px 32px #0008;
+  filter: brightness(1.12);
+  cursor: grabbing;
+}
+/* Hold feedback must not insert content above the stationary source. */
+.drop-destinations {
+  position: fixed;
+  top: auto;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 3rem));
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px #0008;
+}

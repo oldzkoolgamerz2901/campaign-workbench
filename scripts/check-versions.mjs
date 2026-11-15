@@ -6,7 +6,7 @@ const versions = Object.fromEntries([...catalog.matchAll(/^([\w-]+) = "([^"]+)"/
 const pkg = JSON.parse(readFileSync(new URL('frontend/package.json', root)));
 const lock = JSON.parse(readFileSync(new URL('frontend/package-lock.json', root)));
 for (const [name, version] of Object.entries({ ...pkg.dependencies, ...pkg.devDependencies })) {
-  const key = name === '@angular/material' || name === '@angular/cdk' ? 'angular-material'
+  const key = name === '@types/qrcode' ? 'qrcode-types' : name === '@angular/material' || name === '@angular/cdk' ? 'angular-material'
     : name.startsWith('@angular/') ? (name === '@angular/cli' ? 'angular-cli' : 'angular')
     : name === '@playwright/test' ? 'playwright' : name;
   if (versions[key]) assert.equal(version, versions[key], `${name}: catalog drift`);

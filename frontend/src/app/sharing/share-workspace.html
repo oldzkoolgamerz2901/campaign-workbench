@@ -1,0 +1,489 @@
+<workbench-header
+  [campaign]="campaign()"
+  [campaigns]="campaigns()"
+  mode="share"
+  [disabled]="busy()"
+  (selectCampaign)="selectCampaign($event)"
+  (selectMode)="navigate($event)"
+/>
+<main class="share-desk">
+  <h1 #shareHeading tabindex="-1">Share</h1>
+  @if (error()) {
+    <p class="error" role="alert">
+      {{ error() }} <button matButton type="button" (click)="refresh(true)">Retry</button>
+    </p>
+  }
+  @if (notice()) {
+    <p role="status">{{ notice() }}</p>
+  }
+  @if (!campaign()) {
+    <p>Select a campaign to share with players.</p>
+  } @else {
+    <div class="share-layout">
+      <aside>
+        <section class="panel">
+          <h2>LAN sharing</h2>
+          <p role="status">{{ access()?.gateway?.enabled ? 'Enabled' : 'Disabled' }}</p>
+          @if (access()?.gateway?.enabled) {
+            <button matButton type="button" [disabled]="busy()" (click)="disable()">
+              Disable sharing
+            </button>
+          } @else {
+            <button matButton type="button" [disabled]="busy()" (click)="enable()">
+              Enable sharing
+            </button>
+          }
+          @if (access()?.gateway?.enabled) {
+            <label
+              >Local address
+              <select
+                aria-label="Local address"
+                [ngModel]="address()"
+                (ngModelChange)="endPairing(); address.set($event)"
+              >
+                @for (candidate of access()?.addresses || []; track candidate.address) {
+                  <option [value]="candidate.address">
+                    {{ candidate.address }} · {{ candidate.label }}
+                  </option>
+                }
+              </select></label
+            >
+            @if (address()) {
+              <p class="address">http://{{ address() }}:{{ access()?.gateway?.port }}</p>
+            }
+            <p class="muted">
+              Connect tablets to the same home Wi-Fi. A running server does not prove a tablet can
+              reach it.
+            </p>
+            @if (!access()?.playerAssetsReady) {
+              <p role="status">
+                The player interface is not ready. Restart the application and retry.
+              </p>
+            }
+          }
+        </section>
+        <section class="panel">
+          <div class="section-title">
+            <h2>Players</h2>
+            <button matButton type="button" [disabled]="busy()" (click)="openName()">
+              Add player
+            </button>
+          </div>
+          @for (player of players(); track player.id) {
+            <div class="player-row">
+              <div>
+                <strong>{{ player.displayName }}</strong
+                ><small
+                  >{{ player.active ? 'Active' : 'Inactive' }} · {{ player.pairedDevices }} paired
+                  devices</small
+                >
+              </div>
+              <div class="player-actions">
+                <button
+                  matButton
+                  type="button"
+                  [disabled]="busy() || !canPair() || !player.active"
+                  (click)="pair(player)"
+                >
+                  Pair device
+                </button>
+                <details>
+                  <summary [attr.aria-label]="'Manage ' + player.displayName">Manage</summary>
+                  <div class="menu">
+                    <button matButton type="button" [disabled]="busy()" (click)="openName(player)">
+                      Rename</button
+                    ><button matButton type="button" [disabled]="busy()" (click)="activate(player)">
+                      {{ player.active ? 'Deactivate' : 'Reactivate' }}</button
+                    ><button matButton type="button" [disabled]="busy()" (click)="manage(player)">
+                      Manage devices
+                    </button>
+                  </div>
+                </details>
+              </div>
+            </div>
+          } @empty {
+            <p class="muted">Add a player using their display name.</p>
+          }
+        </section>
+      </aside>
+      <div class="cards-workspace">
+        <section class="panel sources">
+          <div class="section-title">
+            <h2>Prepared session cards</h2>
+            <label
+              >Find card
+              <input
+                [ngModel]="filter()"
+                (ngModelChange)="filter.set($event)"
+                placeholder="Search titles"
+            /></label>
+          </div>
+          <div class="source-tray" cdkScrollable cdkDropList [cdkDropListSortingDisabled]="true">
+            @for (item of visibleItems(); track item.id) {
+              @let card = source(item);
+              <div
+                class="source-entry"
+                [sharingDrag]="{ kind: 'source', id: item.id }"
+                [dragDisabled]="busy() || lifecycleBusy() || !access()"
+              >
+                <playing-card
+                  [title]="card.title"
+                  [type]="card.type"
+                  [summary]="card.summary"
+                  [tags]="card.tags"
+                  [backText]="card.backText"
+                  [artwork]="artwork(item)"
+                  [context]="item.id"
+                  [documentAvailable]="false"
+                />
+                <button
+                  matButton
+                  type="button"
+                  [disabled]="busy()"
+                  (mousedown)="$event.stopPropagation()"
+                  (touchstart)="$event.stopPropagation()"
+                  (click)="share(item)"
+                >
+                  Share {{ card.title }}
+                </button>
+              </div>
+            } @empty {
+              <p class="muted">
+                {{
+                  items().length
+                    ? 'No matching cards.'
+                    : 'Choose a prepared session above to see its cards.'
+                }}
+              </p>
+            }
+          </div>
+        </section>
+        <section class="panel">
+          <div class="section-title">
+            <h2>Collections</h2>
+            <button matButton type="button" (click)="openRecovery()">Removed cards</button>
+            <nav class="collection-destinations" aria-label="Collections">
+              @for (destination of collectionDestinations(); track destination.id) {
+                <button
+                  type="button"
+                  [attr.aria-pressed]="collection() === destination.id"
+                  [attr.aria-label]="destination.name"
+                  [sharingTarget]="{ kind: 'collection', collection: destination.id }"
+                  [accepts]="acceptDestination(destination.id)"
+                  (dropped)="gestureDrop($event)"
+                  (click)="chooseCollection(destination.id)"
+                >
+                  {{ destination.name
+                  }}{{ newDestinations().includes(destination.id) ? ' · New' : '' }}
+                </button>
+              }
+            </nav>
+          </div>
+          @if (gestures.active(); as source) {
+            <p role="status">
+              {{
+                source.kind === 'source'
+                  ? 'Share a new copy: drop on a destination, then review and confirm.'
+                  : 'Move within Group, transfer Inventory to another collection, or drop on Remove and confirm.'
+              }}
+            </p>
+          }
+          <shared-card-tray
+            [collection]="collection()"
+            [destinations]="dropDestinations()"
+            (externalDrop)="gestureDrop($event)"
+            [cards]="sharedCards()"
+            [piles]="sharedPiles()"
+            [organizer]="collection() === 'group'"
+            (organize)="organize($event)"
+            [artwork]="sharedArtwork"
+            [identity]="campaign() + collection()"
+            [actions]="cardActions"
+            [disabled]="lifecycleBusy() || !access()"
+            (command)="openCardCommand($event)"
+          />
+        </section>
+      </div>
+    </div>
+  }
+</main>
+<dialog
+  #nameDialog
+  (close)="dialogClosed()"
+  aria-labelledby="player-name-title"
+  class="name-dialog"
+>
+  <form (ngSubmit)="saveName()">
+    <h2 id="player-name-title">{{ editing() ? 'Rename player' : 'Add player' }}</h2>
+    <label
+      >Display name <input name="displayName" [(ngModel)]="name" maxlength="200" required autofocus
+    /></label>
+    <div class="dialog-actions">
+      <button matButton type="button" (click)="nameDialog.close()">Cancel</button
+      ><button matButton type="submit" [disabled]="busy() || !name.trim()">
+        {{ editing() ? 'Save name' : 'Add player' }}
+      </button>
+    </div>
+  </form>
+</dialog>
+<dialog #devicesDialog (close)="dialogClosed()" aria-labelledby="player-devices-title">
+  <h2 id="player-devices-title">Devices · {{ managed()?.displayName }}</h2>
+  @for (device of devices(); track device.id) {
+    <div class="device-row">
+      <span
+        >Device {{ device.id.slice(0, 8)
+        }}<small
+          >{{ device.revokedAt ? 'Revoked' : 'Paired' }} · Last seen {{ device.lastSeenAt }}</small
+        ></span
+      >
+      @if (!device.revokedAt) {
+        <button matButton type="button" [disabled]="busy()" (click)="revoke(device)">
+          Revoke device
+        </button>
+      }
+    </div>
+  } @empty {
+    <p>No paired devices.</p>
+  }
+  <button matButton type="button" (click)="devicesDialog.close()">Close</button>
+</dialog>
+<dialog #pairDialog aria-labelledby="player-pair-title" class="pair-dialog" (close)="pairClosed()">
+  <h2 id="player-pair-title">Pair device · {{ pairPlayer()?.displayName }}</h2>
+  <p>Scan with your tablet camera on the same home Wi-Fi.</p>
+  @if (qr()) {
+    <img class="qr" [src]="qr()" alt="Pairing QR code" width="320" height="320" />
+  }
+  <p role="status">
+    {{
+      pairState() === 'used'
+        ? 'Device paired'
+        : pairState() === 'failed'
+          ? 'Pairing unavailable'
+          : pairState() === 'preparing'
+            ? 'Preparing code…'
+            : pairState() === 'replaced'
+              ? 'Code replaced'
+              : seconds() <= 0
+                ? 'Code expired'
+                : 'Expires in ' + seconds() + ' seconds'
+    }}
+  </p>
+  @if (link()) {
+    <label
+      >Pairing link
+      <textarea
+        class="pair-link"
+        readonly
+        [value]="link()"
+        (focus)="$any($event.target).select()"
+      ></textarea>
+    </label>
+  }
+  <div class="dialog-actions">
+    <button matButton type="button" (click)="endPairing()">Close</button
+    ><button
+      matButton
+      type="button"
+      [disabled]="busy() || !pairing()"
+      (click)="pair(pairPlayer()!, true)"
+    >
+      Regenerate code
+    </button>
+  </div>
+</dialog>
+
+<dialog
+  #deliveryDialog
+  (cancel)="deliveryBusy() && $event.preventDefault()"
+  aria-labelledby="delivery-title"
+  (close)="dialogClosed()"
+  class="delivery-dialog"
+>
+  <h2 id="delivery-title">Share card</h2>
+  <div class="delivery-body">
+    @if (deliveryError()) {
+      <p role="alert">{{ deliveryError() }}</p>
+    }
+    @if (preview(); as p) {
+      <p>Review the front, back and artwork players will receive.</p>
+      <div class="delivery-content">
+        <playing-card
+          [title]="p.visible.title"
+          [type]="p.visible.type"
+          [summary]="p.visible.summary"
+          [tags]="p.visible.tags"
+          [backText]="p.visible.backText"
+          [artwork]="previewArtwork()"
+          [context]="p.fingerprint"
+          [documentAvailable]="false"
+        />
+        <div class="delivery-controls">
+          <label
+            >Recipient
+            <select
+              aria-label="Recipient"
+              [disabled]="deliveryBusy() || uncertain()"
+              [ngModel]="destination()"
+              (ngModelChange)="destination.set($event)"
+            >
+              <option value="group">Group Unsorted</option>
+              @for (player of players(); track player.id) {
+                <option [value]="player.id">{{ player.displayName }} · Unsorted</option>
+              }
+            </select></label
+          >
+          @if (destination() === 'group') {
+            <label
+              >Group destination
+              <select
+                aria-label="Group destination"
+                [disabled]="deliveryBusy() || uncertain()"
+                [ngModel]="deliveryPile()"
+                (ngModelChange)="deliveryPile.set($event)"
+              >
+                <option value="">Unsorted</option>
+                @for (pile of groupPiles(); track pile.id) {
+                  <option [value]="pile.id">{{ pile.name }}</option>
+                }
+                <option value="new">New pile…</option>
+              </select>
+            </label>
+            @if (deliveryPile() === 'new') {
+              <label
+                >New pile name
+                <input
+                  aria-label="New pile name"
+                  maxlength="200"
+                  [disabled]="deliveryBusy() || uncertain()"
+                  [ngModel]="newPileName()"
+                  (ngModelChange)="newPileName.set($event)"
+              /></label>
+            }
+          }
+          <label
+            >Mode
+            <select
+              aria-label="Mode"
+              [disabled]="deliveryBusy() || uncertain()"
+              [ngModel]="deliveryMode()"
+              (ngModelChange)="deliveryMode.set($event)"
+            >
+              <option value="">Choose mode</option>
+              <option value="HANDOUT">Handout</option>
+              <option value="INVENTORY">Inventory</option>
+            </select></label
+          >
+        </div>
+      </div>
+    }
+  </div>
+  <div class="dialog-actions delivery-footer">
+    <button matButton type="button" [disabled]="deliveryBusy()" (click)="deliveryDialog.close()">
+      Cancel
+    </button>
+    @if (!preview() && !deliveryBusy()) {
+      <button matButton type="button" (click)="reviewDelivery()">Review again</button>
+    }
+    <button
+      matButton
+      type="button"
+      [disabled]="
+        !preview() ||
+        !deliveryMode() ||
+        deliveryBusy() ||
+        !previewImageReady() ||
+        (destination() === 'group' && deliveryPile() === 'new' && !newPileName().trim())
+      "
+      (click)="confirmDelivery()"
+    >
+      {{ uncertain() ? 'Retry delivery' : 'Confirm sharing' }}
+    </button>
+  </div>
+</dialog>
+
+<dialog #lifecycleDialog aria-labelledby="lifecycle-title" (close)="lifecycleCard.set(null)">
+  <h2 id="lifecycle-title">{{ lifecycleAction() }} card</h2>
+  <p>{{ lifecycleCard()?.visible?.title }}</p>
+  @if (lifecycleAction() === 'Transfer') {
+    <label
+      >Destination
+      <select
+        aria-label="Transfer destination"
+        [ngModel]="transferDestination()"
+        (ngModelChange)="transferDestination.set($event)"
+      >
+        @if (collection() !== 'group') {
+          <option value="group">Group Unsorted</option>
+        }
+        @for (player of players(); track player.id) {
+          @if (player.id !== collection()) {
+            <option [value]="player.id">
+              {{ player.displayName }} · Unsorted{{ player.active ? '' : ' (inactive)' }}
+            </option>
+          }
+        }
+      </select>
+    </label>
+    @if (transferDestination() === 'group') {
+      <label
+        >Group pile
+        <select
+          aria-label="Transfer Group pile"
+          [ngModel]="transferPile()"
+          (ngModelChange)="transferPile.set($event)"
+        >
+          <option value="">Unsorted</option>
+          @for (pile of groupPiles(); track pile.id) {
+            <option [value]="pile.id">{{ pile.name }}</option>
+          }
+        </select></label
+      >
+    }
+    <p>Move this inventory instance to the chosen destination.</p>
+  } @else {
+    <p>Remove this card from its collection? It can be restored through Removed cards.</p>
+  }
+  @if (lifecycleError()) {
+    <p role="alert">{{ lifecycleError() }}</p>
+  }
+  <button
+    matButton
+    type="button"
+    [disabled]="
+      lifecycleBusy() || !access() || (lifecycleAction() === 'Transfer' && !transferDestination())
+    "
+    (click)="confirmCardCommand()"
+  >
+    {{ lifecycleAction() === 'Transfer' ? 'Transfer now' : 'Confirm removal' }}
+  </button>
+  <button matButton type="button" (click)="lifecycleDialog.close()">Cancel</button>
+</dialog>
+<dialog #recoveryDialog aria-labelledby="recovery-title">
+  <h2 id="recovery-title">Removed cards</h2>
+  @if (lifecycleError()) {
+    <p role="alert">{{ lifecycleError() }}</p>
+  }
+  @for (entry of removedCards(); track entry.card.id) {
+    <div class="removed-card">
+      <p>
+        {{ entry.card.visible.title }} ·
+        {{ entry.card.mode === 'INVENTORY' ? 'Inventory' : 'Handout' }} ·
+        {{ entry.state === 'DISCARDED' ? 'Discarded' : 'Withdrawn' }} ·
+        {{ recipientName(entry.recipient) }}
+      </p>
+      <button
+        matButton
+        type="button"
+        [disabled]="lifecycleBusy() || !access()"
+        (click)="restoreCard(entry)"
+      >
+        Restore {{ entry.card.visible.title }}
+      </button>
+    </div>
+  } @empty {
+    <p>No removed cards.</p>
+  }
+  <button #recoveryClose matButton type="button" (click)="recoveryDialog.close()">
+    Close removed cards
+  </button>
+</dialog>

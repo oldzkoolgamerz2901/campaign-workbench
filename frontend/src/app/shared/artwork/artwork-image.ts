@@ -11,7 +11,7 @@ export interface ArtworkSource {
   selector: 'artwork-image',
   template: `
     <img
-      [src]="local() || url() || '/card-placeholder.svg'"
+      [src]="local() || url() || placeholder"
       draggable="false"
       [alt]="local() || url() ? 'Card artwork' : 'Default card artwork'"
       (error)="imageFailed()"
@@ -62,6 +62,7 @@ export interface ArtworkSource {
   `,
 })
 export class ArtworkImage {
+  readonly placeholder = new URL('card-placeholder.svg', document.baseURI).pathname;
   readonly source = input<ArtworkSource | null>(null);
   readonly local = input<string | null>(null);
   readonly url = signal<string | null>(null);

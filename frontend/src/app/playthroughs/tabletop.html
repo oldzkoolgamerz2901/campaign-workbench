@@ -24,15 +24,17 @@
         [attr.aria-label]="slot === 'PILE_1' ? 'Runtime Pile 1' : 'Runtime Pile 2'"
       >
         <header class="pile-heading">
-          <h3 [title]="pileTitle(slot)">{{ pileTitle(slot) }}</h3>
-          <button
-            class="rename-pile"
-            [disabled]="locked()"
-            (click)="renamePile(slot, $event)"
-            [attr.aria-label]="'Rename pile: ' + pileTitle(slot)"
-          >
-            ✎
-          </button>
+          <div class="pile-name">
+            <h3 [title]="pileTitle(slot)">{{ pileTitle(slot) }}</h3>
+            <button
+              class="rename-pile"
+              [disabled]="locked()"
+              (click)="renamePile(slot, $event)"
+              [attr.aria-label]="'Rename pile: ' + pileTitle(slot)"
+            >
+              ✎
+            </button>
+          </div>
           <span class="pile-count"
             >{{ pile(slot).items.length }}
             {{ pile(slot).items.length === 1 ? 'card' : 'cards' }}</span

@@ -10,7 +10,8 @@ import {
   viewChild,
   OnDestroy,
 } from '@angular/core';
-import { CardLayout, CardLayoutControllerService } from '../../../api/generated';
+import type { CardLayout } from '../../../api/generated/model/cardLayout';
+import { CARD_LAYOUT_CLIENT } from '../card-layout/layout-client';
 import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
 import { CardLayoutRenderer, LayoutStatus } from '../card-layout/card-layout-renderer';
 
@@ -21,6 +22,7 @@ import { CardLayoutRenderer, LayoutStatus } from '../card-layout/card-layout-ren
   styleUrl: './playing-card.css',
 })
 export class PlayingCard implements OnDestroy {
+  readonly documentAvailable = input(true);
   readonly artwork = input<ArtworkSource | null>(null);
   readonly localArtwork = input<string | null>(null);
   readonly title = input('');
@@ -41,7 +43,7 @@ export class PlayingCard implements OnDestroy {
   readonly layout = signal<CardLayout | null>(null);
   readonly status = signal<LayoutStatus | 'unavailable'>('checking');
   readonly readingSide = signal<'front' | 'back'>('front');
-  private readonly api = inject(CardLayoutControllerService);
+  private readonly api = inject(CARD_LAYOUT_CLIENT);
   private readonly reader = viewChild<ElementRef<HTMLDialogElement>>('sideReader');
   private readonly flipButton = viewChild<ElementRef<HTMLButtonElement>>('flipButton');
   private midpoint?: ReturnType<typeof setTimeout>;
@@ -63,10 +65,10 @@ export class PlayingCard implements OnDestroy {
   constructor() {
     effect((cleanup) => {
       const content = this.content();
-      this.context();
+      const context = this.context();
       this.layout.set(null);
       this.status.set('checking');
-      const request = this.api.calculateCardLayout(JSON.parse(content)).subscribe({
+      const request = this.api.calculate(JSON.parse(content), context).subscribe({
         next: (layout) => this.layout.set(layout),
         error: () => this.status.set('unavailable'),
       });

@@ -3,7 +3,7 @@ import { NavigationContext } from '../navigation-context';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 
-export type WorkbenchMode = 'library' | 'write' | 'prepare' | 'play';
+export type WorkbenchMode = 'library' | 'write' | 'prepare' | 'play' | 'share';
 @Component({
   selector: 'workbench-header',
   imports: [FormsModule, MatButtonModule],
@@ -94,5 +94,6 @@ export class WorkbenchHeader {
     { value: 'write', label: 'Write' },
     { value: 'prepare', label: 'Prepare' },
     { value: 'play', label: 'Play' },
+    { value: 'share', label: 'Share' },
   ] as const;
 }

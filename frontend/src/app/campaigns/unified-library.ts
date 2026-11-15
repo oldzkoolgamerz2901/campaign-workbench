@@ -160,7 +160,7 @@ export class UnifiedLibrary implements OnDestroy {
   }
   navigate(mode: WorkbenchMode) {
     return this.router.navigate(
-      [mode === 'write' ? '/writing' : mode === 'library' ? '/library' : '/'],
+      [mode === 'share' ? '/share' : mode === 'write' ? '/writing' : mode === 'library' ? '/library' : '/'],
       {
         queryParams: {
           campaign: this.state.campaign(),

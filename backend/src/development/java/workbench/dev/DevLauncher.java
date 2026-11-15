@@ -64,6 +64,7 @@ public final class DevLauncher implements AutoCloseable {
                 "-i", "http://127.0.0.1:8080/v3/api-docs", "-o", "frontend/src/api/generated",
                 "--additional-properties", "ngVersion=" + angularVersion + ",providedInRoot=true,hideGenerationTimestamp=true"), 120);
         if (!backend.isAlive()) throw new IOException("Backend stopped during client generation.");
+        command("Player build", root.resolve("frontend"), List.of("npm", "run", environment.getOrDefault("WORKBENCH_DEV_PLAYER_BUILD_SCRIPT", "build:player")), 120);
         var frontend = start("frontend", root.resolve("frontend"),
                 List.of("npm", "start", "--", "--host", "127.0.0.1", "--port", "4200"));
         waitFor("frontend", "http://127.0.0.1:4200/api/status", frontend, 90);
