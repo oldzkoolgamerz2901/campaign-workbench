@@ -235,8 +235,10 @@
               [title]="document.entry?.title ?? ''"
               [type]="document.entry?.classification?.metadata?.type ?? ''"
               [summary]="document.entry?.classification?.metadata?.summary ?? ''"
+              [quote]="document.entry?.classification?.metadata?.quote ?? ''"
               [tags]="document.entry?.classification?.metadata?.tags ?? []"
               [backText]="document.entry?.classification?.metadata?.backText ?? ''"
+              [visibilityKey]="state.campaign() + ':' + document.entry!.key"
               [context]="
                 state.campaign() +
                 ':' +

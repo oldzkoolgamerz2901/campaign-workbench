@@ -45,18 +45,18 @@ function loadCardFonts(): Promise<void> {
       [attr.viewBox]="'0 0 ' + layout().width + ' ' + layout().height"
       role="img"
       [attr.aria-label]="label()"
-      [attr.aria-hidden]="status() !== 'ready'"
-      [style.visibility]="status() === 'ready' ? 'visible' : 'hidden'"
+      [attr.aria-hidden]="status() !== 'ready' || (side() === 'front' && !textVisible())"
+      [style.visibility]="status() === 'ready' && (side() === 'back' || textVisible()) ? 'visible' : 'hidden'"
     >
       <desc>{{ description() }}</desc>
       @for (box of current().boxes; track $index) {
-        @if (box.role === 'front-panel' || box.role === 'tag') {
+        @if (box.role === 'front-panel' || box.role === 'quote-area' || box.role === 'summary-area') {
           <rect
             [attr.x]="box.x"
             [attr.y]="box.y"
             [attr.width]="box.width"
             [attr.height]="box.height"
-            [attr.rx]="box.role === 'tag' ? 8 : 5"
+            [attr.rx]="5"
             [attr.data-role]="box.role"
           />
         }
@@ -122,6 +122,7 @@ function loadCardFonts(): Promise<void> {
 export class CardLayoutRenderer {
   readonly layout = input.required<CardLayout>();
   readonly side = input<'front' | 'back'>('front');
+  readonly textVisible = input(true);
   readonly label = input('Card text');
   readonly showStatus = input(true);
   readonly checked = output<LayoutStatus>();
@@ -153,7 +154,7 @@ export class CardLayoutRenderer {
       };
       this.status.set('checking');
       if (
-        layout.profile !== 'physical-card-1' ||
+        layout.profile !== 'physical-card-2' ||
         layout.width !== 243 ||
         layout.height !== 420 ||
         Object.entries(CARD_FONTS).some(([key, value]) => layout.fonts[key] !== value.hash)

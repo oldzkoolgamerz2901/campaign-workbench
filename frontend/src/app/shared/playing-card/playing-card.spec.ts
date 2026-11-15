@@ -123,3 +123,77 @@ describe('Playing card', () => {
     expect(fixture.componentInstance.side()).toBe('front');
   });
 });
+
+// CFP-R2.1–R2.3: visible defaults, independent viewers, stable display lifecycle,
+// controls and complete escaped reading; geometry remains authoritative.
+describe('CF2 viewer-local front text', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({ providers: [DM_CARD_LAYOUT_CLIENT, {
+      provide: CardLayoutControllerService,
+      useValue: { calculateCardLayout: vi.fn(() => new Subject<CardLayout>()) },
+    }] });
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('preserves hidden text across flips, selection and revisions without changing another viewer', async () => {
+    const first = TestBed.createComponent(PlayingCard);
+    const second = TestBed.createComponent(PlayingCard);
+    for (const fixture of [first, second]) {
+      fixture.componentRef.setInput('context', 'card:revision1');
+      fixture.componentRef.setInput('visibilityKey', 'card');
+      fixture.componentRef.setInput('quote', '<b>Literal quote</b>');
+      fixture.componentRef.setInput('selectable', true);
+      await fixture.whenStable();
+    }
+    const select = vi.fn();
+    first.componentInstance.select.subscribe(select);
+    const control = first.nativeElement.querySelector('.text-visibility') as HTMLButtonElement;
+    expect(control.textContent).toContain('Hide text');
+    control.click();
+    await first.whenStable();
+    expect(control.textContent).toContain('Show text');
+    expect(control.getAttribute('aria-pressed')).toBe('false');
+    expect(first.nativeElement.querySelector('.fallback')).toBeNull();
+    expect(first.nativeElement.querySelector('.document')).not.toBeNull();
+    expect(second.componentInstance.textVisible()).toBe(true);
+    expect(select).not.toHaveBeenCalled();
+    first.componentInstance.flip(new Event('click'));
+    await first.whenStable();
+    expect(first.componentInstance.side()).toBe('back');
+    expect(first.nativeElement.querySelector('.fallback')).not.toBeNull();
+    first.componentInstance.flip(new Event('click'));
+    first.componentRef.setInput('selected', true);
+    first.componentRef.setInput('context', 'card:revision2');
+    first.componentRef.setInput('summary', 'Updated summary');
+    await first.whenStable();
+    expect(first.componentInstance.textVisible()).toBe(false);
+    expect(first.componentInstance.content()).toContain('<b>Literal quote</b>');
+    expect(first.nativeElement.querySelector('dialog')?.textContent).toContain('<b>Literal quote</b>');
+    expect(first.nativeElement.querySelector('dialog b')).toBeNull();
+    first.componentRef.setInput('visibilityKey', 'another-card');
+    await first.whenStable();
+    expect(first.componentInstance.textVisible()).toBe(true);
+    first.destroy();
+    const reopened = TestBed.createComponent(PlayingCard);
+    await reopened.whenStable();
+    expect(reopened.componentInstance.textVisible()).toBe(true);
+  });
+
+  it('stops pointer, touch and keyboard activation from reaching card selection or drag handlers', async () => {
+    const fixture = TestBed.createComponent(PlayingCard);
+    await fixture.whenStable();
+    const article = fixture.nativeElement.querySelector('article') as HTMLElement;
+    const received = vi.fn();
+    for (const type of ['pointerdown', 'mousedown', 'touchstart', 'keydown']) article.addEventListener(type, received);
+    const control = fixture.nativeElement.querySelector('.text-visibility') as HTMLButtonElement;
+    for (const type of ['pointerdown', 'mousedown', 'touchstart', 'keydown']) {
+      control.dispatchEvent(new Event(type, { bubbles: true }));
+    }
+    expect(received).not.toHaveBeenCalled();
+    fixture.componentRef.setInput('disabled', true);
+    await fixture.whenStable();
+    control.click();
+    expect(fixture.componentInstance.textVisible()).toBe(true);
+  });
+});

@@ -8,6 +8,9 @@
 /// - **SQA-R1.2** — When historical interpretation 1 or 2 is requested, Sources shall retain an unknown quote key as historical metadata and shall not reinterpret it as authored content. If current authoring would overwrite that retained key, Sources shall report the conflict.
 /// - **SQA-R1.3** — If a current quote has an incompatible scalar type or exceeds supported front-matter limits, Sources shall report invalid authoring without silently discarding the value.
 ///
+/// ## Canonical front presentation
+/// - **CFP-R1.1** — When a full card is composed, Sources shall retain canonical 243 × 420 dimensions, omit front tags and empty quote/summary areas, and compose nonempty quote and summary as distinct areas. If their complete text exceeds the panel or cannot use the canonical fonts, Sources shall report non-fit without partial geometry. Quote shall count toward input limits; visibility shall never affect fit.
+///
 /// ## Invariants and exclusions
 /// - Quote and summary remain separate; no campaign file is automatically rewritten.
 /// - This contract grants no implementation authorization and covers no card visibility UI.

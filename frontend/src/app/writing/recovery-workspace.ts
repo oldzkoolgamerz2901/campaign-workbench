@@ -172,7 +172,9 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
             [type]="d.snapshot.fields.type"
             [tags]="d.snapshot.fields.tags"
             [summary]="d.snapshot.fields.summary"
+            [quote]="d.snapshot.fields.quote ?? ''"
             [backText]="d.snapshot.fields.backText ?? ''"
+            [visibilityKey]="state.index()!.workspace.id + ':' + d.record.key"
             [context]="state.index()!.workspace.id + ':' + d.record.key + ':' + d.snapshot.revision"
             (openDocument)="full.set(true)"
           />

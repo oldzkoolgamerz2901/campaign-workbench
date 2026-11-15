@@ -35,6 +35,7 @@ export class CardFitFeedback {
           title: 'Front title',
           type: 'Front type',
           summary: 'Front summary',
+          quote: 'Front quote',
           tags: 'Front tags',
           backText: 'Back text',
           card: 'Card text',

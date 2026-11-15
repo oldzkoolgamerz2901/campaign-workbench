@@ -19,6 +19,7 @@ async function seed(request: APIRequestContext, root: string, illustrated = fals
           ...created.fields,
           title: 'Harbour guide',
           summary: 'Knows the harbour.',
+          quote: 'Every visitor has a story.',
           backText: illustrated
             ? 'LONG_BACK_MARKER ' + 'Complete frozen back text. '.repeat(8)
             : 'A useful contact.',
@@ -83,7 +84,7 @@ test('G3.2 confirmed distribution, private collections, HTTP reading and stable 
 }, info) => {
   test.setTimeout(120000);
   const root = await mkdtemp(join(tmpdir(), 'sharing-distribution-'));
-  const tabletContext = await browser.newContext({ viewport: { width: 800, height: 1280 } });
+  const tabletContext = await browser.newContext({ viewport: { width: 800, height: 1280 }, hasTouch: true });
   try {
     const { campaign, session, item } = await seed(request, root);
     const player = await (
@@ -130,6 +131,11 @@ test('G3.2 confirmed distribution, private collections, HTTP reading and stable 
     const card = tablet.locator('shared-card-tray .entry playing-card');
     await expect(card.locator('card-layout-renderer svg')).toHaveCSS('visibility', 'visible');
     await expect(tablet.getByRole('button', { name: 'Open full document' })).toHaveCount(0);
+    await expect(card.locator('svg [data-field="quote"]')).toContainText(['Every visitor has a story.']);
+    await card.getByRole('button', { name: 'Hide text', exact: true }).tap();
+    await expect(card.locator('svg')).toBeHidden();
+    await expect(page.locator('shared-card-tray .entry playing-card svg')).toBeVisible();
+    await expect(tablet.getByRole('dialog', { name: 'Expanded card', exact: true })).not.toBeVisible();
     await card.getByRole('button', { name: 'Flip to back' }).click();
     await expect(card.locator('article')).toHaveAttribute('data-side', 'back');
     await expect(card.locator('svg')).toContainText('A useful contact.');
@@ -137,6 +143,7 @@ test('G3.2 confirmed distribution, private collections, HTTP reading and stable 
     await card.locator('article').click();
     const expanded = tablet.getByRole('dialog', { name: 'Expanded card', exact: true });
     await expect(expanded).toBeVisible();
+    await expect(expanded.getByRole('button', { name: 'Hide text', exact: true })).toBeVisible();
     await expect(tablet.locator('body')).toHaveCSS('overflow', 'hidden');
     await expanded.getByRole('button', { name: 'Flip to back' }).click();
     await expect(expanded.locator('article')).toHaveAttribute('data-side', 'back');

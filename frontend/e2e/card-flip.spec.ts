@@ -5,6 +5,15 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 async function flip(card: Locator, text: string) {
+  // CFP-R2.1–R2.3, exercised in each owning full-card view.
+  const show = card.getByRole('button', { name: 'Show text', exact: true });
+  if (await show.isVisible()) await show.click();
+  await expect(card.locator('svg [data-field="quote"]')).toContainText(['Every visitor has a story.']);
+  await expect(card.locator('svg [data-field="tags"]')).toHaveCount(0);
+  await card.getByRole('button', { name: 'Hide text', exact: true }).press('Enter');
+  await expect(card.locator('svg')).toBeHidden();
+  await expect(card.getByRole('button', { name: 'Show text', exact: true })).toBeVisible();
+
   await card.getByRole('button', { name: 'Flip to back', exact: true }).click();
   await expect(card.locator('article')).toHaveAttribute('data-side', 'back');
   await expect(card.getByRole('img', { name: /^Card back:/ })).toBeVisible();
@@ -35,6 +44,7 @@ test('flips in all six views, resets on changed views and preserves frozen recov
             ...created.fields,
             title: 'Mira',
             summary: 'Harbour keeper.',
+            quote: 'Every visitor has a story.',
             backText: 'Secret <b>literal</b>\nProtect the harbour.',
             body: '# Mira\nFull background.',
             path: 'mira.md',
@@ -90,6 +100,7 @@ test('flips in all six views, resets on changed views and preserves frozen recov
     await flip(card, 'Changed working back.');
     await card.getByRole('button', { name: 'Flip to front' }).click();
     await expect(card.locator('article')).toHaveAttribute('data-side', 'front');
+    await expect(card.getByRole('button', { name: 'Show text', exact: true })).toBeVisible();
     await card.getByRole('button', { name: 'Open full document' }).click();
     await page
       .getByRole('navigation', { name: 'Library reading mode' })
@@ -157,7 +168,7 @@ test('captured Source backs, failed layouts and missing fonts remain readable', 
   try {
     await writeFile(
       join(root, 'source.md'),
-      `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: Source card\n  type: npc\n  purpose: session\n  status: current\n  summary: Keeper\n  tags: []\n  backText: |\n    Secret source back.\n---\n# Source\nBody`,
+      `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: Source card\n  type: npc\n  purpose: session\n  status: current\n  summary: Keeper\n  quote: Every visitor has a story.\n  tags: []\n  backText: |\n    Secret source back.\n---\n# Source\nBody`,
     );
     const campaign = await (
       await request.post('/api/campaigns', { data: { name: 'Source flip', directory: root } })
@@ -193,6 +204,7 @@ test('captured Source backs, failed layouts and missing fonts remain readable', 
     await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText(
       'Source card',
     );
+    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText('Every visitor has a story.');
     await page.getByRole('button', { name: 'Close card text' }).click();
     await card.getByRole('button', { name: 'Flip to back' }).press('Enter');
     await card.getByRole('button', { name: 'Read all back text' }).click();
@@ -217,6 +229,7 @@ test('captured Source backs, failed layouts and missing fonts remain readable', 
     await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText(
       'Source card',
     );
+    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText('Every visitor has a story.');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

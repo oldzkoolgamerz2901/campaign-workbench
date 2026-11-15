@@ -81,8 +81,10 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
           [title]="entry.title ?? ''"
           [type]="entry.classification?.metadata?.type ?? ''"
           [summary]="entry.classification?.metadata?.summary ?? ''"
+          [quote]="entry.classification?.metadata?.quote ?? ''"
           [tags]="entry.classification?.metadata?.tags ?? []"
           [backText]="entry.classification?.metadata?.backText ?? ''"
+          [visibilityKey]="campaign() + ':' + entry.key"
           [context]="
             campaign() + ':' + entry.key + ':' + entry.revision + ':' + state.documentCapture()
           "

@@ -70,6 +70,15 @@ class CardBackIntegrationTest : StringSpec({
         writing.preview(campaign, d.id, d.fields).getOrNull()!!.layout!!.back.fits shouldBe false
         preparation.replaceDraft(campaign, first.id, first.items.single().id, AddDraft(first.revision, d.id, d.revision)).leftOrNull()!!.code shouldBe "writing.card-does-not-fit"
         preparation.open(campaign, first.id).getOrNull() shouldBe first
+        // CFP-R1.1 / CFP-R2.3: quote fit gates use complete content regardless of viewer state.
+        val originalBack = d.fields.backText
+        d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = "Fits.", quote = "Long quote ".repeat(80)))).getOrNull()!!
+        writing.preview(campaign, d.id, d.fields).getOrNull()!!.layout!!.front.issues.single().field shouldBe "quote"
+        preparation.addDraft(campaign, second.id, AddDraft(second.revision, d.id, d.revision)).leftOrNull()!!.code shouldBe "writing.card-does-not-fit"
+        preparation.replaceDraft(campaign, first.id, first.items.single().id, AddDraft(first.revision, d.id, d.revision)).leftOrNull()!!.code shouldBe "writing.card-does-not-fit"
+        preparation.open(campaign, first.id).getOrNull() shouldBe first
+        preparation.open(campaign, second.id).getOrNull() shouldBe second
+        d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = originalBack, quote = "Keep watch."))).getOrNull()!!
         val exports = c.getBean(WritingExportService::class.java)
         val inspection = exports.inspect(campaign, d.id, InspectExport(d.revision, null)).getOrNull()!!
         inspection.errors shouldBe emptyList()

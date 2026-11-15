@@ -20,12 +20,22 @@ class CardLayoutTest : StringSpec({
         overflow.lines.isEmpty() shouldBe true
         overflow.issues.single().field shouldBe "backText"
     }
-    "front title summary and tags compete for a bounded panel" {
+    "CFP-R1.1 front quote and summary share a bounded panel without front tags" {
         val base = CardLayoutInput("Harbour keeper", "npc", "Remembers every visitor.", listOf("harbour", "watchful"))
         engine.layout(base).front.fits shouldBe true
         engine.layout(base.copy(title = "A long title ".repeat(25))).front.fits shouldBe false
         engine.layout(base.copy(summary = "A long summary ".repeat(40))).front.fits shouldBe false
-        engine.layout(base.copy(tags = List(32) { "long-tag-$it" })).front.fits shouldBe false
+        engine.layout(base.copy(tags = List(32) { "long-tag-$it" })).front shouldBe engine.layout(base).front
+        val quoted = engine.layout(base.copy(quote = "Every visitor has a story.")).front
+        quoted.fits shouldBe true
+        quoted.lines.filter { it.field == "quote" }.joinToString("") { it.text } shouldBe "Every visitor has a story."
+        quoted.boxes.map { it.role }.containsAll(listOf("quote-area", "summary-area")) shouldBe true
+        quoted.lines.none { it.field == "tags" } shouldBe true
+        engine.layout(base.copy(quote = "Long quote ".repeat(80))).front.issues.single().field shouldBe "quote"
+        engine.layout(base.copy(quote = "Unsupported 🐉")).front.issues.single().code shouldBe "unsupported-character"
+        val empty = engine.layout(base.copy(summary = "")).front
+        empty.boxes.none { it.role == "quote-area" || it.role == "summary-area" } shouldBe true
+        empty.lines.none { it.field == "quote" || it.field == "summary" } shouldBe true
         // For explicit summary lines, derive the last fitting boundary and check the next line.
         val last = (1..20).last { engine.layout(base.copy(summary = List(it) { "Line" }.joinToString("\n"), tags = emptyList())).front.fits }
         engine.layout(base.copy(summary = List(last + 1) { "Line" }.joinToString("\n"), tags = emptyList())).front.fits shouldBe false
@@ -46,6 +56,7 @@ class CardLayoutTest : StringSpec({
         CardLayouts(BundledFontMeasurements { null }).layout(CardLayoutInput()).front.issues.single().code shouldBe "font-unavailable"
         CardLayouts(BundledFontMeasurements { byteArrayOf(1, 2, 3) }).layout(CardLayoutInput()).back.issues.single().code shouldBe "font-unavailable"
         engine.layout(CardLayoutInput(backText = "x".repeat(CardLayouts.TEXT_LIMIT + 1))).back.issues.single().code shouldBe "input-limit"
+        engine.layout(CardLayoutInput(quote = "x".repeat(CardLayouts.TEXT_LIMIT + 1))).front.issues.single().code shouldBe "input-limit"
         engine.layout(CardLayoutInput(tags = List(129) { "a" })).front.issues.single().code shouldBe "input-limit"
         engine.layout(CardLayoutInput(backText = "W".repeat(CardLayouts.TEXT_LIMIT))).back.fits shouldBe false
     }
@@ -70,6 +81,10 @@ class CardLayoutTest : StringSpec({
             "front-capacity" to short.copy(summary = List(frontCapacity) { "Summary line" }.joinToString("\n")),
             "front-overflow" to short.copy(summary = List(frontCapacity + 1) { "Summary line" }.joinToString("\n")),
             "tag-rows" to short.copy(tags = List(12) { "tag-$it" }),
+            "quote-summary" to short.copy(quote = "Every visitor has a story."),
+            "quote-only" to short.copy(quote = "Every visitor has a story.", summary = ""),
+            "no-areas" to short.copy(summary = ""),
+            "quote-overflow" to short.copy(quote = "Long quote ".repeat(80)),
             "capacity" to short.copy(backText = List(26) { "Line ${it + 1}: café — Привет" }.joinToString("\n")),
             "wrapping" to short.copy(backText = "Word spacing and e\u0301. ".repeat(40)),
             "unbroken" to short.copy(backText = "W".repeat(240)),

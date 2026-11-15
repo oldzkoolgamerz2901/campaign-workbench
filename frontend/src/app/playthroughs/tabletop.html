@@ -398,8 +398,10 @@
       [title]="metadata(item)?.title ?? item.title"
       [type]="metadata(item)?.type ?? ''"
       [summary]="metadata(item)?.summary ?? ''"
+      [quote]="metadata(item)?.quote ?? ''"
       [tags]="metadata(item)?.tags ?? []"
       [backText]="metadata(item)?.backText ?? ''"
+      [visibilityKey]="session() + ':' + item.id + ':' + location + ':' + (inOverlay ? pileViewGeneration() : 0)"
       [context]="
         session() +
         ':' +

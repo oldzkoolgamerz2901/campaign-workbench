@@ -140,3 +140,16 @@ dialog::backdrop {
 .plain {
   white-space: pre-wrap;
 }
+
+.text-visibility {
+  position: absolute;
+  top: 10%;
+  right: 3.3%;
+  z-index: 3;
+  min-height: 32px;
+  padding: 0.35em 0.65em;
+  border: 1px solid #a49d80;
+  border-radius: 0.4rem;
+  background: #f2efdc;
+  font-size: 4cqi;
+}

@@ -438,7 +438,9 @@
                 [type]="card.type ?? ''"
                 [tags]="card.tags ?? []"
                 [summary]="card.summary ?? ''"
+                [quote]="card.quote ?? ''"
                 [backText]="card.backText ?? ''"
+                [visibilityKey]="state.current()!.id + ':' + prepared.id"
                 [context]="
                   state.current()!.id + ':' + prepared.id + ':' + prepared.provenance.contentHash
                 "

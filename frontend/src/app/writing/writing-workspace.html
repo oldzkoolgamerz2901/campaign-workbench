@@ -407,7 +407,9 @@
                     state.preview()?.preview?.classification?.metadata?.tags ?? draft.fields.tags
                   "
                   [summary]="draft.fields.summary"
+                  [quote]="draft.fields.quote ?? ''"
                   [backText]="draft.fields.backText ?? ''"
+                  [visibilityKey]="draft.id"
                   [context]="draft.id + ':' + draft.revision"
                   (openDocument)="full.set(true)"
                 />

@@ -28,10 +28,14 @@ export class PlayingCard implements OnDestroy {
   readonly title = input('');
   readonly type = input('');
   readonly summary = input('');
+  readonly quote = input('');
+  readonly textVisible = signal(true);
   readonly tags = input<string[]>([]);
   readonly backText = input('');
   /** Stable owner-provided identity/revision/location; never a workspace mutation revision. */
   readonly context = input('');
+  /** Stable displayed-card identity; revision changes must not reset visibility. */
+  readonly visibilityKey = input('');
   readonly openDocument = output<void>();
   readonly selectable = input(false);
   readonly selectionLabel = input('');
@@ -53,6 +57,7 @@ export class PlayingCard implements OnDestroy {
       title: this.title(),
       type: this.type(),
       summary: this.summary(),
+      quote: this.quote(),
       tags: this.tags(),
       backText: this.backText(),
     }),
@@ -63,6 +68,10 @@ export class PlayingCard implements OnDestroy {
   );
 
   constructor() {
+    effect(() => {
+      this.visibilityKey() || this.context();
+      this.textVisible.set(true);
+    });
     effect((cleanup) => {
       const content = this.content();
       const context = this.context();
@@ -89,6 +98,10 @@ export class PlayingCard implements OnDestroy {
     clearTimeout(this.midpoint);
     clearTimeout(this.finish);
     this.animating.set(false);
+  }
+  toggleText(event: Event) {
+    event.stopPropagation();
+    if (!this.disabled()) this.textVisible.update((visible) => !visible);
   }
   flip(event: Event) {
     event.stopPropagation();

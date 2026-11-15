@@ -7,7 +7,7 @@ import java.util.regex.Pattern
 /** Pure card composition policy. No capture, database, HTTP or approval side effects. */
 class CardLayouts(private val fonts: FontMeasurements) : CardLayoutCalculator {
     companion object {
-        const val PROFILE = "physical-card-1"
+        const val PROFILE = "physical-card-2"
         const val WIDTH = 243.0
         const val HEIGHT = 420.0
         const val TEXT_LIMIT = 16_384
@@ -20,7 +20,7 @@ class CardLayouts(private val fonts: FontMeasurements) : CardLayoutCalculator {
 
     override fun layout(input: CardLayoutInput): CardLayout {
         val identities = try { CardFont.entries.associate { it.name to fonts.identity(it) } } catch (_: FontMeasurementFailure) { emptyMap() }
-        val bounded = input.tags.size <= 128 && (listOf(input.title, input.type, input.summary, input.backText).sumOf { it.length.toLong() } + input.tags.sumOf { it.length.toLong() }) <= TEXT_LIMIT
+        val bounded = input.tags.size <= 128 && (listOf(input.title, input.type, input.quote, input.summary, input.backText).sumOf { it.length.toLong() } + input.tags.sumOf { it.length.toLong() }) <= TEXT_LIMIT
         fun side(back: Boolean): CardSideLayout {
             val lines = mutableListOf<CardTextLine>()
             val boxes = mutableListOf<CardLayoutBox>()
@@ -68,17 +68,18 @@ class CardLayouts(private val fonts: FontMeasurements) : CardLayoutCalculator {
                     boxes += CardLayoutBox("document-control", 14.0, 388.0, 215.0, 18.0)
                     var y = block("title", input.title.ifEmpty { "Untitled card" }, CardFont.TITLE, 16.0, 14.0, 254.0, 215.0, 382.0) + 3.0
                     y = block("type", input.type.ifEmpty { "Untyped" }, CardFont.BODY, 8.0, 14.0, y, 215.0, 382.0) + 4.0
-                    y = block("summary", input.summary.ifEmpty { "No summary yet. Add one to describe this card." }, CardFont.BODY, 10.0, 14.0, y, 215.0, 382.0) + 4.0
-                    var x = 14.0
-                    for (tag in input.tags) {
-                        val m = extent(tag, CardFont.BODY, 8.0, "tags")
-                        val w = m.width + 10.0
-                        if (w > 215.0 || m.ascent + m.descent > 16.0) throw NonFit("tags", "overflow")
-                        if (x + w > 229.0) { x = 14.0; y += 19.0 }
-                        if (y + 16.0 > 382.0) throw NonFit("tags", "overflow")
-                        boxes += CardLayoutBox("tag", x, y, w, 16.0)
-                        lines += CardTextLine("tags", tag, "BODY", 8.0, x + 5.0 - m.left, y + 11.0, m.width, m.ascent, m.descent)
-                        x += w + 3.0
+                    if (input.quote.isNotEmpty()) {
+                        val top = y
+                        y = block("quote", input.quote, CardFont.TITLE, 10.0, 18.0, y + 3.0, 207.0, 382.0) + 3.0
+                        boxes += CardLayoutBox("quote-area", 14.0, top, 215.0, y - top)
+                        if (y > 382.0) throw NonFit("quote", "overflow")
+                        y += 4.0
+                    }
+                    if (input.summary.isNotEmpty()) {
+                        val top = y
+                        y = block("summary", input.summary, CardFont.BODY, 10.0, 18.0, y + 3.0, 207.0, 382.0) + 3.0
+                        if (y > 382.0) throw NonFit("summary", "overflow")
+                        boxes += CardLayoutBox("summary-area", 14.0, top, 215.0, y - top)
                     }
                 }
                 CardSideLayout(true, lines, boxes, emptyList())

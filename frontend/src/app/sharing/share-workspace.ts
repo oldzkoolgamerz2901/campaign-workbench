@@ -911,6 +911,7 @@ export class ShareWorkspace implements OnDestroy {
       title: metadata?.title || item.title,
       type: metadata?.type || 'card',
       summary: metadata?.summary || '',
+      quote: metadata?.quote || '',
       tags: metadata?.tags || [],
       backText: metadata?.backText || '',
     };

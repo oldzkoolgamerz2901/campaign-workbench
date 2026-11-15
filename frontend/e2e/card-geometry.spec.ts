@@ -18,7 +18,7 @@ test('portrait geometry retains dense text through external reading in narrow co
     for (const type of ['scene', 'npc', 'item']) {
       await writeFile(
         join(root, `${type}.md`),
-        `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${type === 'npc' ? title : `Geometry ${type}`}\n  type: ${type}\n  purpose: session\n  status: current\n  summary: ${'Every detail remains readable. '.repeat(30)}\n  backText: ${'Historical secret. '.repeat(700)}\n  tags: [${Array.from({ length: 30 }, (_, i) => `detail-${i}`).join(', ')}]\n---\n# Full ${type}\nComplete geometry fixture document.`,
+        `---\nworkbench:\n  schema: 1\n  id: '${randomUUID()}'\n  title: ${type === 'npc' ? title : `Geometry ${type}`}\n  type: ${type}\n  purpose: session\n  status: current\n  summary: ${'Every detail remains readable. '.repeat(30)}\n  quote: ${'A complete quoted memory. '.repeat(20)}\n  backText: ${'Historical secret. '.repeat(700)}\n  tags: [${Array.from({ length: 30 }, (_, i) => `detail-${i}`).join(', ')}]\n---\n# Full ${type}\nComplete geometry fixture document.`,
       );
     }
     const campaign = await (
@@ -77,6 +77,7 @@ test('portrait geometry retains dense text through external reading in narrow co
       const reader = page.getByRole('dialog', { name: 'Complete card side text' });
       await expect(reader.getByRole('heading')).toHaveText(title);
       await expect(reader.getByRole('listitem')).toHaveCount(30);
+      await expect(reader).toContainText('A complete quoted memory. '.repeat(20).trim());
       await reader.getByRole('button', { name: 'Close card text' }).click();
       await cards.nth(1).getByRole('button', { name: 'Flip to back' }).click();
       await cards.nth(1).getByRole('button', { name: 'Read all back text' }).click();
