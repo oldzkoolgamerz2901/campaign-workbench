@@ -980,3 +980,63 @@ This section records approved **development-method requirements**, not new Campa
 - **CC11:** Keep contracts concise; avoid duplicating implementation and architectural history.
 
 In scope: revisioned Save Draft, campaign isolation and durability, incomplete content and limits, artwork actions, failure/retry/navigation and delayed-save handling, and mapping to existing tests. Excluded: new product behaviour, draft create/delete/export/approval, application refactors, dependency and framework changes, or roll-out to other capabilities. Approved architecture is recorded in `docs/implementation-plan.md`; pilot evaluation in `docs/sbce-p1-evaluation.md`.
+
+
+## Card communication and disclosure refinement — requirements captured 2026-11-17
+
+**Status: owner-directed requirements record; not implementation authorization.** This feature extends the delivered front/back cards and frozen player sharing. It supersedes earlier card presentation and both-side-fit rules only where explicitly noted. Architecture, planning, implementation and verification require their own approvals. **Complete Backup & Restore is a separate feature**, not part of this increment.
+
+### Purpose and mental model
+
+Cards are the primary unit for presenting and sharing material with players. **Front = impression and atmosphere; back = information; Details = complete available information.** Flipping is always possible, independently of whether back information has been revealed. A revealed back is a player-disclosure event, not a card-orientation change.
+
+### Front and back presentation
+
+- Retain the existing 243:420 geometry, artwork treatment, frozen artwork/revision model and independent Show text / Hide text control. Front text is visible by default; hiding its entire panel reveals the unobstructed illustration. This is temporary per-view presentation, not a visibility permission.
+- The front displays **title and optional atmospheric/characteristic quote only**, over the illustration. No card type, summary, tags, mechanics or descriptive fields on the physical front. Preserve existing summary/tags as stored/searchable content for compatibility and other reader uses; do not delete them solely because the front no longer renders them.
+- The back always displays **title** and **card type**, including when the remaining information has not been revealed to the player. Preferred arrangement is title top-left, type top-right; reserve a stable footer for Flip and conditional Details controls.
+- Back information is authored plain text, optionally accompanied by a structured stat block. The physical back remains **scroll-free**. Display as much ordinary text as fits, truncating visibly at safe word/line boundaries, never silently clipping, shrinking fonts or showing partial stat rows. Stats occupy complete coherent groups; overflow is read in Details.
+- **One Details window** is the complete accessible card reading surface for overflow text, full stat blocks and any included additional image. It can scroll; do not add separate text-overflow, stat-block or image dialogs. Show Details when there is something further to read or view, and do not make a no-op Details action. Keep Flip independent of Details. Retain existing DM full-source-document access as a different, private operation, not part of player Details.
+- Support at most **one optional additional image** per card, distinct from its front illustration. It is accessed through Details; do not introduce arbitrary attachment types, PDFs, link viewers or image galleries in this feature.
+
+### Stats authoring and layout
+
+- Statistics are **optional**, not required for NPCs, enemies or any other type. Reuse the **visual groups and data conventions** of the owner-provided `statblock_cards(1).html` sample, transposed from its former front/stat arrangement onto the Workbench back: identity/subtitle, AC/HP/speed/initiative/CR, six ability scores with modifiers/saves, skills/defenses/gear/senses/languages, sections with named traits/actions/bonus actions/reactions and optional spellcasting.
+- Reuse the reference's structured groups and concise styling where feasible, **not its auto-shrinking text-to-fit algorithm**, its HTML authoring or its printing UI. Do not implement arbitrary HTML support, a general-purpose layout engine, combat automation, calculated rules, or a character builder. Values are authored data.
+- Preserve section integrity in compact rendering; use the single Details window for the full representation. Exact compact stat-group priorities and successful fit/layout checks are architecture/UX work, not assumed complete by this requirements record.
+
+### Write, Markdown and source autofill
+
+- **Stats are authored and edited in Write only**, as optional revisioned Draft data; **do not extend the campaign Markdown schema with structured stats**. Use the existing Write Document/Card experience, introducing a collapsible optional Stats authoring section rather than a separate writer. The entire card (including stats) must preview with the shared renderer.
+- Keep the existing canonical campaign Markdown and its existing `workbench.quote` and `workbench.backText` extraction, plus title/type/tags/summary conventions. Source capture/autofill maps **explicit, recognized metadata deterministically**, without fabricating facts or overwriting user-authored changes. Potential extraction from freeform prose, if pursued, must be an explicit reviewable suggestion, not silent import.
+- Preserve **backText** as the existing authored information field; avoid a second maintained excerpt. Derive what fits on the physical back from the complete text and structured stats. Update current session-addition/replacement **back-fit gate** to allow deliberate overflow with full Details access; retain strict front fit, error reporting and frozen historical preservation.
+- Stats and the additional image, as application-owned Draft content, must survive save/reload, revisioning, preparation and explicit replacement, frozen sharing, and supported Writing/session recovery. Markdown export alone may not round-trip Writer-only stats/images; clearly disclose that limitation. Complete application backup/restore is a separate feature to address complete preservation and disaster recovery.
+- Preserve independent source authority and campaign directories. No automatic campaign Markdown rewrite, automatic prepared update or implicit sharing.
+
+### Sharing and revelation
+
+- DM can distribute a frozen instance **front-only** or with its back already revealed. **Every shared card remains flippable**. The player-facing back always contains its title, type and Flip action, even before reveal. When unrevealed, it shows no back information or stats, and the player API must **not send** unrevealed content. Distinguish an unrevealed back from a genuinely empty back without disclosing hidden text.
+- DM can explicitly **Reveal back** on a previously shared instance. This permanently changes that same instance's permitted content without duplicating or moving it. No unreveal action is required. Existing transfer, collection, pile, claim and recovery semantics are retained. An existing prepared revision update must never silently reveal information.
+- The single Details window must respect the same server-enforced disclosure boundaries. In particular, independently shared additional imagery may be viewed through Details while back text/stats remain unrevealed; this must not leak hidden back data.
+- Review and confirmation must show exactly what the player will receive. Frozen payloads and retries must preserve recipient, content, permissions, artwork and reveal state. DM-only source bodies, notes and provenance must remain inaccessible to player APIs.
+
+### Acceptance scenarios and preservation
+
+1. Front-only location card: player sees illustration, title, quote and can hide/show the front panel; flips to title/type with no leaked information; if its additional map image is shared, Details opens that image without back text.
+2. DM permanently reveals the same shared card's back; player sees the information after refresh/reconnect without duplicate card, changed location or implicit share of source notes.
+3. Simple item without stats or extra image: short back is readable on the card and does not show a pointless Details action.
+4. Dense NPC/enemy: structured stats and long back text render with legible typography; compact back keeps complete groups, signals overflow and the single Details surface provides complete permitted information.
+5. Write preserves optional stats and additional image across draft save/reload, revisions, frozen preparation, explicit replacement and recovery; legacy Sources/Drafts with no stats or new image remain valid.
+6. Existing Markdown quote/back text autofill remains deterministic; Markdown-only export clearly distinguishes its preserved fields from Writer-only data.
+7. Reader and Sharing interactions remain keyboard/touch accessible; Flip, Hide text, Details, drag and card selection remain distinct. Access denial prevents hidden content delivery, including through API/side-reading.
+
+### Open decisions for architecture/UX before an implementation plan
+
+- Exact prioritization of stat sections versus ordinary back text when the compact back runs out of space; whether partially visible paragraphs are shown with an ellipsis versus whole-block omission.
+- Final UX for revealing an unrevealed back versus an intentionally empty back, and discoverability of a Details image when back information is unrevealed.
+- Additional-image ownership/import/export and separately chosen image visibility in the distribution flow, including how an already shared image could be introduced later.
+- Exact representation and codec/versioning of Writer-only stats and extra artwork through historical and recovery formats, without relying on Markdown export as a complete backup.
+
+### Explicit non-goals
+
+No generic rich-text/HTML editor, user-configurable stat template engine, additional attachments beyond one image, automated mechanics, player knowledge/discovery engine, new sharing collection model, separate reader per content kind, or database restore changes under this feature.
