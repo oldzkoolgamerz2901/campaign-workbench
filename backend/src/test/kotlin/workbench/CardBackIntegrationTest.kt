@@ -44,7 +44,7 @@ class CardBackIntegrationTest : StringSpec({
             c.getBean(workbench.sources.api.CardLayoutCalculator::class.java).layout(input)
         val oversized = calculate(mapper.writeValueAsString(input.copy(backText = "line\n".repeat(40))))
         oversized.statusCode() shouldBe 200
-        mapper.readTree(oversized.body()).path("back").path("fits").asBoolean() shouldBe false
+        mapper.readTree(oversized.body()).path("back").path("overflow").asBoolean() shouldBe true
         calculate("{broken").statusCode() shouldBe 400
     }
 
@@ -67,9 +67,12 @@ class CardBackIntegrationTest : StringSpec({
         first.items.single().capturedSource!!.classification.metadata!!.backText shouldBe back
         first.items.single().capturedSource!!.classification.metadata!!.quote shouldBe d.fields.quote
         d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = "Too much text\n".repeat(40)))).getOrNull()!!
-        writing.preview(campaign, d.id, d.fields).getOrNull()!!.layout!!.back.fits shouldBe false
-        preparation.replaceDraft(campaign, first.id, first.items.single().id, AddDraft(first.revision, d.id, d.revision)).leftOrNull()!!.code shouldBe "writing.card-does-not-fit"
-        preparation.open(campaign, first.id).getOrNull() shouldBe first
+        writing.preview(campaign, d.id, d.fields).getOrNull()!!.layout!!.back.overflow shouldBe true
+        c.getBean(CardLibraryService::class.java).list(campaign, "", workbench.sources.api.SourceFilter()).getOrNull()!!.entries.single { it.draft == d.id }.ready shouldBe true
+        val originalItem = first.items.single().id
+        first = preparation.replaceDraft(campaign, first.id, originalItem, AddDraft(first.revision, d.id, d.revision)).getOrNull()!!
+        first.items.single().id shouldBe originalItem
+        first.items.single().capturedSource!!.classification.metadata!!.backText shouldBe d.fields.backText
         // CFP-R1.1 / CFP-R2.3: quote fit gates use complete content regardless of viewer state.
         val originalBack = d.fields.backText
         d = writing.save(campaign, d.id, SaveDraft(d.revision, d.fields.copy(backText = "Fits.", quote = "Long quote ".repeat(80)))).getOrNull()!!
@@ -93,7 +96,7 @@ class CardBackIntegrationTest : StringSpec({
         preparation.open(campaign, second.id).getOrNull() shouldBe second
         val codec = c.getBean(SessionArchiveReader::class.java)
         val archive = preparation.export(campaign, ExportSessions(listOf(first.id, second.id))).getOrNull()!!
-        archive.version shouldBe 12
+        archive.version shouldBe 14
         codec.read(codec.write(archive)).getOrNull() shouldBe archive
         archive.sessions.first().items.single().capturedSource!!.classification.metadata!!.quote shouldBe "A revised quote."
         val imported = preparation.import(campaign, archive).getOrNull()!!
@@ -129,7 +132,7 @@ class CardBackIntegrationTest : StringSpec({
         val detail = recovery.detail(restored.id, "draft:$draft").getOrNull()!!
         detail.snapshot.encoding shouldBe 1
         detail.snapshot.fields.backText shouldBe ""
-        mapper.readTree(recovery.archive(restored.id).getOrNull()!!).path("version").intValue() shouldBe 7
+        mapper.readTree(recovery.archive(restored.id).getOrNull()!!).path("version").intValue() shouldBe 11
         val historical = mapper.readTree(literal) as ObjectNode
         val oldSnapshot = historical.path("drafts")[0] as ObjectNode
         (oldSnapshot.path("fields") as ObjectNode).put("body", old.body)
@@ -243,7 +246,7 @@ class CardBackIntegrationTest : StringSpec({
     "retained approval is not an exemption from the new fit gate" {
         val c = context!!
         val campaign = c.getBean(CampaignService::class.java).register(RegisterCampaign("Legacy approval", Files.createTempDirectory(root, "legacy").toString())).getOrNull()!!.id
-        val d = Draft(UUID.randomUUID(), campaign, UUID.randomUUID(), 1, "Old", "npc", "current", emptyList(), "summary ".repeat(80), "# Body", "old.md")
+        val d = Draft(UUID.randomUUID(), campaign, UUID.randomUUID(), 1, "Old title ".repeat(20), "npc", "current", emptyList(), "Stored summary", "# Body", "old.md")
         val authoring = c.getBean(Authoring::class.java)
         val encoded = authoring.encode(AuthoredDocument(d.card, d.title, d.type, d.status, d.tags, d.summary, d.body, interpretation = 1))
         val snapshot = draftData(d)

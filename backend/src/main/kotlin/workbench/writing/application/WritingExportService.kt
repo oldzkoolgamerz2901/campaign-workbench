@@ -53,6 +53,8 @@ class WritingExportService(private val campaigns: Campaigns, private val store: 
             (if (encoded.markdown.toByteArray(Charsets.UTF_8).size > 3 * 1024 * 1024) listOf("Encoded Markdown exceeds 3 MiB.") else emptyList()) +
             (if (exports.list(draft.campaign, draft.id).size >= 1000) listOf("This draft has reached the 1,000 artifact limit. Existing downloads remain available.") else emptyList())
         val warnings = mutableListOf<String>()
+        if (draft.stats != null) warnings += "Markdown does not include structured stats. Use Writing recovery JSON or ZIP to preserve them."
+        if (draft.detailsImage != null) warnings += "Markdown does not include the Details image. Use a portable Writing ZIP to preserve it."
         if (resolved.capture == null) warnings += "No captured campaign library is available; source references cannot be verified."
         if (draft.path in resolved.sourcePaths) warnings += "Suggested placement already contains a source file. Export does not replace it."
         if (targets.any { it.id != draft.id && it.path == draft.path }) warnings += "Another draft shares the suggested placement."

@@ -28,6 +28,7 @@ import { DraftReader } from './draft-reader';
 import { LibraryReferences } from '../campaigns/library-references';
 import { ResearchContext } from './research-context';
 import { REFERENCE_LIBRARY_STATE } from '../campaigns/library-references-state';
+import { StatsEditor } from './stats-editor';
 import { WritingState } from './writing-state';
 
 @Component({
@@ -44,6 +45,7 @@ import { WritingState } from './writing-state';
     CardFitFeedback,
     DraftReader,
     WritingExportPanel,
+    StatsEditor,
     LibraryReferences,
   ],
   templateUrl: './writing-workspace.html',
@@ -292,6 +294,11 @@ export class WritingWorkspace implements OnDestroy {
   chooseArtwork(event: Event) {
     const input = event.target as HTMLInputElement;
     if (input.files?.[0]) this.state.selectArtwork(input.files[0]);
+    input.value = '';
+  }
+  chooseDetailsImage(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files?.[0]) this.state.selectDetailsImage(input.files[0]);
     input.value = '';
   }
   async openDraft(id: string) {

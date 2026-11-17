@@ -19,7 +19,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         val tree = mapper.reader().with(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
             .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(bytes)
         fields(tree, "version", "sessions", "workspaces", "notes")
-        integer(tree.path("version")); require(tree.path("version").intValue() in 10..12)
+        integer(tree.path("version")); require(tree.path("version").intValue() in 10..14)
         val notes = tree.path("notes")
         require(notes.isArray && notes.size() <= 10000)
         val counts = mutableMapOf<String, Int>()
@@ -94,7 +94,7 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
         fields(tree, "version", "sessions")
         integer(tree.path("version"))
         val version = tree.path("version").intValue()
-        require(version in 10..12)
+        require(version in 10..14)
         val sessions = tree.path("sessions")
         require(sessions.isArray && sessions.size() in 1..100)
         var count = 0
@@ -115,9 +115,18 @@ class SessionArchiveReader(private val mapper: ObjectMapper) : workbench.session
             count += items.size(); require(count <= 1000)
             for (item in items) {
                 val names = arrayOf("id", "title", "markdown", "provenance", "anchors", "notes")
-                fields(item, *(names + "capturedSource" + if (item.has("image")) arrayOf("image") else emptyArray()))
-                if (item.has("image")) {
-                    val image = item.path("image")
+                require(version >= 13 || !item.has("detailsImage"))
+                require(version >= 14 || !item.has("stats"))
+                if (item.has("stats")) {
+                    val stats = item.path("stats")
+                    val parsed = mapper.treeToValue(stats, workbench.preparation.api.PreparedStats::class.java)
+                    require(parsed.valid() && stats == mapper.valueToTree(parsed))
+                }
+                val statKeys = if (item.has("stats")) arrayOf("stats") else emptyArray<String>()
+                val imageKeys = listOf("image", "detailsImage").filter(item::has)
+                fields(item, *(names + "capturedSource" + statKeys + imageKeys.toTypedArray()))
+                for (key in imageKeys) {
+                    val image = item.path(key)
                     fields(image, "hash", "mime", "width", "height", "bytes")
                     strings(image, "hash", "mime"); listOf("width", "height", "bytes").forEach { integer(image.path(it)) }
                 }

@@ -49,6 +49,39 @@ export class WritingState {
     this.artworkChange++;
     this.edit({});
   }
+  readonly pendingDetailsImage = signal<'keep' | 'replace' | 'remove'>('keep');
+  readonly localDetailsImage = signal<string | null>(null);
+  readonly detailsImageError = signal('');
+  private detailsImageFile: File | null = null;
+  private detailsImageChange = 0;
+  private clearDetailsImage() {
+    const url = this.localDetailsImage();
+    if (url) URL.revokeObjectURL(url);
+    this.localDetailsImage.set(null);
+    this.detailsImageFile = null;
+    this.pendingDetailsImage.set('keep');
+    this.detailsImageError.set('');
+  }
+  selectDetailsImage(file: File) {
+    if (!this.current() || this.deleting()) return;
+    if (file.size > 10 * 1024 * 1024) {
+      this.detailsImageError.set('Choose a JPEG, PNG or WebP file of at most 10 MiB.');
+      return;
+    }
+    this.clearDetailsImage();
+    this.detailsImageFile = file;
+    this.localDetailsImage.set(URL.createObjectURL(file));
+    this.pendingDetailsImage.set('replace');
+    this.detailsImageChange++;
+    this.edit({});
+  }
+  removeDetailsImage() {
+    if (!this.current() || this.deleting()) return;
+    this.clearDetailsImage();
+    this.pendingDetailsImage.set('remove');
+    this.detailsImageChange++;
+    this.edit({});
+  }
   private readonly json = { httpHeaderAccept: 'application/json' as const };
   readonly campaign = signal<string | null>(null);
   readonly drafts = signal<DraftData[]>([]);
@@ -111,6 +144,7 @@ export class WritingState {
     const token = ++this.generation;
     this.clearTimers();
     this.clearArtwork();
+    this.clearDetailsImage();
     this.campaign.set(campaign);
     this.current.set(null);
     this.drafts.set([]);
@@ -197,6 +231,7 @@ export class WritingState {
     this.exportError.set('');
     this.exportNotice.set('');
     this.clearArtwork();
+    this.clearDetailsImage();
     this.persisted = draft;
     this.current.set(draft);
     this.drafts.update((ds) => ds.map((d) => (d.id === draft.id ? draft : d)));
@@ -245,7 +280,11 @@ export class WritingState {
       try {
         const imageChange = this.artworkChange;
         const imageAction = this.pendingArtwork();
-        const metadata = { revision: draft.revision, fields: draft.fields, imageAction };
+        const detailsChange = this.detailsImageChange;
+        const detailsAction = this.pendingDetailsImage();
+        const deferredDetails = imageAction === 'replace' && detailsAction === 'replace';
+        const metadata = { revision: draft.revision, fields: draft.fields, imageAction,
+          detailsImageAction: deferredDetails ? 'keep' : detailsAction };
         const saved = await firstValueFrom(
           imageAction === 'replace' && this.artworkFile
             ? this.artworkApi.replaceDraftArtwork(
@@ -257,20 +296,24 @@ export class WritingState {
                 false,
                 this.json,
               )
-            : this.api.saveDraft(draft.campaign, draft.id, metadata, 'body', false, this.json),
+            : detailsAction === 'replace' && this.detailsImageFile
+              ? this.artworkApi.replaceDraftDetailsImage(draft.campaign, draft.id,
+                  JSON.stringify(metadata), this.detailsImageFile, 'body', false, this.json)
+              : this.api.saveDraft(draft.campaign, draft.id, metadata, 'body', false, this.json),
         );
         if (token !== this.generation || this.current()?.id !== draft.id) return false;
         this.persisted = saved;
         if (imageChange === this.artworkChange) this.clearArtwork();
+        if (!deferredDetails && detailsChange === this.detailsImageChange) this.clearDetailsImage();
         this.current.update((d) =>
-          d ? { ...d, revision: saved.revision, image: saved.image } : d,
+          d ? { ...d, revision: saved.revision, image: saved.image, detailsImage: saved.detailsImage } : d,
         );
         this.drafts.update((ds) =>
           ds.map((d) =>
-            d.id === saved.id ? { ...d, revision: saved.revision, image: saved.image } : d,
+            d.id === saved.id ? { ...d, revision: saved.revision, image: saved.image, detailsImage: saved.detailsImage } : d,
           ),
         );
-        if (edit === this.editNumber) {
+        if (edit === this.editNumber && this.pendingArtwork() === 'keep' && this.pendingDetailsImage() === 'keep') {
           this.status.set('saved');
           return true;
         }
@@ -320,6 +363,7 @@ export class WritingState {
       this.invalidateExport();
       this.drafts.update((ds) => ds.filter((d) => d.id !== draft.id));
       this.clearArtwork();
+    this.clearDetailsImage();
       this.current.set(null);
       this.persisted = null;
       this.preview.set(null);
@@ -381,12 +425,14 @@ export class WritingState {
     this.conflict.set(false);
     this.deleteFailed.set(false);
     this.clearArtwork();
+    this.clearDetailsImage();
     this.generation++;
     this.current.set(null);
     return true;
   }
   deactivate() {
     this.clearArtwork();
+    this.clearDetailsImage();
     this.deleteFailed.set(false);
     this.invalidateExport();
     this.generation++;

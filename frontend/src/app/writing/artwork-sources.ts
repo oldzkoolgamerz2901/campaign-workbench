@@ -21,4 +21,17 @@ export class WritingArtwork {
         }
       : null;
   }
+  details(draft: DraftData): ArtworkSource | null {
+    return draft.detailsImage ? {
+      key: `details:${draft.campaign}:${draft.id}:${draft.detailsImage.hash}`,
+      load: () => this.api.getDraftDetailsImage(draft.campaign, draft.id, 'DISPLAY'),
+    } : null;
+  }
+  recoveredDetails(workspace: string, key: string, draft: DraftData): ArtworkSource | null {
+    return draft.detailsImage ? {
+      key: `recovery-details:${workspace}:${key}:${draft.detailsImage.hash}`,
+      load: () => this.api.getRecoveredDetailsImage(workspace, key, 'DISPLAY'),
+    } : null;
+  }
+
 }

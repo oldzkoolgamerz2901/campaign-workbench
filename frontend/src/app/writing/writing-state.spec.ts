@@ -95,6 +95,7 @@ describe('Writing working edits', () => {
     createDraft: vi.fn(),
     saveDraft: vi.fn(),
     replaceDraftArtwork: vi.fn(),
+    replaceDraftDetailsImage: vi.fn(),
     previewDraft: vi.fn(),
     listDraftExports: vi.fn(),
     forkDraft: vi.fn(),
@@ -129,6 +130,46 @@ describe('Writing working edits', () => {
     state.deactivate();
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+  it('CD4 serializes both image uploads and retains a newer Details selection and text during acknowledgement', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockImplementation((file) => `blob:${(file as File).name}`);
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const front = new Subject<DraftData>(), first = new Subject<DraftData>(), next = new Subject<DraftData>();
+    api.replaceDraftArtwork.mockReturnValue(front);
+    api.replaceDraftDetailsImage.mockReturnValueOnce(first).mockReturnValueOnce(next);
+    state.selectArtwork(new File(['front'], 'front.png', { type: 'image/png' }));
+    state.selectDetailsImage(new File(['map'], 'map.png', { type: 'image/png' }));
+    const saving = state.flush();
+    expect(JSON.parse(api.replaceDraftArtwork.mock.calls[0][2]).detailsImageAction).toBe('keep');
+    front.next({ ...draft(), revision: 1, image: { hash: 'front' } }); front.complete();
+    await Promise.resolve(); await Promise.resolve();
+    expect(JSON.parse(api.replaceDraftDetailsImage.mock.calls[0][2])).toMatchObject({ revision: 1, imageAction: 'keep', detailsImageAction: 'replace' });
+    state.selectDetailsImage(new File(['new map'], 'new-map.png', { type: 'image/png' }));
+    state.edit({ body: 'Newer body' });
+    first.next({ ...draft(), revision: 2, image: { hash: 'front' }, detailsImage: { hash: 'map' } }); first.complete();
+    await Promise.resolve(); await Promise.resolve();
+    expect(state.localDetailsImage()).toBe('blob:new-map.png');
+    expect(state.current()?.fields.body).toBe('Newer body');
+    expect(api.replaceDraftDetailsImage.mock.calls[1][3].name).toBe('new-map.png');
+    next.next({ ...draft(), revision: 3, image: { hash: 'front' }, detailsImage: { hash: 'new-map' } }); next.complete();
+    expect(await saving).toBe(true);
+    expect(state.current()?.detailsImage?.hash).toBe('new-map');
+    expect(state.localDetailsImage()).toBeNull();
+    expect(state.pendingDetailsImage()).toBe('keep');
+  });
+  it('CD4 retains a failed Details upload and the saved image for deliberate retry', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pending-map');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    state.current.update((d) => d ? { ...d, detailsImage: { hash: 'saved-map' } } : d);
+    api.replaceDraftDetailsImage.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    state.selectDetailsImage(new File(['map'], 'map.png', { type: 'image/png' }));
+    expect(await state.flush()).toBe(false);
+    expect(state.localDetailsImage()).toBe('blob:pending-map');
+    expect(state.current()?.detailsImage?.hash).toBe('saved-map');
+    expect(state.pendingDetailsImage()).toBe('replace');
+    api.replaceDraftDetailsImage.mockReturnValue(of({ ...draft(), revision: 1, detailsImage: { hash: 'retry-map' } }));
+    expect(await state.flush()).toBe(true);
+    expect(state.current()?.detailsImage?.hash).toBe('retry-map');
   });
   it('WSD-R4.1 acknowledges an image separately from text edited during upload and releases its preview', async () => {
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:pending');
@@ -262,9 +303,9 @@ describe('Writing working edits', () => {
     const first = new Subject<DraftData>(),
       second = new Subject<DraftData>();
     api.saveDraft.mockReturnValueOnce(first).mockReturnValueOnce(second);
-    state.edit({ body: 'first', quote: 'First quote' });
+    state.edit({ body: 'first', quote: 'First quote', stats: { ac: '12' } });
     const saving = state.flush();
-    state.edit({ body: 'newer', quote: 'Newer quote' });
+    state.edit({ body: 'newer', quote: 'Newer quote', stats: { ac: '17' } });
     expect(api.saveDraft).toHaveBeenCalledTimes(1);
     first.next({ ...draft(), revision: 1 });
     first.complete();
@@ -273,10 +314,11 @@ describe('Writing working edits', () => {
     await Promise.resolve();
     expect(state.current()?.fields.body).toBe('newer');
     expect(state.current()?.fields.quote).toBe('Newer quote');
+    expect(state.current()?.fields.stats?.ac).toBe('17');
     expect(state.status()).toBe('saving');
     expect(api.saveDraft.mock.calls[1][2]).toMatchObject({
       revision: 1,
-      fields: { body: 'newer', quote: 'Newer quote' },
+      fields: { body: 'newer', quote: 'Newer quote', stats: { ac: '17' } },
     });
     second.next({ ...draft(), revision: 2 });
     second.complete();
@@ -289,10 +331,11 @@ describe('Writing working edits', () => {
         () => new HttpErrorResponse({ status: 409, error: { detail: 'Changed elsewhere' } }),
       ),
     );
-    state.edit({ summary: 'Keep my edit', quote: 'Keep my quote' });
+    state.edit({ summary: 'Keep my edit', quote: 'Keep my quote', stats: { hp: '24' } });
     expect(await state.flush()).toBe(false);
     expect(state.current()?.fields.summary).toBe('Keep my edit');
     expect(state.current()?.fields.quote).toBe('Keep my quote');
+    expect(state.current()?.fields.stats?.hp).toBe('24');
     expect(state.conflict()).toBe(true);
     state.edit({ body: 'More local work' });
     expect(await state.flush()).toBe(false);

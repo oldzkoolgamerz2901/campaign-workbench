@@ -4,14 +4,13 @@ import arrow.core.Either
 import io.swagger.v3.oas.annotations.media.Schema
 import workbench.platform.api.*
 import workbench.sources.api.CardLayout
-import workbench.sources.api.CardLayoutInput
 import java.util.UUID
 
 data class PreviewSharedCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val session: UUID,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val item: UUID)
 data class SharedCardPreview(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val fingerprint: String,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val visible: CardLayoutInput,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val artwork: Boolean)
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val visible: SharedCardContent,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val artwork: Boolean, val detailsImage: Boolean = false)
 enum class SharingMode { HANDOUT, INVENTORY }
 data class DistributeCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val operation: UUID,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val session: UUID,
@@ -19,12 +18,13 @@ data class DistributeCard(@field:Schema(requiredMode = Schema.RequiredMode.REQUI
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val fingerprint: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val mode: SharingMode,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val recipient: UUID?,
-    val pile: UUID? = null, val newPile: String? = null)
+    val pile: UUID? = null, val newPile: String? = null, val revealBack: Boolean = false)
 data class SharedCardData(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val id: UUID,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val visible: CardLayoutInput,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val visible: SharedCardContent,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val mode: SharingMode,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val artwork: Boolean,
-    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val pile: UUID? = null)
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) val pile: UUID? = null,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val backRevealed: Boolean = true, val detailsImage: Boolean = false)
 data class SharedCollection(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val cards: List<SharedCardData>,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val piles: List<SharedPile> = emptyList())
 data class PlayerCollections(@field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val identity: PlayerIdentity,
@@ -34,6 +34,7 @@ data class PlayerCollections(@field:Schema(requiredMode = Schema.RequiredMode.RE
 interface PlayerCards {
     fun collections(campaign: UUID, credential: String?): Either<Failure, PlayerCollections>
     fun artwork(campaign: UUID, credential: String?, card: UUID): Either<Failure, ImageDerivative>
+    fun detailsImage(campaign: UUID, credential: String?, card: UUID): Either<Failure, ImageDerivative>
     fun layout(campaign: UUID, credential: String?, card: UUID): Either<Failure, CardLayout>
 }
 

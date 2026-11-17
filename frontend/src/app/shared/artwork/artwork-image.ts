@@ -9,15 +9,18 @@ export interface ArtworkSource {
 /** Owns only presentation and bounded, visible Blob lifetimes. Transport belongs to features. */
 @Component({
   selector: 'artwork-image',
+  host: { '[class.uncropped]': 'uncropped()' },
   template: `
+    @if (!uncropped() || local() || url()) {
     <img
       [src]="local() || url() || placeholder"
       draggable="false"
-      [alt]="local() || url() ? 'Card artwork' : 'Default card artwork'"
+      [alt]="local() || url() ? label() : 'Default card artwork'"
       (error)="imageFailed()"
     />
+    }
     @if (state() === 'loading') {
-      <span class="state" role="status">Loading artwork…</span>
+      <span class="state" role="status">{{ uncropped() ? 'Loading image…' : 'Loading artwork…' }}</span>
     }
     @if (state() === 'failed') {
       <button
@@ -27,7 +30,7 @@ export interface ArtworkSource {
         (touchstart)="$event.stopPropagation()"
         (click)="$event.stopPropagation(); retry()"
       >
-        Artwork unavailable · Retry
+        {{ uncropped() ? 'Image unavailable · Retry' : 'Artwork unavailable · Retry' }}
       </button>
     }
   `,
@@ -44,6 +47,8 @@ export interface ArtworkSource {
       object-fit: var(--artwork-fit, cover);
       object-position: center;
     }
+    :host(.uncropped) { min-height: 2rem; }
+    :host(.uncropped) img { height: auto; object-fit: contain; }
     .state,
     button {
       position: absolute;
@@ -62,6 +67,8 @@ export interface ArtworkSource {
   `,
 })
 export class ArtworkImage {
+  readonly label = input('Card artwork');
+  readonly uncropped = input(false);
   readonly placeholder = new URL('card-placeholder.svg', document.baseURI).pathname;
   readonly source = input<ArtworkSource | null>(null);
   readonly local = input<string | null>(null);

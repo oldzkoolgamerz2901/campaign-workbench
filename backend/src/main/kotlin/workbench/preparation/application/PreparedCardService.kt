@@ -3,7 +3,6 @@ package workbench.preparation.application
 import arrow.core.raise.*
 import workbench.preparation.api.*
 import workbench.platform.api.*
-import workbench.sources.api.CardLayoutInput
 import java.util.UUID
 
 class PreparedCardService(private val preparation: PreparationService, private val images: PreparationImageStore,
@@ -18,11 +17,16 @@ class PreparedCardService(private val preparation: PreparationService, private v
                 Failure.NotFound("sharing.source-artwork", "Prepared artwork is unavailable.")
             }
         }
+        val details = current.detailsImage?.let { image ->
+            ensureNotNull(images.bundle(campaign, image.hash)?.takeIf { it.metadata == image }) {
+                Failure.NotFound("sharing.source-artwork", "Prepared Details image is unavailable.")
+            }
+        }
         val provenance = current.provenance
         val authored = provenance.authored
-        PreparedCard(CardLayoutInput(metadata?.title?.takeIf { it.isNotEmpty() } ?: current.title, metadata?.type?.takeIf { it.isNotEmpty() } ?: "card",
-            metadata?.summary.orEmpty(), metadata?.tags.orEmpty(), metadata?.backText.orEmpty(), metadata?.quote.orEmpty()), artwork,
+        PreparedCard(PreparedCardContent(metadata?.title?.takeIf { it.isNotEmpty() } ?: current.title, metadata?.type?.takeIf { it.isNotEmpty() } ?: "card",
+            metadata?.summary.orEmpty(), metadata?.tags.orEmpty(), metadata?.backText.orEmpty(), metadata?.quote.orEmpty(), current.stats), artwork,
             PreparedCardProvenance(campaign,session,item,provenance.capture,provenance.path,provenance.section,
-                provenance.documentHash,provenance.contentHash,provenance.kind,authored?.draft,authored?.card,authored?.revision,authored?.approval))
+                provenance.documentHash,provenance.contentHash,provenance.kind,authored?.draft,authored?.card,authored?.revision,authored?.approval), details)
     } }
 }

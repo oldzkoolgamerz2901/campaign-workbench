@@ -30,7 +30,8 @@ class JdbcPreparationImageStore(private val jdbc: JdbcTemplate) : PreparationIma
     override fun prune(owner: UUID) {
 
         // Called only after references are durably flushed within the owning write transaction.
-        val retained = jdbc.queryForList("""SELECT i.image_hash FROM preparation.item i JOIN preparation.session s ON s.id=i.session_id WHERE s.campaign=? AND i.image_hash IS NOT NULL""", String::class.java, owner).toSet()
+        val retained = jdbc.queryForList("""SELECT i.image_hash FROM preparation.item i JOIN preparation.session s ON s.id=i.session_id WHERE s.campaign=? AND i.image_hash IS NOT NULL
+            UNION SELECT i.details_image_hash FROM preparation.item i JOIN preparation.session s ON s.id=i.session_id WHERE s.campaign=? AND i.details_image_hash IS NOT NULL""", String::class.java, owner, owner).toSet()
         val hashes = jdbc.queryForList("SELECT hash FROM preparation.image_original WHERE owner_kind=? AND owner_id=?", String::class.java, kind(owner), id(owner))
         hashes.filter { it !in retained }.forEach { hash ->
             jdbc.update("DELETE FROM preparation.image_derivative WHERE owner_kind=? AND owner_id=? AND hash=?", kind(owner), id(owner), hash)

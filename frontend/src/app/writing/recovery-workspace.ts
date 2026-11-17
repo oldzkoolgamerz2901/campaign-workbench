@@ -168,12 +168,13 @@ import { PlayingCard } from '../shared/playing-card/playing-card';
           </details>
           <playing-card
             [artwork]="artwork.recovered(state.index()!.workspace.id, d.record.key, d.snapshot)"
+            [detailsImage]="artwork.recoveredDetails(state.index()!.workspace.id, d.record.key, d.snapshot)"
             [title]="d.snapshot.fields.title"
             [type]="d.snapshot.fields.type"
             [tags]="d.snapshot.fields.tags"
             [summary]="d.snapshot.fields.summary"
             [quote]="d.snapshot.fields.quote ?? ''"
-            [backText]="d.snapshot.fields.backText ?? ''"
+            [backText]="d.snapshot.fields.backText ?? ''" [stats]="d.snapshot.fields.stats ?? null"
             [visibilityKey]="state.index()!.workspace.id + ':' + d.record.key"
             [context]="state.index()!.workspace.id + ':' + d.record.key + ':' + d.snapshot.revision"
             (openDocument)="full.set(true)"

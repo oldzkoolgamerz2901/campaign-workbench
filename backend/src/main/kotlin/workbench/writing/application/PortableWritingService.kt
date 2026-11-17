@@ -10,7 +10,7 @@ import java.util.UUID
 class PortableWritingService(private val recovery: RecoveryService, private val images: WritingImageStore,
     private val transfers: PortableTransfers, private val codec: RecoveryCodec, private val processor: ImageProcessor, private val tx: Transactions) {
     fun backup(campaign: UUID): Either<Failure, PortableDownload> = export(WritingImageOwner.Campaign(campaign)) { recovery.snapshot(campaign, illustrated = true) }
-    fun archive(workspace: UUID): Either<Failure, PortableDownload> = export(WritingImageOwner.Recovery(workspace)) { recovery.workspace(workspace).map { it.copy(version = 8) } }
+    fun archive(workspace: UUID): Either<Failure, PortableDownload> = export(WritingImageOwner.Recovery(workspace)) { recovery.workspace(workspace).map { it.copy(version = 12) } }
     private fun export(owner: WritingImageOwner, snapshot: () -> Either<Failure, WritingArchive>): Either<Failure, PortableDownload> = transfers.run { work -> either {
         tx.run { either {
             val archive = snapshot().bind()
@@ -27,7 +27,7 @@ class PortableWritingService(private val recovery: RecoveryService, private val 
     fun restore(input: InputStream): Either<Failure, RecoverySummary> = transfers.run { work -> either {
         val (zip, source) = input.isZip()
         if (!zip) return@either recovery.restore(source.readNBytes(RECOVERY_BYTES + 1)).bind()
-        val archive = codec.readIllustrated(work.unpack(source, RECOVERY_BYTES, 11000))
+        val archive = codec.readIllustrated(work.unpack(source, RECOVERY_BYTES, 22001))
         recovery.validateArchive(archive).bind()
         val metadata = work.validateImages(recovery.artwork(archive), processor).bind()
         recovery.install(archive) { workspace -> metadata.forEach { images.put(WritingImageOwner.Recovery(workspace), work.image(it)) } }.bind()

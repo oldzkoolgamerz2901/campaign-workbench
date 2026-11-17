@@ -16,15 +16,15 @@ Choose the current session explicitly. The route carries it between workspaces; 
 
 Create and edit durable Drafts with independent **Document / Card** editing tabs. The supporting panel has **Preview / Library** modes and one hide/show control; Preview independently chooses Card or Document. Reference results use available panel height and scroll independently from the editor.
 
-**Card back text** is separately authored plain text with line breaks, independent of the summary and Markdown body. Open **Check physical card fit** in Preview to inspect static front/back text layouts. Fit warnings identify text that needs shortening or characters unavailable in the card font. You can still save and export oversized Drafts within the existing export safety limits; adding a new session card or applying a newer revision requires both sides to fit. Fit feedback is cleared while the current text is being checked.
+**Card back text** is separately authored plain text with line breaks, independent of the summary and Markdown body. Open **Check physical card fit** in Preview to inspect static front/back text layouts. Fit warnings identify text that needs shortening or characters unavailable in the card font. You can still save and export oversized Drafts within the existing export safety limits; adding a new session card or applying a newer revision requires the front title and quote to fit. Long back text is allowed and continues in Details. Fit feedback is cleared while the current text is being checked.
 
 Back text travels with the saved revision, Markdown export and frozen prepared copy. Editing it later leaves existing sessions unchanged until **Use latest version**. Use **Flip to back / Flip to front** on any full card, including Library references, Writing recovery and every Play location. Flipping is temporary and does not select, move or activate the card. Content, selection, reopened views and location changes restore the front; unrelated saves leave the side being read alone. Flips use a brief animation, with immediate changes for reduced motion.
 
-Full-card fronts show optional quote and summary areas; empty areas are omitted. Tags remain stored and searchable and appear in complete front reading. Use **Hide text** to reveal the artwork beneath the front panel and **Show text** to restore it. Each displayed card remembers that choice while its view stays open, independently of other cards and DM/player views. Flips and saved revisions preserve the choice; a different card or reopened view starts visible. Hiding text does not change fit requirements.
+Full-card fronts show the title and optional quote over the illustration. Summary and tags remain stored and searchable; card type is shown on the back. Use **Hide text** to reveal the artwork beneath the front panel and **Show text** to restore it. Each displayed card remembers that choice while its view stays open, independently of other cards and DM/player views. Flips and saved revisions preserve the choice; a different card or reopened view starts visible. Hiding text does not change fit requirements.
 
-Both card sides remain scroll-free. If a side does not fit or its layout/fonts are unavailable, **Read all front text / Read all back text** opens the complete side in an external reading dialog. Front reading includes title, type, quote, summary and every tag. **Open full document** remains on the front. Historical cards remain intact; edit a working Draft and explicitly replace its prepared revision to change frozen text.
+Both card sides remain scroll-free. Backs show title/type and complete fitting text lines; an ellipsis signals continuation. **Details** opens one complete reading window when back information overflows or layout/fonts are unavailable. It contains the complete back text and retained title, type, quote, summary and tags. A complete fitting card has no Details action. Closing Details returns focus to its opener. **Open full document** remains on the front. Historical cards remain intact; edit a working Draft and explicitly replace its prepared revision to change frozen text.
 
-Markdown stores this optional text in `workbench.backText` front matter; export preserves its line breaks. Session exports use format v12 and can read v10/v11. Writing JSON recovery uses v7 and illustrated ZIP manifests use v8; readers also accept preceding v3/v5 JSON and v4/v6 ZIP manifests. Write also has a separate optional **Card quote** plain-text field in the Document editor. It is saved independently of the summary and preserved through export/capture, preparation, recovery and sharing. Markdown stores it in `workbench.quote`; missing historical quotes are empty. Missing historical back text means an empty back. Older retained Markdown and hashes stay unchanged. If an old Draft already retained an unknown metadata key named `backText`, export reports the collision rather than overwriting that evidence; a fresh Draft can author the new field separately.
+Markdown stores this optional text in `workbench.backText` front matter; export preserves its line breaks. Session exports use format v13 and can read v10/v11/v12. Writing JSON recovery uses v9 and illustrated ZIP manifests use v10; readers also accept preceding v3/v5/v7 JSON and v4/v6/v8 ZIP manifests. Write also has a separate optional **Card quote** plain-text field in the Document editor. It is saved independently of the summary and preserved through export/capture, preparation, recovery and sharing. Markdown stores it in `workbench.quote`; missing historical quotes are empty. Missing historical back text means an empty back. Older retained Markdown and hashes stay unchanged. If an old Draft already retained an unknown metadata key named `backText`, export reports the collision rather than overwriting that evidence; a fresh Draft can author the new field separately.
 
 Opening a full reference saves successfully before navigating to Library. **Return to Write** or browser Back restores the originating Draft, tabs, panel and reference search. Cursor and scroll restoration are best effort. Save failures retain local work and guard departure.
 
@@ -32,13 +32,21 @@ Local artwork is shown in the shared card preview and frozen with prepared conte
 
 Writing recovery archives preserve Drafts and retained history through the existing recovery workspace. Markdown downloads are portable content, not a substitute for a complete Writing backup. See [historical detailed recovery instructions](history/usage-2026-10-24.md#writing-recovery) and the [accepted recovery plan](history/implementation-plan-2026-10-24.md#mw-4--portable-draft-recovery-and-release-walkthrough--accepted-plan--2026-10-20) for the full contract.
 
+### Additional Details image
+
+In Write's Card editor, upload one optional **Details image**, separate from **Card artwork**. JPEG, PNG and WebP files up to 10 MiB use the same validation and save safeguards. Replace it by choosing another file, or use **Remove Details image**. Failed saves retain the selection for deliberate retry; a newer local selection is not acknowledged by an older upload response.
+
+The image appears uncropped in the existing **Details** window across Write, Library, Prepare, Play, recovery and shared cards. Distribution review asks you to open Details and load the image before confirming. It remains available to players before **Reveal back**, without hidden back text. Existing prepared/shared copies retain their frozen image; changing an existing shared image requires a new distribution.
+
+Portable Writing/session ZIP archives include both image originals. Plain JSON export requires image-free content; Markdown downloads warn that the Details image is omitted. Use the portable ZIP for preservation.
+
 ## Prepare
 
 Prepare owns ordered frozen session material and preparation notes. Open **Add material** or **Add cards from Library** to use the unified picker; select or create a destination first when needed. New membership uses whole-card Library Add. Historical prepared sections and duplicate copies remain readable and portable.
 
 Prepared material opens in **Read**. Valid prepared Scenes also offer **Scene planning** for explicit links to already-prepared cards. Inspect a linked card and use **Back to scene**; session notes stay selected while item notes follow the selected prepared item.
 
-**Use latest version** explicitly accepts a newer valid saved revision of the same type whose front and back text fit. Replacement preserves item identity, order, notes, Scene associations and runtime arrangement. Invalid metadata, changed type or non-fitting card text blocks replacement. Existing oversized/historical prepared content remains readable and portable. Removal confirms affected Scene associations and prunes only the removed runtime membership; removing the active Scene clears its slot.
+**Use latest version** explicitly accepts a newer valid saved revision of the same type whose front title and quote fit. Replacement preserves item identity, order, notes, Scene associations and runtime arrangement. Invalid metadata, changed type or non-fitting front text blocks replacement. Existing oversized/historical prepared content remains readable and portable. Removal confirms affected Scene associations and prunes only the removed runtime membership; removing the active Scene clears its slot.
 
 ## Play
 
@@ -82,8 +90,23 @@ On touch screens, swipe to scroll or briefly hold a card: the card highlights an
 
 The sticky player header combines the collection title, Playing as identity, connection indicator and collection navigation. Identity and connection stay in place when switching collections. Long player names truncate; longer errors and command feedback remain below the header. Both DM Share and player cards show Handout/Inventory above the card at the left edge. Multi-card piles show layered card backs; their cover keeps the same size as a single-card pile.
 
+### Sharing disclosure
+
+New distributions default to front-only. In Share card, **Reveal back immediately** changes the player preview and the initial permission. Players can always flip: an unrevealed back shows title/type and **Back not revealed**, with no hidden information in Details. Front artwork remains visible. An empty revealed back instead says **No back information**.
+
+On an active shared card, the DM's **Reveal back** button opens a permanent-reveal confirmation. **Reveal back now** reveals that instance's frozen back without moving or duplicating it. Players see the change after refresh/reconnect. Transfer, claim, removal, restore and restart retain the permission. An uncertain distribution locks its original reveal choice for **Retry delivery**; retries do not create another copy or hide an already revealed back. Previously shared cards retain their already-readable backs. Stats remain future work. The optional Details image is always available independently of back reveal.
+
+
 ## Transfer and recovery
 
-Session archives use strict current format **v10**, including frozen text/artwork/provenance, preparation notes, Scene associations, runtime locations/covers/names and PlayNotes. Imports create new session/item/note identities while preserving historical origin evidence. Unsupported or invalid archives are rejected without partial session imports. Unopened runtime workspaces remain representable. Older formats are not supported.
+Session archives use strict current format **v13**, including frozen text/front artwork/Details images/provenance, preparation notes, Scene associations, runtime locations/covers/names and PlayNotes. Imports create new session/item/note identities while preserving historical origin evidence. Unsupported or invalid archives are rejected without partial session imports. Unopened runtime workspaces remain representable. Supported predecessor session formats v10–v12 remain readable.
 
 Keep session archives and Writing recovery archives for their distinct purposes. They do not constitute a complete PostgreSQL operational backup. Session-use packaging and operational backup/restore remain [future work](future-work.md).
+
+### Optional structured stats
+
+In Write's Card tab, expand **Stats (optional)** and choose **Add stats**. Stats and back text are independent: use either, both or neither for any card type. Author the values directly; score modifiers, saves, HP dice and CR/level notes are not calculated. Add ordered custom sections and named entries, unnamed paragraphs or spellcasting. Use the section/entry move buttons to change their order. Removing stats asks for confirmation and preserves back text.
+
+The back prioritizes complete core stats, then back text, supporting information and complete authored sections. Typography stays fixed; an ellipsis marks continuation into the same **Details** window used for full text and the additional image. Stats are hidden from players until the back is revealed. Preparation and Sharing retain frozen copies; later Draft edits do not update them automatically.
+
+Markdown export omits stats and warns before export. Writing recovery JSON/ZIP and portable session archives preserve stats; ZIP remains necessary when images are included. Current session manifests are v14 and Writing JSON/ZIP formats v11/v12, with supported earlier readers retained.

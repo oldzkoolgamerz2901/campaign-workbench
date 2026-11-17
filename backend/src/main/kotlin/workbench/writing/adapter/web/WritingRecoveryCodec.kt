@@ -25,7 +25,7 @@ class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
         require(tree.path("associations").isArray && tree.path("associations").size() <= 10000 &&
             tree.path("approved").size() + tree.path("exports").size() + tree.path("associations").size() <= 10000)
         val incomingVersion = tree.path("version")
-        require(incomingVersion.isIntegralNumber && incomingVersion.canConvertToInt() && incomingVersion.intValue() in setOf(version, version + 2, version + 4))
+        require(incomingVersion.isIntegralNumber && incomingVersion.canConvertToInt() && incomingVersion.intValue() in setOf(version, version + 2, version + 4, version + 6, version + 8))
         if (incomingVersion.intValue() == version) {
             val snapshots = mutableListOf<JsonNode>()
             tree.path("drafts").forEach { snapshots.add(it) }
@@ -46,9 +46,11 @@ class WritingRecoveryCodec(private val mapper: ObjectMapper) : RecoveryCodec {
             require(fields.isObject && !fields.has("quote"))
             (fields as tools.jackson.databind.node.ObjectNode).put("quote", "")
         }
+        if (incomingVersion.intValue() < 11) require(snapshots.all { !it.path("fields").has("stats") })
+        if (incomingVersion.intValue() < 9) require(snapshots.all { !it.has("detailsImage") })
         val archive = mapper.treeToValue(tree, WritingArchive::class.java)
-        require(archive.version in setOf(version, version + 2, version + 4))
-        if (version == 3) require((archive.drafts + archive.approved.map { it.snapshot } + archive.exports.map { it.snapshot }).all { it.image == null })
+        require(archive.version in setOf(version, version + 2, version + 4, version + 6, version + 8))
+        if (version == 3) require((archive.drafts + archive.approved.map { it.snapshot } + archive.exports.map { it.snapshot }).all { it.image == null && it.detailsImage == null })
         // Round-trip shape comparison rejects unknown/missing fields, scalar coercions, noncanonical UUIDs
         // and nulls supplied for primitive fields; never accepts an entity's incidental schema.
         val mismatches = mutableListOf<String>()

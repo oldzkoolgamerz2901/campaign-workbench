@@ -10,7 +10,7 @@ import java.util.UUID
 internal class RecoveryValidation(private val authoring: Authoring) {
     fun encoded(d: DraftData) = d.fields.let { authoring.encode(AuthoredDocument(d.card, it.title, it.type, it.status, it.tags, it.summary, it.body, it.backText, d.encoding, it.quote), d.origin?.retainedEnvelope.orEmpty()) }
     fun validate(a: WritingArchive) {
-        require(a.format == "workbench-writing-recovery" && a.version in setOf(3, 4, 5, 6, 7, 8))
+        require(a.format == "workbench-writing-recovery" && a.version in setOf(3, 4, 5, 6, 7, 8, 9, 10, 11, 12))
         require(a.name.isNotBlank() && a.name.length <= 200)
         time(a.savedAt)
         require(a.drafts.size <= 1000 && a.approved.size + a.exports.size + a.associations.size <= 10000)
@@ -24,7 +24,9 @@ internal class RecoveryValidation(private val authoring: Authoring) {
         require(a.exports.map { it.id }.distinct().size == a.exports.size)
         require(a.exports.groupingBy { it.snapshot.id }.eachCount().values.all { it <= 1000 })
         val snapshots = a.drafts + a.approved.map { it.snapshot } + a.exports.map { it.snapshot }
-        require(a.version in setOf(4, 6, 8) || snapshots.all { it.image == null })
+        require(a.version in setOf(4, 6, 8, 10, 12) || snapshots.all { it.image == null && it.detailsImage == null })
+        require(a.version >= 11 || snapshots.all { it.fields.stats == null })
+        require(a.version >= 9 || snapshots.all { it.detailsImage == null })
         require(a.version >= 5 || snapshots.all { it.encoding == 1 && it.fields.backText.isEmpty() && (it.origin == null || it.origin.interpretation == 1) })
         require(a.version >= 7 || snapshots.all { it.encoding <= 2 && it.fields.quote.isEmpty() && (it.origin == null || it.origin.interpretation <= 2) })
         snapshots.distinct().forEach { d ->

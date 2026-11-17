@@ -13,6 +13,11 @@ import java.util.UUID
 @RestController
 @RequestMapping("/api/campaigns/{campaign}/sharing")
 class CardLifecycleController(private val service: CardLifecycleService) {
+    @Operation(operationId="revealSharedCardBack")
+    @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCardData::class))])
+    @PostMapping("/cards/{card}/reveal-back",consumes=["application/json"],produces=["application/json"])
+    fun reveal(@PathVariable campaign: UUID,@PathVariable card: UUID)=service.revealBack(campaign,card).response(noStore=true)
+
     @Operation(operationId="transferSharedCard")
     @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCardData::class))])
     @PostMapping("/cards/{card}/transfer",consumes=["application/json"],produces=["application/json"])

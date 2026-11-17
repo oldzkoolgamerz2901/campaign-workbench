@@ -407,9 +407,9 @@ test('complete-side reader isolates text selection and Close gestures from card 
       .locator('play-tabletop')
       .getByRole('article', { name: 'Read: NPC', exact: true });
     const before = await (await request.get(`${f.endpoint}/workspace`)).json();
-    await card.getByRole('button', { name: 'Read all front text', exact: true }).click();
-    const reader = page.getByRole('dialog', { name: 'Complete card side text', exact: true });
-    const text = (await reader.locator('.plain').boundingBox())!;
+    await card.getByRole('button', { name: 'Details', exact: true }).click();
+    const reader = page.getByRole('dialog', { name: 'Card details', exact: true });
+    const text = (await reader.locator('[data-details-back]').boundingBox())!;
     await page.mouse.move(text.x + 2, text.y + text.height / 2);
     await page.mouse.down();
     await page.mouse.move(text.x + 90, text.y + text.height / 2, { steps: 10 });
@@ -418,7 +418,7 @@ test('complete-side reader isolates text selection and Close gestures from card 
     expect(await page.evaluate(() => window.getSelection()?.toString())).toBeTruthy();
     await expect(reader).toHaveCount(1);
     const close = (await reader
-      .getByRole('button', { name: 'Close card text', exact: true })
+      .getByRole('button', { name: 'Close details', exact: true })
       .boundingBox())!;
     await page.mouse.move(close.x + 5, close.y + close.height / 2);
     await page.mouse.down();
@@ -426,13 +426,13 @@ test('complete-side reader isolates text selection and Close gestures from card 
     await expect(page.locator('.cdk-drag-preview')).toHaveCount(0);
     await page.mouse.up();
     await expect(reader).toBeHidden();
-    await expect(card.getByRole('button', { name: 'Flip to back', exact: true })).toBeFocused();
+    await expect(card.getByRole('button', { name: 'Details', exact: true })).toBeFocused();
     expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(before);
     // Keyboard close and its focus return remain available after the pointer interaction.
-    await card.getByRole('button', { name: 'Read all front text', exact: true }).press('Enter');
-    await reader.getByRole('button', { name: 'Close card text', exact: true }).press('Enter');
+    await card.getByRole('button', { name: 'Details', exact: true }).press('Enter');
+    await reader.getByRole('button', { name: 'Close details', exact: true }).press('Enter');
     await expect(reader).toBeHidden();
-    await expect(card.getByRole('button', { name: 'Flip to back', exact: true })).toBeFocused();
+    await expect(card.getByRole('button', { name: 'Details', exact: true })).toBeFocused();
     // Closing the reader must leave ordinary card-surface dragging enabled.
     await startSurfaceDrag(page, card);
     await expect(page.locator('.cdk-drag-preview')).toBeVisible();
@@ -903,9 +903,9 @@ test.describe('touch surface gestures', () => {
         .locator('play-tabletop')
         .getByRole('article', { name: 'Read: NPC', exact: true });
       await card.getByRole('button', { name: 'Flip to back', exact: true }).tap();
-      await card.getByRole('button', { name: 'Read all back text', exact: true }).tap();
-      const reader = page.getByRole('dialog', { name: 'Complete card side text', exact: true });
-      await expect(reader.locator('.plain')).toHaveText(backText);
+      await card.getByRole('button', { name: 'Details', exact: true }).tap();
+      const reader = page.getByRole('dialog', { name: 'Card details', exact: true });
+      await expect(reader.locator('[data-details-back]')).toHaveText(backText);
       const before = await (await request.get(`${f.endpoint}/workspace`)).json();
       const box = (await reader.boundingBox())!;
       const x = box.x + box.width / 2,
@@ -925,7 +925,7 @@ test.describe('touch surface gestures', () => {
       await expect.poll(() => reader.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
       await reader.evaluate((el) => el.scrollTo(0, 0));
       const close = (await reader
-        .getByRole('button', { name: 'Close card text', exact: true })
+        .getByRole('button', { name: 'Close details', exact: true })
         .boundingBox())!;
       const closeX = close.x + 5,
         closeY = close.y + close.height / 2;
@@ -942,9 +942,9 @@ test.describe('touch surface gestures', () => {
       await expect(page.locator('.cdk-drag-preview')).toHaveCount(0);
       await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       activeTouch = false;
-      await reader.getByRole('button', { name: 'Close card text', exact: true }).tap();
+      await reader.getByRole('button', { name: 'Close details', exact: true }).tap();
       await expect(reader).toBeHidden();
-      await expect(card.getByRole('button', { name: 'Flip to front', exact: true })).toBeFocused();
+      await expect(card.getByRole('button', { name: 'Details', exact: true })).toBeFocused();
       expect(await (await request.get(`${f.endpoint}/workspace`)).json()).toEqual(before);
     } finally {
       if (activeTouch)

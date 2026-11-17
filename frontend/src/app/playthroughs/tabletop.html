@@ -395,12 +395,13 @@
         (filtered() && (location === 'SESSION_CARDS' || location === 'USED'))
       "
       [artwork]="artwork.item(campaign(), session(), item)"
+      [detailsImage]="artwork.details(campaign(), session(), item)"
       [title]="metadata(item)?.title ?? item.title"
       [type]="metadata(item)?.type ?? ''"
       [summary]="metadata(item)?.summary ?? ''"
       [quote]="metadata(item)?.quote ?? ''"
       [tags]="metadata(item)?.tags ?? []"
-      [backText]="metadata(item)?.backText ?? ''"
+      [backText]="metadata(item)?.backText ?? ''" [stats]="item.stats ?? null"
       [visibilityKey]="session() + ':' + item.id + ':' + location + ':' + (inOverlay ? pileViewGeneration() : 0)"
       [context]="
         session() +

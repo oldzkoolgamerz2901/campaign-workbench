@@ -10,6 +10,8 @@ import {
   viewChild,
   OnDestroy,
 } from '@angular/core';
+import type { LayoutStats } from '../../../api/generated';
+import { StatsReader } from './stats-reader';
 import type { CardLayout } from '../../../api/generated/model/cardLayout';
 import { CARD_LAYOUT_CLIENT } from '../card-layout/layout-client';
 import { ArtworkImage, ArtworkSource } from '../artwork/artwork-image';
@@ -17,7 +19,7 @@ import { CardLayoutRenderer, LayoutStatus } from '../card-layout/card-layout-ren
 
 @Component({
   selector: 'playing-card',
-  imports: [ArtworkImage, CardLayoutRenderer],
+  imports: [ArtworkImage, CardLayoutRenderer, StatsReader],
   templateUrl: './playing-card.html',
   styleUrl: './playing-card.css',
 })
@@ -25,6 +27,8 @@ export class PlayingCard implements OnDestroy {
   readonly documentAvailable = input(true);
   readonly artwork = input<ArtworkSource | null>(null);
   readonly localArtwork = input<string | null>(null);
+  readonly detailsImage = input<ArtworkSource | null>(null);
+  readonly localDetailsImage = input<string | null>(null);
   readonly title = input('');
   readonly type = input('');
   readonly summary = input('');
@@ -32,6 +36,8 @@ export class PlayingCard implements OnDestroy {
   readonly textVisible = signal(true);
   readonly tags = input<string[]>([]);
   readonly backText = input('');
+  readonly stats = input<LayoutStats | null>(null);
+  readonly backRevealed = input(true);
   /** Stable owner-provided identity/revision/location; never a workspace mutation revision. */
   readonly context = input('');
   /** Stable displayed-card identity; revision changes must not reset visibility. */
@@ -46,7 +52,11 @@ export class PlayingCard implements OnDestroy {
   readonly animating = signal(false);
   readonly layout = signal<CardLayout | null>(null);
   readonly status = signal<LayoutStatus | 'unavailable'>('checking');
-  readonly readingSide = signal<'front' | 'back'>('front');
+  readonly detailsAvailable = computed(() =>
+    this.detailsImage() !== null || this.localDetailsImage() !== null || this.layout()?.back.overflow || this.layout()?.back.fits === false ||
+    !['ready', 'checking'].includes(this.status()),
+  );
+  private detailsOpener?: HTMLElement;
   private readonly api = inject(CARD_LAYOUT_CLIENT);
   private readonly reader = viewChild<ElementRef<HTMLDialogElement>>('sideReader');
   private readonly flipButton = viewChild<ElementRef<HTMLButtonElement>>('flipButton');
@@ -56,16 +66,19 @@ export class PlayingCard implements OnDestroy {
     JSON.stringify({
       title: this.title(),
       type: this.type(),
-      summary: this.summary(),
+      summary: this.backRevealed() ? this.summary() : '',
       quote: this.quote(),
-      tags: this.tags(),
-      backText: this.backText(),
+      tags: this.backRevealed() ? this.tags() : [],
+      backText: this.backRevealed() ? this.backText() : 'Back not revealed',
+      stats: this.backRevealed() ? this.stats() : null,
     }),
   );
 
   private readonly orientationContext = computed(() =>
     JSON.stringify([this.context(), this.selected(), this.artwork()?.key, this.localArtwork()]),
   );
+
+  private readonly detailsIdentity = computed(() => JSON.stringify([this.detailsImage()?.key, this.localDetailsImage()]));
 
   constructor() {
     effect(() => {
@@ -85,6 +98,7 @@ export class PlayingCard implements OnDestroy {
     });
     effect(() => {
       this.content();
+      this.detailsIdentity();
       this.orientationContext();
       this.cancelFlip();
       this.side.set('front');
@@ -119,14 +133,18 @@ export class PlayingCard implements OnDestroy {
     this.status.set(this.layout() ? 'checking' : 'unavailable');
     this.side.set(side);
   }
-  readSide(event: Event) {
+  showDetails(event: Event) {
     event.stopPropagation();
-    this.readingSide.set(this.side());
+    this.detailsOpener = event.currentTarget as HTMLElement;
     this.reader()?.nativeElement.showModal();
   }
-  closeReader() {
+  closeDetails() {
     this.reader()?.nativeElement.close();
-    this.flipButton()?.nativeElement.focus();
+    this.restoreDetailsFocus();
+  }
+  restoreDetailsFocus() {
+    if (this.detailsOpener?.isConnected) this.detailsOpener.focus();
+    else this.flipButton()?.nativeElement.focus();
   }
   document(event: Event) {
     event.stopPropagation();

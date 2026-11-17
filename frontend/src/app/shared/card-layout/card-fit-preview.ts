@@ -11,8 +11,11 @@ import { CardFitFeedback } from './card-fit-feedback';
     <section aria-label="Physical card fit">
       <h3>Physical card fit</h3>
       <card-fit-feedback [issues]="layout().front.issues.concat(layout().back.issues)" />
-      @if (layout().front.fits && layout().back.fits) {
+      @if (layout().front.fits && layout().back.fits && !layout().back.overflow) {
         <p role="status">Both sides fit on the card.</p>
+      }
+      @if (layout().back.overflow) {
+        <p role="status">Back text continues in Details. It does not prevent session use.</p>
       }
       <nav aria-label="Fit preview side">
         <button

@@ -6,47 +6,52 @@ import tools.jackson.databind.ObjectMapper
 import workbench.platform.adapter.font.BundledFontMeasurements
 import workbench.platform.api.CardFont
 import workbench.sources.application.CardLayouts
-import workbench.sources.api.CardLayoutInput
+import workbench.sources.api.*
 import java.nio.file.Files
 import java.nio.file.Path
 
 class CardLayoutTest : StringSpec({
     val measurements = BundledFontMeasurements()
     val engine = CardLayouts(measurements)
-    "back accepts exactly 26 lines and rejects the next line without a partial layout" {
-        engine.layout(CardLayoutInput(backText = List(26) { "A short line" }.joinToString("\n"))).back.fits shouldBe true
-        val overflow = engine.layout(CardLayoutInput(backText = List(27) { "A short line" }.joinToString("\n"))).back
-        overflow.fits shouldBe false
-        overflow.lines.isEmpty() shouldBe true
-        overflow.issues.single().field shouldBe "backText"
+    "CD2 back exact capacity stays complete and the next line yields valid compact geometry with explicit continuation" {
+        val text = List(23) { "A short line" }.joinToString("\n")
+        val exact = engine.layout(CardLayoutInput(backText = text)).back
+        exact.fits shouldBe true
+        exact.overflow shouldBe false
+        exact.lines.filter { it.field == "backText" }.size shouldBe 23
+        val overflow = engine.layout(CardLayoutInput(backText = "$text\nOne more line")).back
+        overflow.fits shouldBe true
+        overflow.overflow shouldBe true
+        overflow.issues.isEmpty() shouldBe true
+        overflow.lines.filter { it.field == "backText" }.size shouldBe 22
+        overflow.lines.last().text shouldBe "…"
+        overflow.lines.filter { it.field in setOf("title", "type") }.map { it.text } shouldBe listOf("Untitled card", "Untyped")
     }
-    "CFP-R1.1 front quote and summary share a bounded panel without front tags" {
+    "CFP-R1.1 CD2 fronts contain only title and quote and ignore non-rendered fields and back length" {
         val base = CardLayoutInput("Harbour keeper", "npc", "Remembers every visitor.", listOf("harbour", "watchful"))
         engine.layout(base).front.fits shouldBe true
         engine.layout(base.copy(title = "A long title ".repeat(25))).front.fits shouldBe false
-        engine.layout(base.copy(summary = "A long summary ".repeat(40))).front.fits shouldBe false
-        engine.layout(base.copy(tags = List(32) { "long-tag-$it" })).front shouldBe engine.layout(base).front
+        engine.layout(base.copy(summary = "A long summary ".repeat(4000), tags = List(129) { "long-tag-$it" }, type = "npc".repeat(10000), backText = "x".repeat(65536))).front shouldBe engine.layout(base).front
         val quoted = engine.layout(base.copy(quote = "Every visitor has a story.")).front
         quoted.fits shouldBe true
         quoted.lines.filter { it.field == "quote" }.joinToString("") { it.text } shouldBe "Every visitor has a story."
-        quoted.boxes.map { it.role }.containsAll(listOf("quote-area", "summary-area")) shouldBe true
-        quoted.lines.none { it.field == "tags" } shouldBe true
+        quoted.boxes.any { it.role == "quote-area" } shouldBe true
+        quoted.lines.all { it.field in setOf("title", "quote") } shouldBe true
+        quoted.boxes.none { it.role == "summary-area" } shouldBe true
         engine.layout(base.copy(quote = "Long quote ".repeat(80))).front.issues.single().field shouldBe "quote"
         engine.layout(base.copy(quote = "Unsupported 🐉")).front.issues.single().code shouldBe "unsupported-character"
-        val empty = engine.layout(base.copy(summary = "")).front
+        val empty = engine.layout(base).front
         empty.boxes.none { it.role == "quote-area" || it.role == "summary-area" } shouldBe true
-        empty.lines.none { it.field == "quote" || it.field == "summary" } shouldBe true
-        // For explicit summary lines, derive the last fitting boundary and check the next line.
-        val last = (1..20).last { engine.layout(base.copy(summary = List(it) { "Line" }.joinToString("\n"), tags = emptyList())).front.fits }
-        engine.layout(base.copy(summary = List(last + 1) { "Line" }.joinToString("\n"), tags = emptyList())).front.fits shouldBe false
+        val last = (1..20).last { engine.layout(base.copy(quote = List(it) { "Line" }.joinToString("\n"))).front.fits }
+        engine.layout(base.copy(quote = List(last + 1) { "Line" }.joinToString("\n"))).front.fits shouldBe false
     }
     "line breaks spaces graphemes and unbroken text retain all authored characters" {
         for (text in listOf("first\n\nlast\n", "  spaces  remain  ", "e\u0301 ".repeat(50), "W".repeat(240), "Mira — café; Привет")) {
             val back = engine.layout(CardLayoutInput(backText = text)).back
             back.fits shouldBe true
-            back.lines.joinToString("") { it.text } shouldBe text.replace("\n", "")
+            back.lines.filter { it.field == "backText" }.joinToString("") { it.text } shouldBe text.replace("\n", "")
         }
-        engine.layout(CardLayoutInput(backText = "a\r\nb")).back.lines.map { it.text } shouldBe listOf("a", "b")
+        engine.layout(CardLayoutInput(backText = "a\r\nb")).back.lines.filter { it.field == "backText" }.map { it.text } shouldBe listOf("a", "b")
         val combining = engine.layout(CardLayoutInput(backText = "e\u0301".repeat(100))).back
         combining.lines.none { it.text.startsWith('\u0301') } shouldBe true
     }
@@ -57,8 +62,8 @@ class CardLayoutTest : StringSpec({
         CardLayouts(BundledFontMeasurements { byteArrayOf(1, 2, 3) }).layout(CardLayoutInput()).back.issues.single().code shouldBe "font-unavailable"
         engine.layout(CardLayoutInput(backText = "x".repeat(CardLayouts.TEXT_LIMIT + 1))).back.issues.single().code shouldBe "input-limit"
         engine.layout(CardLayoutInput(quote = "x".repeat(CardLayouts.TEXT_LIMIT + 1))).front.issues.single().code shouldBe "input-limit"
-        engine.layout(CardLayoutInput(tags = List(129) { "a" })).front.issues.single().code shouldBe "input-limit"
-        engine.layout(CardLayoutInput(backText = "W".repeat(CardLayouts.TEXT_LIMIT))).back.fits shouldBe false
+        engine.layout(CardLayoutInput(tags = List(129) { "a" })).front.fits shouldBe true
+        engine.layout(CardLayoutInput(backText = "W".repeat(CardLayouts.TEXT_LIMIT))).back.overflow shouldBe true
     }
     "layout is deterministic and all emitted geometry remains within the card" {
         val input = CardLayoutInput("The keeper", "NPC", "Watchful and patient.", listOf("harbour"), "A name.\nA motive.\nA secret.")
@@ -75,17 +80,19 @@ class CardLayoutTest : StringSpec({
     }
     "emit real backend layouts for the isolated browser renderer fixture" {
         val short = CardLayoutInput("Harbour keeper", "NPC", "Remembers every visitor.", listOf("harbour", "watchful"), "Motivation\nProtect the harbour.\n\nSecret\nKnows who took the ledger.")
-        val frontCapacity = (1..20).last { engine.layout(short.copy(summary = List(it) { "Summary line" }.joinToString("\n"))).front.fits }
+        val frontCapacity = (1..20).last { engine.layout(short.copy(quote = List(it) { "Quote line" }.joinToString("\n"))).front.fits }
         val cases = linkedMapOf(
             "short" to short,
-            "front-capacity" to short.copy(summary = List(frontCapacity) { "Summary line" }.joinToString("\n")),
-            "front-overflow" to short.copy(summary = List(frontCapacity + 1) { "Summary line" }.joinToString("\n")),
+            "stats" to short.copy(stats = LayoutStats(ac = "17", hp = "59 (8d8)", initiative = "+4 (14)", abilities = mapOf("STR" to LayoutAbility("8", "-1", "+2")))),
+            "stats-overflow" to short.copy(stats = LayoutStats(ac = "17", sections = listOf(LayoutStatSection("Actions", listOf(LayoutStatEntry("Strike", "Long action ".repeat(300))))))),
+            "front-capacity" to short.copy(quote = List(frontCapacity) { "Quote line" }.joinToString("\n")),
+            "front-overflow" to short.copy(quote = List(frontCapacity + 1) { "Quote line" }.joinToString("\n")),
             "tag-rows" to short.copy(tags = List(12) { "tag-$it" }),
             "quote-summary" to short.copy(quote = "Every visitor has a story."),
             "quote-only" to short.copy(quote = "Every visitor has a story.", summary = ""),
             "no-areas" to short.copy(summary = ""),
             "quote-overflow" to short.copy(quote = "Long quote ".repeat(80)),
-            "capacity" to short.copy(backText = List(26) { "Line ${it + 1}: café — Привет" }.joinToString("\n")),
+            "capacity" to short.copy(backText = List(23) { "Line ${it + 1}: café — Привет" }.joinToString("\n")),
             "wrapping" to short.copy(backText = "Word spacing and e\u0301. ".repeat(40)),
             "unbroken" to short.copy(backText = "W".repeat(240)),
             "markup" to short.copy(title = "<b>Mira</b>", backText = "<script>alert('text')</script>\n  spaces stay  "),

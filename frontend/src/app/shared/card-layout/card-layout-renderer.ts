@@ -50,7 +50,7 @@ function loadCardFonts(): Promise<void> {
     >
       <desc>{{ description() }}</desc>
       @for (box of current().boxes; track $index) {
-        @if (box.role === 'front-panel' || box.role === 'quote-area' || box.role === 'summary-area') {
+        @if (box.role === 'front-panel' || box.role === 'quote-area' || box.role === 'summary-area' || box.role === 'stat-band' || box.role === 'stat-rule') {
           <rect
             [attr.x]="box.x"
             [attr.y]="box.y"
@@ -110,6 +110,9 @@ function loadCardFonts(): Promise<void> {
       stroke: #a49d80;
       stroke-width: 0.75;
     }
+    rect[data-role="stat-band"] { fill: #ddd7c2; stroke: none; }
+    rect[data-role="stat-rule"] { fill: #766a56; stroke: none; }
+    text[data-field="stats.heading"], text[data-field="stats.abilityHeading"] { fill: #420000; }
     p {
       position: absolute;
       inset: 0;
@@ -154,7 +157,7 @@ export class CardLayoutRenderer {
       };
       this.status.set('checking');
       if (
-        layout.profile !== 'physical-card-2' ||
+        layout.profile !== 'physical-card-4' ||
         layout.width !== 243 ||
         layout.height !== 420 ||
         Object.entries(CARD_FONTS).some(([key, value]) => layout.fonts[key] !== value.hash)

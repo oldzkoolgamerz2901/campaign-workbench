@@ -53,7 +53,7 @@ test('portrait geometry retains dense text through external reading in narrow co
         expect(box.width / box.height).toBeCloseTo(243 / 420, 2);
         expect(box.width).toBeLessThanOrEqual(320);
         if (width >= 1280) expect(box.width).toBe(320);
-        await expect(card.getByRole('button', { name: 'Read all front text' })).toBeVisible();
+        await expect(card.getByRole('button', { name: 'Details' })).toBeVisible();
         expect(
           await card.evaluate((el) =>
             [...el.querySelectorAll('*')].some(
@@ -73,16 +73,16 @@ test('portrait geometry retains dense text through external reading in narrow co
         ).toBe(true);
         await expect(card.locator('img')).toHaveAttribute('src', '/card-placeholder.svg');
       }
-      await cards.nth(1).getByRole('button', { name: 'Read all front text' }).click();
-      const reader = page.getByRole('dialog', { name: 'Complete card side text' });
-      await expect(reader.getByRole('heading')).toHaveText(title);
+      await cards.nth(1).getByRole('button', { name: 'Details' }).click();
+      const reader = page.getByRole('dialog', { name: 'Card details' });
+      await expect(reader.getByRole('heading', { level: 3 })).toHaveText(title);
       await expect(reader.getByRole('listitem')).toHaveCount(30);
       await expect(reader).toContainText('A complete quoted memory. '.repeat(20).trim());
-      await reader.getByRole('button', { name: 'Close card text' }).click();
+      await reader.getByRole('button', { name: 'Close details' }).click();
       await cards.nth(1).getByRole('button', { name: 'Flip to back' }).click();
-      await cards.nth(1).getByRole('button', { name: 'Read all back text' }).click();
+      await cards.nth(1).getByRole('button', { name: 'Details' }).click();
       await expect(reader).toContainText('Historical secret. '.repeat(700).trim());
-      await reader.getByRole('button', { name: 'Close card text' }).click();
+      await reader.getByRole('button', { name: 'Close details' }).click();
       await cards.nth(1).getByRole('button', { name: 'Flip to front' }).click();
       await expect(cards.nth(1)).toHaveAttribute('data-side', 'front');
 

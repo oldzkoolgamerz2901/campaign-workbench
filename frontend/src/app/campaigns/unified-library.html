@@ -237,7 +237,7 @@
               [summary]="document.entry?.classification?.metadata?.summary ?? ''"
               [quote]="document.entry?.classification?.metadata?.quote ?? ''"
               [tags]="document.entry?.classification?.metadata?.tags ?? []"
-              [backText]="document.entry?.classification?.metadata?.backText ?? ''"
+              [backText]="document.entry?.classification?.metadata?.backText ?? ''" [stats]="document.entry?.stats ?? null"
               [visibilityKey]="state.campaign() + ':' + document.entry!.key"
               [context]="
                 state.campaign() +
@@ -249,6 +249,7 @@
                 state.documentCapture()
               "
               [artwork]="artwork(document.entry!)"
+              [detailsImage]="detailsArtwork(document.entry!)"
               (openDocument)="state.mode.set('document')"
             />
           } @else if (document.draftPreview; as preview) {

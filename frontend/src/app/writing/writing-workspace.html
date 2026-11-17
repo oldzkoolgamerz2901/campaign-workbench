@@ -244,6 +244,14 @@
               @if (state.artworkError()) {
                 <p role="alert">{{ state.artworkError() }}</p>
               }
+              <label>Details image<input type="file" aria-label="Details image"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                (change)="chooseDetailsImage($event)" /></label>
+              <p class="hint">One additional image in Details · JPEG, PNG or WebP · at most 10 MiB. Always available on a shared card, including before Reveal back. Markdown export does not include it.</p>
+              <button type="button" (click)="state.removeDetailsImage()"
+                [disabled]="!draft.detailsImage && !state.localDetailsImage()">Remove Details image</button>
+              @if (state.pendingDetailsImage() !== 'keep') { <p role="status">Unsaved Details image {{ state.pendingDetailsImage() === 'remove' ? 'removal' : 'selection' }}</p> }
+              @if (state.detailsImageError()) { <p role="alert">{{ state.detailsImageError() }}</p> }
               <div class="metadata-row">
                 <label
                   >Content type<select
@@ -308,9 +316,9 @@
               (ngModelChange)="state.edit({ backText: $event })"
             ></textarea>
           </label>
+          <stats-editor [value]="draft.fields.stats ?? null" (statsChange)="state.edit({ stats: $event })" />
           <p class="hint" [hidden]="editorTab() !== 'document'">
-            Plain text for the back of the physical card. Keep it short enough to fit without
-            scrolling.
+            Plain text for the back of the physical card. Long text continues in Details; the card itself does not scroll.
           </p>
           <label [hidden]="editorTab() !== 'document'"
             >Markdown body<textarea
@@ -401,6 +409,8 @@
                 <playing-card
                   [artwork]="state.pendingArtwork() === 'remove' ? null : artwork.draft(draft)"
                   [localArtwork]="state.localArtwork()"
+                  [detailsImage]="state.pendingDetailsImage() === 'remove' ? null : artwork.details(draft)"
+                  [localDetailsImage]="state.localDetailsImage()"
                   [title]="draft.fields.title"
                   [type]="draft.fields.type"
                   [tags]="
@@ -408,7 +418,7 @@
                   "
                   [summary]="draft.fields.summary"
                   [quote]="draft.fields.quote ?? ''"
-                  [backText]="draft.fields.backText ?? ''"
+                  [backText]="draft.fields.backText ?? ''" [stats]="draft.fields.stats ?? null"
                   [visibilityKey]="draft.id"
                   [context]="draft.id + ':' + draft.revision"
                   (openDocument)="full.set(true)"

@@ -24,13 +24,13 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
             ensure(capturedNotes.size + next.size <= 10000) { Failure.Invalid("sessions.archive-size", "Select sessions containing at most 10,000 PlayNotes in total.") }
             capturedNotes.addAll(next)
         }
-        val result = SessionTransfer(12, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) }, capturedNotes)
+        val result = SessionTransfer(14, contents.sessions, contents.sessions.map { ArchivedWorkspace(it.id, workspaces.snapshot(campaign, it.id).bind()) }, capturedNotes)
         val encoded = try { codec.writeTransfer(result) } catch (_: Exception) { raise(Failure.Invalid("sessions.archive-size", "Session manifest exceeds 20 MiB; select fewer sessions.")) }
         ensure(encoded.size <= 20 * 1024 * 1024) { invalid() }
         result
     } }
     fun validate(archive: SessionTransfer, illustrated: Boolean): Either<Failure, Unit> = either {
-        ensure(archive.version in 10..12) { invalid() }
+        ensure(archive.version in 10..14) { invalid() }
         preparation.validateContents(Archive(archive.version, archive.sessions), illustrated).bind()
         ensure(archive.notes.size <= 10000 && archive.notes.map { it.id }.distinct().size == archive.notes.size) { invalid() }
         val sessionById = archive.sessions.associateBy { it.id }
@@ -69,7 +69,7 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
         tx.run { either {
             campaigns.configuration(campaign).bind()
             val archive = manifest(campaign, request, illustrated = true).bind()
-            val metadata = archive.sessions.flatMap { it.items }.mapNotNull { it.image }.distinctBy { it.hash }
+            val metadata = archive.sessions.flatMap { it.items }.flatMap { listOfNotNull(it.image, it.detailsImage) }.distinctBy { it.hash }
             work.stage("manifest.json", codec.writeTransfer(archive).inputStream(), 20L * 1024 * 1024)
             for (m in metadata) {
                 ensure(preparation.imageMetadata(campaign, m.hash) == m) { Failure.Unreadable("image.unavailable", "Required session artwork is unavailable.") }
@@ -82,9 +82,9 @@ class PortableSessionService(private val preparation: PreparationTransfers, priv
     fun import(campaign: UUID, input: InputStream): Either<Failure, SessionList> = transfers.run { work -> either {
         val (zip, source) = input.isZip()
         ensure(zip) { invalid() }
-        val archive = codec.readTransfer(work.unpack(source, 20 * 1024 * 1024, 1000)).bind()
+        val archive = codec.readTransfer(work.unpack(source, 20 * 1024 * 1024, 2001)).bind()
         validate(archive, illustrated = true).bind()
-        val metadata = work.validateImages(archive.sessions.flatMap { it.items }.mapNotNull { it.image }, processor).bind()
+        val metadata = work.validateImages(archive.sessions.flatMap { it.items }.flatMap { listOfNotNull(it.image, it.detailsImage) }, processor).bind()
         tx.run { either {
             campaigns.configuration(campaign).bind()
             metadata.forEach { preparation.putImage(campaign, work.image(it)) }

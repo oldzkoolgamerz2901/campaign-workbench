@@ -18,4 +18,11 @@ export class PreparedArtwork {
         }
       : null;
   }
+  details(campaign: string, session: string, item: PreparedItemData): ArtworkSource | null {
+    return item.detailsImage && campaign && session ? {
+      key: `prepared-details:${campaign}:${session}:${item.id}:${item.detailsImage.hash}`,
+      load: () => this.api.getPreparedDetailsImage(campaign, session, item.id, 'DISPLAY'),
+    } : null;
+  }
+
 }

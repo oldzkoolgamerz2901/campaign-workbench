@@ -4,7 +4,7 @@ import { CardLayoutRenderer } from './card-layout-renderer';
 
 function layout(): CardLayout {
   return {
-    profile: 'physical-card-2',
+    profile: 'physical-card-4',
     width: 243,
     height: 420,
     fonts: Object.fromEntries(Object.entries(CARD_FONTS).map(([key, font]) => [key, font.hash])),

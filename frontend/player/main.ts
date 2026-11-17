@@ -38,6 +38,7 @@ class PlayerCardTransport {
   stale = false;
   onFailure: (error: unknown) => void = () => {};
   private readonly layouts = new Map<string, CardLayout>();
+  private readonly disclosures = new Map<string, boolean>();
   // Bounded session memory for local reading, never browser-persistent offline storage.
   private readonly images = new Map<string, Blob>();
   private accessible = new Set<string>();
@@ -45,29 +46,38 @@ class PlayerCardTransport {
   clear() {
     ++this.generation;
     this.layouts.clear();
+    this.disclosures.clear();
     this.images.clear();
     this.accessible.clear();
     this.credential = '';
   }
   retain(cards: SharedCardData[]) {
     this.accessible = new Set(cards.map((card) => card.id));
+    for (const card of cards) {
+      if (this.disclosures.get(card.id) !== card.backRevealed) this.layouts.delete(card.id);
+      this.disclosures.set(card.id, card.backRevealed);
+    }
+    for (const id of this.disclosures.keys()) if (!this.accessible.has(id)) this.disclosures.delete(id);
     for (const id of this.layouts.keys()) if (!this.accessible.has(id)) this.layouts.delete(id);
-    for (const id of this.images.keys()) if (!this.accessible.has(id)) this.images.delete(id);
+    for (const key of this.images.keys()) if (!this.accessible.has(key.startsWith('details:') ? key.slice(8) : key)) this.images.delete(key);
   }
-  artwork(id: string) {
-    const cached = this.images.get(id);
+  artwork(id: string) { return this.image(id, false); }
+  detailsImage(id: string) { return this.image(id, true); }
+  private image(id: string, details: boolean) {
+    const key = details ? `details:${id}` : id;
+    const cached = this.images.get(key);
     if (cached && this.accessible.has(id)) {
-      this.images.delete(id);
-      this.images.set(id, cached);
+      this.images.delete(key);
+      this.images.set(key, cached);
       return of(cached);
     }
     const generation = this.generation;
-    return this.api.getPlayerCardArtwork(id, `Bearer ${this.credential}`).pipe(
+    return (details ? this.api.getPlayerDetailsImage(id, `Bearer ${this.credential}`) : this.api.getPlayerCardArtwork(id, `Bearer ${this.credential}`)).pipe(
       tap({
         next: (image) => {
           if (generation !== this.generation || !this.accessible.has(id)) return;
-          this.images.delete(id);
-          this.images.set(id, image);
+          this.images.delete(key);
+          this.images.set(key, image);
           if (this.images.size > 16) this.images.delete(this.images.keys().next().value!);
         },
         error: (error) => {
@@ -80,11 +90,12 @@ class PlayerCardTransport {
     const cached = this.layouts.get(id);
     if (this.stale && cached) return of(cached);
     const credential = this.credential;
+    const disclosure = this.disclosures.get(id);
     const generation = this.generation;
     return this.api.getPlayerCardLayout(id, `Bearer ${credential}`).pipe(
       tap({
         next: (layout) => {
-          if (generation === this.generation && this.accessible.has(id))
+          if (generation === this.generation && this.accessible.has(id) && this.disclosures.get(id) === disclosure)
             this.layouts.set(id, layout);
         },
         error: (error) => {
@@ -171,6 +182,7 @@ function readSaved(): Saved {
             [movable]="true"
             (organize)="organize($event)"
             [artwork]="artwork"
+            [detailsImage]="detailsImage"
             [actions]="cardActions"
             [disabled]="state() !== 'connected' || commandBusy()"
             (command)="cardCommand($event)"
@@ -450,6 +462,10 @@ export class PlayerApp implements OnDestroy {
   readonly arrivals = signal({ group: false, mine: false });
   private loaded = false;
   private refreshing = false;
+  readonly detailsImage = (card: SharedCardData): ArtworkSource | null => card.detailsImage ? {
+    key: `player-details:${this.identity()?.campaign}:${card.id}`,
+    load: () => this.transport.detailsImage(card.id),
+  } : null;
   readonly artwork = (card: SharedCardData): ArtworkSource | null =>
     card.artwork
       ? {

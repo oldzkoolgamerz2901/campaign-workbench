@@ -119,13 +119,13 @@ class CardLibraryService(
             }.ifEmpty { binding?.let { listOf(LibrarySourceState(it.path, null, it.declaredId, if (issues.isEmpty()) "unavailable" else "conflict", null)) }.orEmpty() }
             val title = d?.title?.takeIf { it.isNotBlank() } ?: d?.path ?: classification.metadata?.title ?: material.first().path
             val metadata = classification.metadata
-            val layout = layouts.layout(metadata?.layoutInput() ?: CardLayoutInput(d?.title ?: metadata?.title.orEmpty(), d?.type ?: metadata?.type.orEmpty(), d?.summary ?: metadata?.summary.orEmpty(), d?.tags ?: metadata?.tags.orEmpty(), d?.backText ?: metadata?.backText.orEmpty(), d?.quote ?: metadata?.quote.orEmpty()))
+            val layout = layouts.layout((metadata?.layoutInput() ?: CardLayoutInput(d?.title ?: metadata?.title.orEmpty(), d?.type ?: metadata?.type.orEmpty(), d?.summary ?: metadata?.summary.orEmpty(), d?.tags ?: metadata?.tags.orEmpty(), d?.backText ?: metadata?.backText.orEmpty(), d?.quote ?: metadata?.quote.orEmpty())).copy(stats = d?.stats?.layoutStats()))
             val fitIssues = layout.front.issues + layout.back.issues
-            val ready = layout.front.fits && layout.back.fits && issues.isEmpty() && classification.metadata?.purpose == "session" && classification.issues.none { it.severity == "error" } &&
+            val ready = layout.front.fits && issues.isEmpty() && classification.metadata?.purpose == "session" && classification.issues.none { it.severity == "error" } &&
                 if (d == null) material.singleOrNull()?.let { source ->
                     source.raw.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024 && exportPathErrors(source.path).isEmpty() && authoring.decode(source.raw).errors.isEmpty()
                 } == true else encoded!!.errors.isEmpty() && exportPathErrors(d.path).isEmpty() && encoded.markdown.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024
-            View(LibraryEntry(k, logical, d?.id, d?.revision, title, classification, d?.image, sourceStates, issues, ready, fitIssues), material, d,
+            View(LibraryEntry(k, logical, d?.id, d?.revision, title, classification, d?.image, sourceStates, issues, ready, fitIssues, d?.detailsImage, d?.stats), material, d,
                 encoded?.let { DraftPreview(it.preview, exportPathErrors(d.path), capture = captured.capture, layout = layout) })
         }.sortedWith(compareBy({ it.entry.title.lowercase(java.util.Locale.ROOT) }, { it.entry.key }))
         Snapshot(captured.capture, views)

@@ -164,10 +164,12 @@ export class ShareWorkspace implements OnDestroy {
   private readonly recoveryClose = viewChild('recoveryClose', {
     read: ElementRef<HTMLButtonElement>,
   });
-  readonly cardActions = (card: SharedCardData) =>
-    card.mode === 'INVENTORY'
+  readonly cardActions = (card: SharedCardData) => [
+    ...(card.backRevealed ? [] : ['Reveal back']),
+    ...(card.mode === 'INVENTORY'
       ? [...(this.collection() !== 'group' || this.players().length ? ['Transfer'] : []), 'Remove']
-      : ['Withdraw'];
+      : ['Withdraw']),
+  ];
   recipientName(id: string | null) {
     return id
       ? this.players().find((player) => player.id === id)?.displayName || 'Unavailable player'
@@ -211,6 +213,10 @@ export class ShareWorkspace implements OnDestroy {
       campaign = this.campaign();
     if (action === 'Transfer')
       await this.transferCard(card, this.transferDestination(), this.transferPile() || undefined);
+    else if (action === 'Reveal back')
+      await this.runLifecycle(() => firstValueFrom(
+        this.lifecycle.revealSharedCardBack(campaign, card.id, 'body', false, this.json),
+      ));
     else
       await this.runLifecycle(() =>
         firstValueFrom(
@@ -283,9 +289,11 @@ export class ShareWorkspace implements OnDestroy {
   readonly deliveryBusy = signal(false);
   readonly uncertain = signal(false);
   readonly previewImageReady = signal(false);
+  readonly previewDetailsReady = signal(false);
   readonly newDestinations = signal<string[]>([]);
   readonly destination = signal('group');
   readonly deliveryMode = signal<'' | 'HANDOUT' | 'INVENTORY'>('');
+  readonly deliveryReveal = signal(false);
   private delivery: DistributeCard | null = null;
   private sourceItem = '';
   private collectionRequest = 0;
@@ -297,6 +305,20 @@ export class ShareWorkspace implements OnDestroy {
           load: () => this.distribution.getSharedArtwork(this.campaign(), card.id),
         }
       : null;
+  readonly sharedDetailsImage = (card: SharedCardData): ArtworkSource | null => card.detailsImage ? {
+    key: `shared-details:${this.campaign()}:${card.id}`,
+    load: () => this.distribution.getSharedDetailsImage(this.campaign(), card.id),
+  } : null;
+  readonly previewDetailsImage = (): ArtworkSource | null => this.preview()?.detailsImage && this.delivery ? {
+    key: `preview-details:${this.campaign()}:${this.delivery.fingerprint}`,
+    load: () => {
+      const fingerprint = this.delivery!.fingerprint;
+      return this.distribution.previewSharedDetailsImage(this.campaign(), this.delivery!).pipe(tap({
+        next: () => { if (this.delivery?.fingerprint === fingerprint) this.previewDetailsReady.set(true); },
+        error: () => { if (this.delivery?.fingerprint === fingerprint) this.previewDetailsReady.set(false); },
+      }));
+    },
+  } : null;
   readonly previewArtwork = (): ArtworkSource | null =>
     this.preview()?.artwork && this.delivery
       ? {
@@ -381,6 +403,7 @@ export class ShareWorkspace implements OnDestroy {
     this.newPileName.set('');
     void this.loadGroupPiles();
     this.deliveryMode.set('');
+    this.deliveryReveal.set(false);
     this.deliveryError.set('');
     this.uncertain.set(false);
     this.preview.set(null);
@@ -393,6 +416,7 @@ export class ShareWorkspace implements OnDestroy {
     if (!session) return;
     const epoch = this.epoch;
     this.previewImageReady.set(false);
+    this.previewDetailsReady.set(false);
     this.deliveryBusy.set(true);
     this.deliveryError.set('');
     try {
@@ -416,6 +440,7 @@ export class ShareWorkspace implements OnDestroy {
       };
       this.preview.set(preview);
       this.previewImageReady.set(!preview.artwork);
+      this.previewDetailsReady.set(!preview.detailsImage);
       this.uncertain.set(false);
     } catch {
       if (epoch === this.epoch) this.deliveryError.set('Cannot load preview. Retry review.');
@@ -429,6 +454,7 @@ export class ShareWorkspace implements OnDestroy {
       !this.deliveryMode() ||
       this.deliveryBusy() ||
       !this.previewImageReady() ||
+      !this.previewDetailsReady() ||
       (this.destination() === 'group' &&
         this.deliveryPile() === 'new' &&
         !this.newPileName().trim())
@@ -439,6 +465,7 @@ export class ShareWorkspace implements OnDestroy {
       this.delivery = {
         ...this.delivery,
         mode: this.deliveryMode() as 'HANDOUT' | 'INVENTORY',
+        revealBack: this.deliveryReveal(),
         recipient: this.destination() === 'group' ? null : this.destination(),
         pile:
           this.destination() === 'group' && this.deliveryPile() !== 'new'

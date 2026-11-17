@@ -984,7 +984,7 @@ In scope: revisioned Save Draft, campaign isolation and durability, incomplete c
 
 ## Card communication and disclosure refinement — requirements captured 2026-11-17
 
-**Status: owner-directed requirements record; not implementation authorization.** This feature extends the delivered front/back cards and frozen player sharing. It supersedes earlier card presentation and both-side-fit rules only where explicitly noted. Architecture, planning, implementation and verification require their own approvals. **Complete Backup & Restore is a separate feature**, not part of this increment.
+**Status: owner-approved requirements, including the refinements below (2026-11-17).** CD1–CD5 have scoped delivery/verification evidence in the implementation plan and verification record, including optional structured stats. This feature extends the delivered front/back cards and frozen player sharing. It supersedes earlier card presentation and both-side-fit rules only where explicitly noted. Later increments require their own phase approvals. **Complete Backup & Restore is a separate feature**, not part of this feature.
 
 ### Purpose and mental model
 
@@ -1017,12 +1017,12 @@ Cards are the primary unit for presenting and sharing material with players. **F
 
 - DM can distribute a frozen instance **front-only** or with its back already revealed. **Every shared card remains flippable**. The player-facing back always contains its title, type and Flip action, even before reveal. When unrevealed, it shows no back information or stats, and the player API must **not send** unrevealed content. Distinguish an unrevealed back from a genuinely empty back without disclosing hidden text.
 - DM can explicitly **Reveal back** on a previously shared instance. This permanently changes that same instance's permitted content without duplicating or moving it. No unreveal action is required. Existing transfer, collection, pile, claim and recovery semantics are retained. An existing prepared revision update must never silently reveal information.
-- The single Details window must respect the same server-enforced disclosure boundaries. In particular, independently shared additional imagery may be viewed through Details while back text/stats remain unrevealed; this must not leak hidden back data.
+- The optional additional image is always available through Details on a shared card, including while back text/stats remain unrevealed. There is no separate image visibility choice or Reveal image action. Reveal back controls only back text and stats; image access must not leak either.
 - Review and confirmation must show exactly what the player will receive. Frozen payloads and retries must preserve recipient, content, permissions, artwork and reveal state. DM-only source bodies, notes and provenance must remain inaccessible to player APIs.
 
 ### Acceptance scenarios and preservation
 
-1. Front-only location card: player sees illustration, title, quote and can hide/show the front panel; flips to title/type with no leaked information; if its additional map image is shared, Details opens that image without back text.
+1. Front-only location card: player sees illustration, title, quote and can hide/show the front panel; flips to title/type with no leaked information; when it has an additional map image, Details opens that image without back text.
 2. DM permanently reveals the same shared card's back; player sees the information after refresh/reconnect without duplicate card, changed location or implicit share of source notes.
 3. Simple item without stats or extra image: short back is readable on the card and does not show a pointless Details action.
 4. Dense NPC/enemy: structured stats and long back text render with legible typography; compact back keeps complete groups, signals overflow and the single Details surface provides complete permitted information.
@@ -1030,12 +1030,18 @@ Cards are the primary unit for presenting and sharing material with players. **F
 6. Existing Markdown quote/back text autofill remains deterministic; Markdown-only export clearly distinguishes its preserved fields from Writer-only data.
 7. Reader and Sharing interactions remain keyboard/touch accessible; Flip, Hide text, Details, drag and card selection remain distinct. Access denial prevents hidden content delivery, including through API/side-reading.
 
-### Open decisions for architecture/UX before an implementation plan
+### Owner-approved refinements — 2026-11-17
 
-- Exact prioritization of stat sections versus ordinary back text when the compact back runs out of space; whether partially visible paragraphs are shown with an ellipsis versus whole-block omission.
-- Final UX for revealing an unrevealed back versus an intentionally empty back, and discoverability of a Details image when back information is unrevealed.
-- Additional-image ownership/import/export and separately chosen image visibility in the distribution flow, including how an already shared image could be introduced later.
-- Exact representation and codec/versioning of Writer-only stats and extra artwork through historical and recovery formats, without relying on Markdown export as a complete backup.
+- Existing shared cards may be discarded; preserving their disclosure state is not required. This does not authorize deletion of Drafts, prepared sessions, campaign sources or other application state, or execution of a data cleanup during design.
+- New distributions default to front-only; the DM explicitly chooses whether the back is already revealed. Review and confirmation preview the resulting permitted content. The front illustration and any additional Details image are available regardless of back reveal state.
+- Compact backs always retain title/type. Give core stats priority, followed by ordinary back text and then remaining stat groups in authored order. Keep coherent stat groups complete; show only complete fitting text lines, with a visible ellipsis when text continues. Details contains the complete permitted text and stats.
+- Distinguish withheld information with “Back not revealed” from a revealed, empty back with “No back information”. Offer Details for permitted overflow or an additional image; an image-only Details view contains no withheld text or stats.
+- No later insertion or replacement of an additional image on an existing frozen shared instance is required; changed content requires a new explicit distribution.
+
+### Resolved architecture/UX decisions — CD4/CD5
+
+- Resolved for CD5: `docs/statblock_cards.html` supplies the reference. Optional stats use authored string values, separate defenses, six score/modifier/save rows, ordered custom sections with named/unnamed plain-text entries and in-section spellcasting. Core is subtitle/key stats/complete ability grid; its grouping is presentation policy. Fixed existing typography, no auto-shrink or inline markup. See accepted CD5 architecture and plan.
+- Additional-image ownership/import/export and codec choices are resolved by CD4's accepted plan and delivery record. CD5 resolves stats snapshot/recovery representation using owner-specific immutable values, explicit mappings and versioned formats; Markdown export remains incomplete.
 
 ### Explicit non-goals
 

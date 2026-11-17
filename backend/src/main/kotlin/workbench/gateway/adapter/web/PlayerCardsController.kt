@@ -38,6 +38,14 @@ class PlayerCardsController(private val cards: PlayerCards, private val commands
             { Either.Left(it).response(noStore=true) },
             { ResponseEntity.ok().header("Cache-Control","no-store").header("Content-Type",it.mime).body(it.content.copy()) })
 
+    @Operation(operationId="getPlayerDetailsImage")
+    @ApiResponse(responseCode="200",content=[Content(mediaType="image/jpeg",schema=Schema(type="string",format="binary"))])
+    @GetMapping("/cards/{card}/details-image",produces=["image/jpeg","image/png"])
+    fun detailsImage(request: HttpServletRequest,@RequestHeader(name="Authorization",required=false) auth: String?,@PathVariable card: UUID): ResponseEntity<*> =
+        admitted(request) { cards.detailsImage(it,credential(auth),card) }.fold(
+            { Either.Left(it).response(noStore=true) },
+            { ResponseEntity.ok().header("Cache-Control","no-store").header("Content-Type",it.mime).body(it.content.copy()) })
+
     @Operation(operationId="claimPlayerCard")
     @ApiResponse(responseCode="200",content=[Content(mediaType="application/json",schema=Schema(implementation=SharedCardData::class))])
     @PostMapping("/cards/{card}/claim",consumes=["application/json"],produces=["application/json"])

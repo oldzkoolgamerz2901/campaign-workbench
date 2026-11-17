@@ -15,13 +15,13 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
     fun preview(campaign: UUID, request: PreviewSharedCard) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val source = prepared.card(campaign, request.session, request.item).bind()
-        SharedCardPreview(fingerprint(source), source.visible, source.artwork != null)
+        SharedCardPreview(fingerprint(source), source.visible.sharedContent(), source.artwork != null, source.detailsImage != null)
     } }
-    fun previewArtwork(campaign: UUID, request: DistributeCard) = tx.run { either {
+    fun previewArtwork(campaign: UUID, request: DistributeCard, details: Boolean = false) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val source = prepared.card(campaign, request.session, request.item).bind()
         ensure(fingerprint(source) == request.fingerprint) { changed() }
-        ensureNotNull(source.artwork?.derivatives?.singleOrNull { it.variant == ImageVariant.DISPLAY }) { missing() }
+        ensureNotNull((if (details) source.detailsImage else source.artwork)?.derivatives?.singleOrNull { it.variant == ImageVariant.DISPLAY }) { missing() }
     } }
     fun distribute(campaign: UUID, request: DistributeCard) = tx.run { either {
         campaigns.configuration(campaign).bind()
@@ -41,7 +41,7 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
                 ensure(trimmed.isNotEmpty() && trimmed.length<=200) { Failure.Invalid("sharing.pile-name","Enter a pile name of 1–200 characters.") }
                 piles.create(campaign,null,trimmed)
             } ?: request.pile
-            val card=cards.insert(campaign, request, source, clock.now())
+            val card=cards.insert(campaign, request, source.freezeForSharing(), clock.now())
             if(destination!=null) piles.move(campaign,null,card.id,destination,null)
             ensureNotNull(cards.card(campaign,card.id)?.second) { missing() }
         }
@@ -51,20 +51,38 @@ class DistributionService(private val campaigns: Campaigns, private val prepared
         recipient?.let { ensureNotNull(players.player(campaign, it)) { missing() } }
         SharedCollection(cards.cards(campaign, recipient),piles.piles(campaign,recipient))
     } }
-    fun artwork(campaign: UUID, card: UUID) = tx.run { either {
+    fun artwork(campaign: UUID, card: UUID, details: Boolean = false) = tx.run { either {
         campaigns.configuration(campaign).bind()
-        ensureNotNull(cards.artwork(campaign, card)) { missing() }
+        ensureNotNull(cards.artwork(campaign, card, details)) { missing() }
     } }
     private fun fingerprint(source: PreparedCard): String {
         val bytes = ByteArrayOutputStream()
         DataOutputStream(bytes).use { out ->
             fun field(value: String) { val b=value.toByteArray(Charsets.UTF_8); out.writeInt(b.size); out.write(b) }
             val v=source.visible
-            field(if (v.quote.isEmpty()) "shared-card-1" else "shared-card-2"); field(v.title); field(v.type); field(v.summary); out.writeInt(v.tags.size)
+            field(if (v.stats != null) "shared-card-4" else if (source.detailsImage != null) "shared-card-3" else if (v.quote.isEmpty()) "shared-card-1" else "shared-card-2"); field(v.title); field(v.type); field(v.summary); out.writeInt(v.tags.size)
             v.tags.forEach(::field); field(v.backText)
-            if (v.quote.isNotEmpty()) field(v.quote)
+            if (v.quote.isNotEmpty() || v.stats != null) field(v.quote)
+            v.stats?.let { s ->
+                listOf(s.subtitle, s.ac, s.hp, s.speed, s.initiative, s.cr, s.skills, s.vulnerabilities,
+                    s.resistances, s.immunities, s.gear, s.senses, s.languages).forEach(::field)
+                out.writeInt(s.abilities.size)
+                s.abilities.toSortedMap().forEach { (key, a) -> field(key); field(a.score); field(a.modifier); field(a.save) }
+                out.writeInt(s.sections.size)
+                s.sections.forEach { section ->
+                    field(section.title); out.writeInt(section.entries.size)
+                    section.entries.forEach { e ->
+                        field(e.name); field(e.text); out.writeBoolean(e.spellcasting != null)
+                        e.spellcasting?.let { field(it.ability); field(it.dc); field(it.spells) }
+                    }
+                }
+            }
             field(source.artwork?.metadata?.hash.orEmpty())
             source.artwork?.derivatives?.sortedBy { it.variant.name }?.forEach { field(it.variant.name); field(it.content.sha256) }
+            source.detailsImage?.let { image ->
+                field(image.metadata.hash)
+                image.derivatives.sortedBy { it.variant.name }.forEach { field(it.variant.name); field(it.content.sha256) }
+            }
         }
         return MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray()).joinToString("") { "%02x".format(it) }
     }

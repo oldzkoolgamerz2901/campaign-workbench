@@ -53,7 +53,7 @@ class SessionLibraryService(private val campaigns: Campaigns, private val librar
         ensure(entry.draft == request.draft && entry.revision == request.draftRevision) {
             Failure.Conflict("writing.stale-revision", "Draft identity or saved revision changed. Reload the catalogue before preparing this card.")
         }
-        ensure(entry.ready) { invalid(if (entry.fitIssues.isNotEmpty()) "Card text does not fit. Shorten the front title, summary or tags, or the back text in Write." else "Complete valid session metadata in Write before preparing this card.") }
+        ensure(entry.ready) { invalid(if (entry.fitIssues.isNotEmpty()) "Card text does not fit. Shorten the front title or quote in Write." else "Complete valid session metadata in Write before preparing this card.") }
     }
     private fun revision(session: SessionData, expected: Long): Either<Failure, Unit> = either {
         ensure(session.revision == expected) { Failure.Conflict("preparation.stale-revision", "Session changed. Reload explicitly before changing membership or replacing content.") }

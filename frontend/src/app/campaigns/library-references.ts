@@ -83,12 +83,13 @@ import { REFERENCE_LIBRARY_STATE } from './library-references-state';
           [summary]="entry.classification?.metadata?.summary ?? ''"
           [quote]="entry.classification?.metadata?.quote ?? ''"
           [tags]="entry.classification?.metadata?.tags ?? []"
-          [backText]="entry.classification?.metadata?.backText ?? ''"
+          [backText]="entry.classification?.metadata?.backText ?? ''" [stats]="entry.stats ?? null"
           [visibilityKey]="campaign() + ':' + entry.key"
           [context]="
             campaign() + ':' + entry.key + ':' + entry.revision + ':' + state.documentCapture()
           "
           [artwork]="artwork(entry)"
+          [detailsImage]="detailsArtwork(entry)"
           (openDocument)="openDocument.emit(entry)"
         />
         @if (allowAdd()) {
@@ -197,6 +198,13 @@ export class LibraryReferences implements OnDestroy {
     effect(() => {
       void this.state.bind(this.campaign(), this.session());
     });
+  }
+  detailsArtwork(entry: LibraryEntry): ArtworkSource | null {
+    const campaign = this.campaign(), draft = entry.draft;
+    return entry.detailsImage && draft ? {
+      key: `library-details:${campaign}:${draft}:${entry.detailsImage.hash}`,
+      load: () => this.api.getDraftDetailsImage(campaign, draft, 'DISPLAY'),
+    } : null;
   }
   artwork(entry: LibraryEntry, variant: 'DISPLAY' | 'THUMBNAIL' = 'DISPLAY'): ArtworkSource | null {
     const campaign = this.campaign(),

@@ -28,27 +28,41 @@ class PlayHistoryIntegrationTest : StringSpec({
             val legacyDraft = UUID.randomUUID()
             c.getBean(JdbcTemplate::class.java).update("INSERT INTO writing.draft(id,campaign,card,revision,title,type,status,tags,summary,body,path) VALUES (?,?,?,0,'Legacy','npc','draft','[]','','# Old body','legacy.md')", legacyDraft, campaign, UUID.randomUUID())
             val other = campaigns.register(RegisterCampaign("Other", Files.createDirectory(root.resolve("other")).toString())).getOrNull()!!.id
-            val preparation = c.getBean(PreparationService::class.java)
-            val first = preparation.create(campaign, CreateSession("First session", "")).getOrNull()!!
-            val second = preparation.create(campaign, CreateSession("Independent imported copy", "")).getOrNull()!!
-            val outside = preparation.create(other, CreateSession("Isolated", "")).getOrNull()!!
+            // Seed the actual V20 wire/schema instead of using today's ORM against an older table.
+            val legacyJdbc = c.getBean(JdbcTemplate::class.java)
+            val legacyMapper = c.getBean(tools.jackson.databind.ObjectMapper::class.java)
+            fun legacySession(owner: UUID, title: String): SessionData {
+                val id = UUID.randomUUID()
+                legacyJdbc.update("INSERT INTO preparation.session(id,campaign,revision,title,objective,notes) VALUES (?,?,0,?,'','')", id, owner, title)
+                return SessionData(id, owner, 0, title, "", "", emptyList())
+            }
+            val first = legacySession(campaign, "First session")
+            val second = legacySession(campaign, "Independent imported copy")
+            val outside = legacySession(other, "Isolated")
             val ref = ResourceReference(UUID.randomUUID(), UUID.randomUUID()) // imported foreign origin
             val differentOrigin = ref.copy(campaign = UUID.randomUUID())
             val base = Instant.parse("2026-10-24T12:00:00Z")
-            val transfer = c.getBean(PlayNoteTransfers::class.java)
+            fun seedLegacy(owner: UUID, session: UUID, notes: List<PlayNoteData>): Boolean {
+                notes.forEach { n ->
+                    check(n.campaign == owner && n.session == session)
+                    val state = legacyMapper.writeValueAsString(mapOf("note" to n, "operation" to null, "creation" to null))
+                    legacyJdbc.update("INSERT INTO playthroughs.play_note(id,session,state) VALUES (?,?,?)", n.id, session, state)
+                }
+                return true
+            }
             fun note(session: SessionData, time: Instant, resource: ResourceReference? = ref,
                 scene: ResourceReference? = null, pinned: Boolean = false) = PlayNoteData(UUID.randomUUID(), session.campaign,
                 session.id, 0, "Historical **text**", scene?.let { ResourceSnapshot(it, "Old Scene title") },
                 ResourceSnapshot(resource, "Same title and path cannot establish identity"), time, time, pinned)
-            transfer.restore(campaign, first.id, listOf(
+            seedLegacy(campaign, first.id, listOf(
                 note(first, base), note(first, base), note(first, base.plusNanos(1), pinned = true),
                 note(first, base.plusNanos(2)), note(first, base.plusNanos(3), differentOrigin),
                 note(first, base.plusNanos(4), null, ref), note(first, base.plusNanos(5), null),
                 note(first, Instant.parse("+1000000000-12-31T23:59:59.999999999Z")),
                 note(first, Instant.parse("-1000000000-01-01T00:00:00Z"))
-            )).isRight() shouldBe true
-            transfer.restore(campaign, second.id, listOf(note(second, base))).isRight() shouldBe true
-            transfer.restore(other, outside.id, listOf(note(outside, base.plusSeconds(1)))).isRight() shouldBe true
+            ) ) shouldBe true
+            seedLegacy(campaign, second.id, listOf(note(second, base)) ) shouldBe true
+            seedLegacy(other, outside.id, listOf(note(outside, base.plusSeconds(1)))) shouldBe true
             c.close()
             // V21 indexes the unchanged P5 records, including extreme Instant years and nanos.
             c = SpringApplicationBuilder(CampaignWorkbenchApplication::class.java).run(*args)

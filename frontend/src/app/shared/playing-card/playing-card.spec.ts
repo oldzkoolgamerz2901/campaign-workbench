@@ -33,6 +33,22 @@ describe('Playing card', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('CD5 sends only permitted stats to layout and renders complete literal stats in the single Details dialog', async () => {
+    const fixture = TestBed.createComponent(PlayingCard);
+    fixture.componentRef.setInput('stats', { ac: '17', sections: [{ title: 'Traits', entries: [{ name: 'Watchful', text: '<b>SECRET_STAT</b>' }] }] });
+    fixture.componentRef.setInput('backRevealed', false);
+    await fixture.whenStable();
+    const api = TestBed.inject(CardLayoutControllerService);
+    expect(vi.mocked(api.calculateCardLayout).mock.calls.at(-1)?.[0].stats).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('SECRET_STAT');
+    fixture.componentRef.setInput('backRevealed', true);
+    await fixture.whenStable();
+    expect(vi.mocked(api.calculateCardLayout).mock.calls.at(-1)?.[0].stats?.ac).toBe('17');
+    expect(fixture.nativeElement.querySelectorAll('dialog')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('stats-reader').textContent).toContain('<b>SECRET_STAT</b>');
+    expect(fixture.nativeElement.querySelector('stats-reader b')).toBeNull();
+  });
+
   it('keeps the DM document action by default and permits a document-free card surface', async () => {
     const fixture=TestBed.createComponent(PlayingCard);
     fixture.detectChanges();
@@ -61,22 +77,22 @@ describe('Playing card', () => {
     requests[0].error(new Error('Offline'));
     await fixture.whenStable();
     const el: HTMLElement = fixture.nativeElement;
-    (el.querySelector('.fallback button') as HTMLButtonElement).click();
+    (el.querySelector('.details') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(el.querySelector('dialog')?.textContent).toContain(summary);
     expect(el.querySelectorAll('dialog li')).toHaveLength(32);
     expect(el.querySelector('script')).toBeNull();
-    fixture.componentInstance.closeReader();
+    fixture.componentInstance.closeDetails();
     (el.querySelector('.flip') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(fixture.componentInstance.side()).toBe('back');
     expect(el.querySelector('.document')).toBeNull();
-    (el.querySelector('.fallback button') as HTMLButtonElement).click();
+    (el.querySelector('.details') as HTMLButtonElement).click();
     await fixture.whenStable();
     expect(el.querySelector('dialog')?.textContent).toContain('Back <b>literal</b>\nSecond line');
     expect(select).not.toHaveBeenCalled();
     expect(open).not.toHaveBeenCalled();
-    fixture.componentInstance.closeReader();
+    fixture.componentInstance.closeDetails();
     (el.querySelector('.flip') as HTMLButtonElement).click();
     await fixture.whenStable();
     (el.querySelector('.document') as HTMLButtonElement).click();
@@ -85,6 +101,69 @@ describe('Playing card', () => {
     );
     expect(open).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledTimes(1);
+  });
+
+  it('withholds non-front content from layout requests and Details while retaining title quote and flip', async () => {
+    const fixture = TestBed.createComponent(PlayingCard);
+    fixture.componentRef.setInput('title', 'Visible title');
+    fixture.componentRef.setInput('quote', 'Visible quote');
+    fixture.componentRef.setInput('backRevealed', false);
+    fixture.componentRef.setInput('backText', 'PRIVATE_BACK');
+    fixture.componentRef.setInput('summary', 'PRIVATE_SUMMARY');
+    fixture.componentRef.setInput('tags', ['PRIVATE_TAG']);
+    await fixture.whenStable();
+    const payload = JSON.parse(fixture.componentInstance.content());
+    expect(payload.backText).toBe('Back not revealed');
+    expect(payload.summary).toBe('');
+    expect(payload.tags).toEqual([]);
+    requests[0].error(new Error('Offline'));
+    await fixture.whenStable();
+    (fixture.nativeElement.querySelector('.details') as HTMLButtonElement).click();
+    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('Back not revealed');
+    expect(fixture.nativeElement.textContent).not.toContain('PRIVATE_');
+    fixture.componentInstance.closeDetails();
+    fixture.componentInstance.flip(new Event('click'));
+    expect(fixture.componentInstance.side()).toBe('back');
+    fixture.componentRef.setInput('backRevealed', true);
+    await fixture.whenStable();
+    expect(JSON.parse(fixture.componentInstance.content()).backText).toBe('PRIVATE_BACK');
+    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('PRIVATE_BACK');
+  });
+
+  it('CD4 offers one image-only Details window before reveal and preserves reading for equivalent image loaders', async () => {
+    const fixture = TestBed.createComponent(PlayingCard);
+    fixture.componentRef.setInput('backRevealed', false);
+    fixture.componentRef.setInput('backText', 'PRIVATE_IMAGE_BACK');
+    fixture.componentRef.setInput('detailsImage', { key: 'map:one', load: () => new Subject<Blob>() });
+    await fixture.whenStable();
+    const details = fixture.nativeElement.querySelector('.details') as HTMLButtonElement;
+    expect(details).not.toBeNull();
+    details.click();
+    expect(fixture.nativeElement.querySelectorAll('dialog')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('dialog artwork-image')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('PRIVATE_IMAGE_BACK');
+    fixture.componentRef.setInput('detailsImage', { key: 'map:one', load: () => new Subject<Blob>() });
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('dialog').hasAttribute('open')).toBe(true);
+    fixture.componentRef.setInput('detailsImage', { key: 'map:two', load: () => new Subject<Blob>() });
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('dialog').hasAttribute('open')).toBe(false);
+  });
+
+  it('closes stale Details when the displayed content changes', async () => {
+    const fixture = TestBed.createComponent(PlayingCard);
+    fixture.componentRef.setInput('backText', 'Original back');
+    await fixture.whenStable();
+    requests[0].error(new Error('Offline'));
+    await fixture.whenStable();
+    const details = fixture.nativeElement.querySelector('.details') as HTMLButtonElement;
+    details.click();
+    expect(fixture.nativeElement.querySelector('dialog').hasAttribute('open')).toBe(true);
+    fixture.componentRef.setInput('backText', 'New back');
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('dialog').hasAttribute('open')).toBe(false);
+    expect(fixture.nativeElement.querySelector('dialog').textContent).not.toContain('Original back');
+    expect(requests[0].observed).toBe(false);
   });
 
   it('resets for changed content/context/selection, preserves unrelated updates and cancels stale layout responses', async () => {

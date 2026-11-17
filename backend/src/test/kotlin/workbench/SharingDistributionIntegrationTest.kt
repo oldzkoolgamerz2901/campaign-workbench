@@ -53,7 +53,7 @@ class SharingDistributionIntegrationTest : StringSpec({
     fun sources()=context!!.getBean(DistributionSources::class.java)
     fun jdbc()=context!!.getBean(JdbcTemplate::class.java)
     fun request(recipient: UUID?=null)=DistributeCard(UUID.randomUUID(),session,item,
-        distribution().preview(campaign,PreviewSharedCard(session,item)).getOrNull()!!.fingerprint,SharingMode.INVENTORY,recipient)
+        distribution().preview(campaign,PreviewSharedCard(session,item)).getOrNull()!!.fingerprint,SharingMode.INVENTORY,recipient,revealBack=true)
     fun paired(): Pair<CampaignPlayerData,PairingResult> {
         val p=sharing().add(campaign,AddCampaignPlayer("Reader")).getOrNull()!!
         val invite=sharing().invite(campaign,p.id).getOrNull()!!
@@ -67,7 +67,7 @@ class SharingDistributionIntegrationTest : StringSpec({
     }
     beforeTest {
         val image=context!!.getBean(ImageProcessor::class.java).process(ImageFixtures.png(60,40).inputStream()).getOrNull()!!
-        sources().source=PreparedCard(CardLayoutInput("Visible title","item","Visible summary",listOf("key"),"Visible back", "Visible quote"),image,
+        sources().source=PreparedCard(PreparedCardContent("Visible title","item","Visible summary",listOf("key"),"Visible back", "Visible quote"),image,
             PreparedCardProvenance(campaign,session,item,null,"DM_PRIVATE_PATH",null,"DM_DOCUMENT_HASH","DM_CONTENT_HASH","source",null,null,null,null))
     }
     afterSpec { context?.close(); db.stop(); root.toFile().deleteRecursively() }
@@ -92,7 +92,7 @@ class SharingDistributionIntegrationTest : StringSpec({
         source.visible.summary shouldBe "Visible summary"
         source.visible.quote shouldBe "Frozen quote"
         source.provenance.draft shouldBe origin.draft
-        prepared.card(campaign,sessionId,fallbackId).getOrNull()!!.visible shouldBe CardLayoutInput("Fallback title","card","",emptyList(),"")
+        prepared.card(campaign,sessionId,fallbackId).getOrNull()!!.visible shouldBe PreparedCardContent("Fallback title","card","",emptyList(),"")
         prepared.card(campaign,sessionId,UUID.randomUUID()).isLeft() shouldBe true
         val app=DistributionService(context!!.getBean(Campaigns::class.java),prepared,context!!.getBean(SharingStore::class.java),context!!.getBean(SharedCardStore::class.java),transaction,context!!.getBean(SharingClock::class.java),context!!.getBean(PileStore::class.java))
         val preview=app.preview(campaign,PreviewSharedCard(sessionId,itemId)).getOrNull()!!
@@ -134,7 +134,7 @@ class SharingDistributionIntegrationTest : StringSpec({
         } finally { pool.shutdownNow() }
     }
     "SCP-R1.3: empty quote uses predecessor fingerprint and legacy stored payload stays retryable" {
-        sources().source = sources().source!!.copy(visible = CardLayoutInput("Legacy", "npc", "Summary", listOf("old"), "Back"), artwork = null)
+        sources().source = sources().source!!.copy(visible = PreparedCardContent("Legacy", "npc", "Summary", listOf("old"), "Back"), artwork = null)
         // Fixed predecessor protocol vector; do not calculate expectations using current production code.
         val previous = "e819c4b9d084d0abd66fac55a7670d9a349fe0dbb12a856c86c8dc411dfdfb88"
         val req = request()
@@ -146,13 +146,127 @@ class SharingDistributionIntegrationTest : StringSpec({
         recovered.id shouldBe card.id
         recovered.visible.quote shouldBe ""
     }
+    "CD3 front-only defaults withhold information across every player projection and preserve it through hidden lifecycle recovery" {
+        val (player, device) = paired()
+        sources().source = sources().source!!.let { it.copy(visible = it.visible.copy(
+            summary = "CD3_SECRET_SUMMARY", tags = listOf("CD3_SECRET_TAG"), backText = "CD3_SECRET_BACK", stats = workbench.preparation.api.PreparedStats(ac = "CD5_SECRET_AC", sections = listOf(workbench.preparation.api.PreparedStatSection("CD5_SECRET_SECTION", listOf(workbench.preparation.api.PreparedStatEntry(text = "CD5_SECRET_ENTRY"))))))) }
+        val reviewed = distribution().preview(campaign, PreviewSharedCard(session, item)).getOrNull()!!
+        val req = DistributeCard(UUID.randomUUID(), session, item, reviewed.fingerprint, SharingMode.INVENTORY, null)
+        val card = distribution().distribute(campaign, req).getOrNull()!!
+        card.backRevealed shouldBe false
+        val mapper = context!!.getBean(ObjectMapper::class.java)
+        fun safe(value: Any) {
+            val wire = mapper.writeValueAsString(value)
+            listOf("CD3_SECRET_BACK", "CD3_SECRET_SUMMARY", "CD3_SECRET_TAG", "CD5_SECRET_AC", "CD5_SECRET_SECTION", "CD5_SECRET_ENTRY").forEach { wire.contains(it) shouldBe false }
+        }
+        val organization = context!!.getBean(OrganizationService::class.java)
+        safe(collections().collections(campaign, device.credential).getOrNull()!!)
+        val layout = collections().layout(campaign, device.credential, card.id).getOrNull()!!
+        safe(layout)
+        layout.back.lines.any { it.text == "Back not revealed" } shouldBe true
+        val pile = organization.organizeGroup(campaign, OrganizeCollection("CREATE", name = "Hidden")).getOrNull()!!.piles.last()
+        safe(organization.organizeGroup(campaign, device.credential, OrganizeCollection("MOVE", card = card.id, pile = pile.id)).getOrNull()!!)
+        val lifecycle = context!!.getBean(CardLifecycleService::class.java)
+        safe(lifecycle.claim(campaign, device.credential, card.id).getOrNull()!!)
+        safe(organization.organize(campaign, device.credential, OrganizeCollection("CREATE", name = "Personal hidden")).getOrNull()!!)
+        safe(lifecycle.remove(campaign, device.credential, card.id).getOrNull()!!)
+        lifecycle.revealBack(campaign, card.id).isLeft() shouldBe true
+        lifecycle.restore(campaign, card.id).getOrNull()!!.backRevealed shouldBe false
+        lifecycle.transfer(campaign, card.id, TransferSharedCard(null)).getOrNull()!!.backRevealed shouldBe false
+        context!!.close(); context = start(); sources().source = null
+        val read = collections().collections(campaign, device.credential).getOrNull()!!.group.cards.single { it.id == card.id }
+        safe(read)
+        read.backRevealed shouldBe false
+        distribution().distribute(campaign, req).getOrNull()!!.visible.backText shouldBe "CD3_SECRET_BACK"
+        distribution().collection(campaign, null).getOrNull()!!.cards.single { it.id == card.id }.visible.tags shouldBe listOf("CD3_SECRET_TAG")
+    }
+    "CD3 concurrent Reveal back is permanent and idempotent without changing frozen content placement or retry intent" {
+        val (_, device) = paired()
+        val org = context!!.getBean(OrganizationService::class.java)
+        val pile = org.organizeGroup(campaign, OrganizeCollection("CREATE", name = "Reveal pile")).getOrNull()!!.piles.last()
+        val req = request().copy(revealBack = false, pile = pile.id)
+        val card = distribution().distribute(campaign, req).getOrNull()!!
+        fun placement() = jdbc().queryForList("SELECT content,recipient,state,position,pile FROM sharing.shared_card WHERE campaign=? AND id=?", campaign, card.id)
+        val before = placement()
+        sources().source = null
+        val lifecycle = context!!.getBean(CardLifecycleService::class.java)
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val attempts = (1..2).map { pool.submit<SharedCardData> { lifecycle.revealBack(campaign, card.id).getOrNull()!! } }
+            attempts.forEach { it.get(10, TimeUnit.SECONDS).backRevealed shouldBe true }
+        } finally { pool.shutdownNow() }
+        placement() shouldBe before
+        jdbc().queryForObject("SELECT count(*) FROM sharing.card_event WHERE card=? AND kind='BACK_REVEALED'", Long::class.java, card.id) shouldBe 1L
+        val revealed = collections().collections(campaign, device.credential).getOrNull()!!.group.cards.single { it.id == card.id }
+        revealed.visible shouldBe card.visible
+        distribution().distribute(campaign, req).getOrNull()!!.backRevealed shouldBe true
+        distribution().distribute(campaign, req.copy(revealBack = true)).isLeft() shouldBe true
+        lifecycle.revealBack(other, card.id).isLeft() shouldBe true
+        lifecycle.removeByDm(campaign, card.id).isRight() shouldBe true
+        lifecycle.restore(campaign, card.id).getOrNull()!!.backRevealed shouldBe true
+        context!!.close(); context = start(); sources().source = null
+        distribution().distribute(campaign, req).getOrNull()!!.backRevealed shouldBe true
+        collections().layout(campaign, device.credential, card.id).getOrNull()!!.back.lines.filter { it.field == "backText" }.joinToString("") { it.text } shouldBe "Visible back"
+    }
+    "CD3 an admitted hidden read completes before Reveal back and the next read receives revealed content" {
+        val (_, device) = paired()
+        val card = distribution().distribute(campaign, request().copy(revealBack = false)).getOrNull()!!
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        val store = context!!.getBean(SharedCardStore::class.java)
+        val delayed = object : SharedCardStore by store {
+            override fun cards(campaign: UUID, recipient: UUID?): List<SharedCardData> {
+                if (recipient == null) { entered.countDown(); check(release.await(5, TimeUnit.SECONDS)) }
+                return store.cards(campaign, recipient)
+            }
+        }
+        val reader = CollectionService(context!!.getBean(PlayerAccess::class.java), delayed, context!!.getBean(Transactions::class.java),
+            context!!.getBean(workbench.sources.api.CardLayoutCalculator::class.java), context!!.getBean(PileStore::class.java))
+        val pool = Executors.newFixedThreadPool(2)
+        try {
+            val read = pool.submit<PlayerCollections> { reader.collections(campaign, device.credential).getOrNull()!! }
+            entered.await(3, TimeUnit.SECONDS) shouldBe true
+            val reveal = pool.submit<SharedCardData> { context!!.getBean(CardLifecycleService::class.java).revealBack(campaign, card.id).getOrNull()!! }
+            shouldThrow<TimeoutException> { reveal.get(100, TimeUnit.MILLISECONDS) }
+            release.countDown()
+            read.get(5, TimeUnit.SECONDS).group.cards.single { it.id == card.id }.visible.backText shouldBe ""
+            reveal.get(5, TimeUnit.SECONDS).backRevealed shouldBe true
+            collections().collections(campaign, device.credential).getOrNull()!!.group.cards.single { it.id == card.id }.visible.backText shouldBe "Visible back"
+        } finally { release.countDown(); pool.shutdownNow() }
+    }
+    "CD3 Reveal back rolls back both permission and event on persistence failure and is unavailable over player routes" {
+        val (_, device) = paired()
+        val card = distribution().distribute(campaign, request().copy(revealBack = false)).getOrNull()!!
+        val store = context!!.getBean(SharedCardStore::class.java)
+        val failing = object : SharedCardStore by store {
+            override fun reveal(campaign: UUID, card: UUID, now: Instant): SharedCardData {
+                store.reveal(campaign, card, now); error("Reveal rollback")
+            }
+        }
+        val service = CardLifecycleService(context!!.getBean(Campaigns::class.java), context!!.getBean(PlayerAccess::class.java),
+            context!!.getBean(SharingStore::class.java), failing, context!!.getBean(Transactions::class.java),
+            context!!.getBean(SharingClock::class.java), context!!.getBean(PileStore::class.java))
+        shouldThrow<IllegalStateException> { service.revealBack(campaign, card.id) }
+        store.retained(campaign, card.id)!!.card.backRevealed shouldBe false
+        jdbc().queryForObject("SELECT count(*) FROM sharing.card_event WHERE card=? AND kind='BACK_REVEALED'", Long::class.java, card.id) shouldBe 0L
+        val gateway = context!!.getBean(GatewayService::class.java); gateway.select(campaign); gateway.enable()
+        try {
+            val port = gateway.status().port!!
+            val client = HttpClient.newHttpClient()
+            for (path in listOf("/player-api/cards/${card.id}/reveal-back", "/api/campaigns/$campaign/sharing/cards/${card.id}/reveal-back")) {
+                val response = client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:$port$path"))
+                    .header("Authorization", "Bearer ${device.credential}").header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{}")).build(), HttpResponse.BodyHandlers.ofString())
+                response.statusCode() shouldBe 404
+            }
+        } finally { gateway.disable() }
+    }
     "fresh operations create distinct copies and failed insert rolls back content artwork placement event and retry record" {
         val req=request(); val first=distribution().distribute(campaign,req).getOrNull()!!
         val second=distribution().distribute(campaign,req.copy(operation=UUID.randomUUID())).getOrNull()!!
         (first.id!=second.id) shouldBe true
         val store=context!!.getBean(SharedCardStore::class.java)
         val failing=object: SharedCardStore by store {
-            override fun insert(campaign:UUID,request:DistributeCard,source:PreparedCard,now:Instant):SharedCardData {
+            override fun insert(campaign:UUID,request:DistributeCard,source:FrozenSharedCard,now:Instant):SharedCardData {
                 store.insert(campaign,request,source,now); error("After all inserts")
             }
         }
@@ -164,6 +278,24 @@ class SharingDistributionIntegrationTest : StringSpec({
         shouldThrow<IllegalStateException> { app.distribute(campaign,retry) }
         tables.map { jdbc().queryForObject("SELECT count(*) FROM sharing.$it",Long::class.java) } shouldBe before
         distribution().distribute(campaign,retry).isRight() shouldBe true
+    }
+    "CD1 literal predecessor content remains readable and produces the same player layout without a prepared source" {
+        val (_, device) = paired()
+        val req = request()
+        val card = distribution().distribute(campaign, req).getOrNull()!!
+        // Literal stored wire data from before content/layout separation, not serialized by the new model.
+        val legacy = """{"title":"Legacy <keeper>","type":"npc","summary":"Old summary","tags":["harbour","watchful"],"backText":"First line\nSecond line","quote":"Remember me."}"""
+        jdbc().update("UPDATE sharing.card_content SET visible=?::jsonb WHERE campaign=? AND id=?", legacy, campaign, card.id)
+        sources().source = null
+        val expected = SharedCardContent("Legacy <keeper>", "npc", "Old summary", listOf("harbour", "watchful"), "First line\nSecond line", "Remember me.")
+        val read = collections().collections(campaign, device.credential).getOrNull()!!.group.cards.single { it.id == card.id }
+        read.visible shouldBe expected
+        distribution().distribute(campaign, req).getOrNull()!!.visible shouldBe expected
+        val mapper = context!!.getBean(ObjectMapper::class.java)
+        mapper.readTree(mapper.writeValueAsString(read.visible)) shouldBe mapper.readTree(legacy)
+        collections().layout(campaign, device.credential, card.id).getOrNull() shouldBe
+            context!!.getBean(workbench.sources.api.CardLayoutCalculator::class.java).layout(
+                CardLayoutInput("Legacy <keeper>", "npc", "Old summary", listOf("harbour", "watchful"), "First line\nSecond line", "Remember me."))
     }
     "every collection artwork and layout read reauthorizes and scopes recipient and campaign" {
         val (p,device)=paired(); val (_,stranger)=paired()
@@ -181,13 +313,13 @@ class SharingDistributionIntegrationTest : StringSpec({
         collections().layout(campaign,device.credential,card.id).isLeft() shouldBe true
         collections().collections(campaign,device.credential).isLeft() shouldBe true
     }
-    "historical oversized sides remain complete in safe collection fields and report non-fitting layout" {
+    "historical oversized sides remain complete in safe collection fields and report explicit back continuation" {
         val (_,device)=paired()
         val text="Historical complete back. ".repeat(500)
         sources().source=sources().source!!.copy(visible=sources().source!!.visible.copy(backText=text))
         val card=distribution().distribute(campaign,request()).getOrNull()!!
         collections().collections(campaign,device.credential).getOrNull()!!.group.cards.single { it.id==card.id }.visible.backText shouldBe text
-        collections().layout(campaign,device.credential,card.id).getOrNull()!!.back.fits shouldBe false
+        collections().layout(campaign,device.credential,card.id).getOrNull()!!.back.overflow shouldBe true
     }
     "revocation waits for the authorized read transaction and the following read is denied" {
         val (_,device)=paired()
@@ -458,7 +590,7 @@ class SharingDistributionIntegrationTest : StringSpec({
         distribution().distribute(campaign,request().copy(pile=personal.id)).isLeft() shouldBe true
         val store=context!!.getBean(SharedCardStore::class.java)
         val failing=object: SharedCardStore by store {
-            override fun insert(campaign:UUID,request:DistributeCard,source:PreparedCard,now:Instant):SharedCardData { error("Insert failed") }
+            override fun insert(campaign:UUID,request:DistributeCard,source:FrozenSharedCard,now:Instant):SharedCardData { error("Insert failed") }
         }
         val app=DistributionService(context!!.getBean(Campaigns::class.java),sources(),context!!.getBean(SharingStore::class.java),failing,
             context!!.getBean(Transactions::class.java),context!!.getBean(SharingClock::class.java),context!!.getBean(PileStore::class.java))

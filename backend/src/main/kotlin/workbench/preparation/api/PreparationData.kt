@@ -24,7 +24,8 @@ data class PreparedItemData(
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val anchors: Map<String, String>,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED) val notes: String,
     @field:Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true) val capturedSource: CapturedSourceData? = null,
-    @get:JsonInclude(JsonInclude.Include.NON_NULL) val image: ImageMetadata? = null
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val image: ImageMetadata? = null,
+    @get:JsonInclude(JsonInclude.Include.NON_NULL) val detailsImage: ImageMetadata? = null, @get:com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) val stats: PreparedStats? = null
 )
 
 data class SessionData(

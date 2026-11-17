@@ -210,6 +210,13 @@ export class UnifiedLibrary implements OnDestroy {
       this.creating.set(false);
     }
   }
+  detailsArtwork(entry: LibraryEntry): ArtworkSource | null {
+    const campaign = this.state.campaign()!, draft = entry.draft;
+    return entry.detailsImage && draft ? {
+      key: `library-details:${campaign}:${draft}:${entry.detailsImage.hash}`,
+      load: () => this.artworkApi.getDraftDetailsImage(campaign, draft, 'DISPLAY'),
+    } : null;
+  }
   artwork(entry: LibraryEntry, variant: 'DISPLAY' | 'THUMBNAIL' = 'DISPLAY'): ArtworkSource | null {
     const campaign = this.state.campaign(),
       draft = entry.draft;

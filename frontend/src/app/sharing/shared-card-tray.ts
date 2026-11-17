@@ -212,11 +212,18 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
           [summary]="card.visible.summary"
           [quote]="card.visible.quote ?? ''"
           [tags]="card.visible.tags"
-          [backText]="card.visible.backText"
+          [backText]="card.visible.backText" [stats]="card.visible.stats ?? null"
+          [backRevealed]="!playerView() || card.backRevealed"
           [context]="card.id"
           [artwork]="artwork()(card)"
+          [detailsImage]="detailsImage()(card)"
           [documentAvailable]="false"
-        />
+        >
+          @if (!playerView() && !card.backRevealed) {
+            <button cardActions class="reveal-back" type="button" [disabled]="disabled()"
+              (click)="invoke(card, 'Reveal back')">Reveal back</button>
+          }
+        </playing-card>
       }
     </dialog>
     <dialog #editor aria-label="Organize collection" (close)="editorClosed()">
@@ -348,14 +355,21 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
             [summary]="card.visible.summary"
             [quote]="card.visible.quote ?? ''"
             [tags]="card.visible.tags"
-            [backText]="card.visible.backText"
+            [backText]="card.visible.backText" [stats]="card.visible.stats ?? null"
+            [backRevealed]="!playerView() || card.backRevealed"
             [context]="card.id"
             [artwork]="artwork()(card)"
+          [detailsImage]="detailsImage()(card)"
             [documentAvailable]="false"
             [selectable]="true"
             [selectionLabel]="pile ? 'Show all cards in pile' : 'Expand ' + card.visible.title"
             (select)="pile ? show(pile) : open(card.id)"
-          />
+          >
+            @if (!playerView() && !card.backRevealed) {
+              <button cardActions class="reveal-back" type="button" [disabled]="disabled()"
+                (click)="invoke(card, 'Reveal back')">Reveal back</button>
+            }
+          </playing-card>
         </div>
       </div>
     </ng-template>
@@ -541,6 +555,14 @@ import type { SharedPile, OrganizeCollection } from '../../api/generated';
       padding: 0.3rem 0.6rem;
       margin-top: 0.4rem;
     }
+    .reveal-back {
+      color: #28352b;
+      background: #f2efdc;
+      font-size: 12px;
+      min-height: 32px;
+      padding: 0.3rem 0.5rem;
+      margin: 0;
+    }
     label {
       display: block;
       margin: 0.8rem 0;
@@ -630,6 +652,7 @@ export class SharedCardTray implements OnDestroy {
   readonly playerView = input(false);
   readonly movable = input(false);
   readonly canMove = computed(() => this.organizer() || this.movable());
+  readonly detailsImage = input<(card: SharedCardData) => ArtworkSource | null>(() => null);
   readonly artwork = input.required<(card: SharedCardData) => ArtworkSource | null>();
   readonly identity = input('');
   readonly actions = input<(card: SharedCardData) => string[]>(() => []);

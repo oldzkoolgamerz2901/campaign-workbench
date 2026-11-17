@@ -27,23 +27,26 @@ class WritingService(private val campaigns: Campaigns, private val store: DraftS
         store.put(draft); data(draft)
     } }
     fun save(campaign: UUID, id: UUID, request: SaveDraft): Either<Failure, DraftData> = commit(campaign, id, request, null)
-    fun replaceImage(campaign: UUID, id: UUID, request: SaveDraft, input: java.io.InputStream): Either<Failure, DraftData> = either {
-        ensure(request.imageAction == "replace") { invalid("Replacement requires imageAction=replace.") }
+    fun replaceImage(campaign: UUID, id: UUID, request: SaveDraft, input: java.io.InputStream, details: Boolean = false): Either<Failure, DraftData> = either {
+        ensure((if (details) request.detailsImageAction else request.imageAction) == "replace") { invalid("Replacement requires imageAction=replace.") }
         val image = processor.process(input).bind()
-        commit(campaign, id, request, image).bind()
+        commit(campaign, id, request, image, details).bind()
     }
-    private fun commit(campaign: UUID, id: UUID, request: SaveDraft, replacement: ProcessedImage?): Either<Failure, DraftData> = tx.run { either {
+    private fun commit(campaign: UUID, id: UUID, request: SaveDraft, replacement: ProcessedImage?, details: Boolean = false): Either<Failure, DraftData> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val before = load(campaign, id).bind()
         ensure(request.revision == before.revision) { Failure.Conflict("writing.stale-revision", "This draft changed elsewhere. Your edits are retained; reload explicitly before editing the newer revision.") }
-        ensure(request.imageAction in setOf("keep", "remove", "replace") && (request.imageAction == "replace") == (replacement != null)) { invalid("Invalid image change command.") }
+        ensure(request.imageAction in setOf("keep", "remove", "replace") && request.detailsImageAction in setOf("keep", "remove", "replace") &&
+            (request.imageAction == "replace") == (replacement != null && !details) &&
+            (request.detailsImageAction == "replace") == (replacement != null && details)) { invalid("Invalid image change command.") }
         val f = request.fields
-        ensure(withinWorkingLimits(f)) { invalid("Keep each text field within 2 MiB, up to 128 working tags of 4 KiB each, and type/status within 64 characters. Your working edits are retained.") }
+        ensure(withinWorkingLimits(f)) { invalid("Keep each text field within 2 MiB, up to 128 working tags of 4 KiB each, and type/status within 64 characters. Stats allow 32 sections, 128 entries, 16 KiB per value and 64 KiB total, with the six standard abilities only. Your working edits are retained.") }
         val owner = WritingImageOwner.Campaign(campaign)
         replacement?.let { images.put(owner, it) }
         val artwork = when (request.imageAction) { "replace" -> replacement!!.metadata; "remove" -> null; else -> before.image }
+        val detailsArtwork = when (request.detailsImageAction) { "replace" -> replacement!!.metadata; "remove" -> null; else -> before.detailsImage }
         // Incomplete metadata is durable working content; interpretation reports readiness separately.
-        val after = before.copy(revision = before.revision + 1, title = f.title, type = f.type, status = f.status, tags = f.tags, summary = f.summary, body = f.body, path = f.path, image = artwork, backText = f.backText, quote = f.quote, encoding = 3)
+        val after = before.copy(revision = before.revision + 1, title = f.title, type = f.type, status = f.status, tags = f.tags, summary = f.summary, body = f.body, path = f.path, image = artwork, backText = f.backText, quote = f.quote, encoding = 3, detailsImage = detailsArtwork, stats = f.stats)
         store.put(after); images.prune(owner); data(after)
     } }
     fun delete(campaign: UUID, id: UUID, revision: Long): Either<Failure, Unit> = tx.run { either {
@@ -58,10 +61,10 @@ class WritingService(private val campaigns: Campaigns, private val store: DraftS
         val draft = load(campaign, id).bind()
         ensure(withinWorkingLimits(fields)) { invalid("Preview exceeds working draft limits.") }
         val effective = draft.copy(title = fields.title, type = fields.type, status = fields.status, tags = fields.tags,
-            summary = fields.summary, body = fields.body, path = fields.path, backText = fields.backText, quote = fields.quote, encoding = 3)
+            summary = fields.summary, body = fields.body, path = fields.path, backText = fields.backText, quote = fields.quote, encoding = 3, stats = fields.stats)
         val resolved = library.resolveLinks(campaign, effective).bind()
         val preview = authoring.encode(AuthoredDocument(draft.card, fields.title, fields.type, fields.status, fields.tags, fields.summary, fields.body, fields.backText, 3, fields.quote), draft.origin?.retainedEnvelope.orEmpty()).preview
         val input = preview.classification.metadata?.layoutInput() ?: CardLayoutInput(fields.title, fields.type, fields.summary, fields.tags, fields.backText, fields.quote)
-        DraftPreview(preview, exportPathErrors(fields.path), resolved.links, resolved.capture, layouts.layout(input))
+        DraftPreview(preview, exportPathErrors(fields.path), resolved.links, resolved.capture, layouts.layout(input.copy(stats = fields.stats?.layoutStats())))
     } }
 }

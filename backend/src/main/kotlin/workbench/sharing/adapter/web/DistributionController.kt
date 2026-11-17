@@ -39,6 +39,16 @@ class DistributionController(private val service: DistributionService) {
     @GetMapping("/cards/{card}/artwork",produces=["image/jpeg","image/png"])
     fun artwork(@PathVariable campaign: UUID,@PathVariable card: UUID)=image(service.artwork(campaign,card))
 
+    @Operation(operationId="previewSharedDetailsImage")
+    @PostMapping("/preview/details-image",consumes=["application/json"],produces=["image/jpeg","image/png"])
+    @ApiResponse(responseCode="200",content=[Content(schema=Schema(type="string",format="binary"))])
+    fun previewDetails(@PathVariable campaign: UUID,@RequestBody request: DistributeCard)=image(service.previewArtwork(campaign,request,true))
+
+    @Operation(operationId="getSharedDetailsImage")
+    @GetMapping("/cards/{card}/details-image",produces=["image/jpeg","image/png"])
+    @ApiResponse(responseCode="200",content=[Content(schema=Schema(type="string",format="binary"))])
+    fun details(@PathVariable campaign: UUID,@PathVariable card: UUID)=image(service.artwork(campaign,card,true))
+
     private fun image(result: arrow.core.Either<Failure,ImageDerivative>): ResponseEntity<*> = result.fold(
         { arrow.core.Either.Left(it).response(noStore=true) },
         { ResponseEntity.ok().header("Cache-Control","no-store").header("Content-Type",it.mime).body(it.content.copy()) })

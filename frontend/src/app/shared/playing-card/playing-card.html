@@ -63,6 +63,10 @@
   </button>
   @if (status() !== 'ready' && (side() === 'back' || textVisible())) {
     <div class="fallback" [class.front]="side() === 'front'">
+      @if (side() === 'back') {
+        <h3>{{ title() || 'Untitled card' }}</h3>
+        <p>{{ type() || 'Untyped' }}</p>
+      }
       <p role="status">
         {{
           status() === 'checking'
@@ -72,15 +76,6 @@
               : 'Card layout unavailable.'
         }}
       </p>
-      <button
-        type="button"
-        [disabled]="disabled()"
-        (mousedown)="$event.stopPropagation()"
-        (touchstart)="$event.stopPropagation()"
-        (click)="readSide($event)"
-      >
-        Read all {{ side() }} text
-      </button>
     </div>
   }
   @if (side() === 'front' && documentAvailable()) {
@@ -96,29 +91,44 @@
       Open full document <span aria-hidden="true">↗</span>
     </button>
   }
+  @if (detailsAvailable()) {
+    <button
+      class="details"
+      type="button"
+      [disabled]="disabled()"
+      (pointerdown)="$event.stopPropagation()"
+      (mousedown)="$event.stopPropagation()"
+      (touchstart)="$event.stopPropagation()"
+      (keydown)="$event.stopPropagation()"
+      (click)="showDetails($event)"
+    >Details</button>
+  }
 </article>
 <dialog
   #sideReader
-  aria-label="Complete card side text"
+  aria-label="Card details"
+  (close)="restoreDetailsFocus()"
   (pointerdown)="$event.stopPropagation()"
   (mousedown)="$event.stopPropagation()"
   (touchstart)="$event.stopPropagation()"
   (click)="$event.stopPropagation()"
   (keydown)="$event.stopPropagation()"
 >
-  <button type="button" (click)="closeReader()">Close card text</button>
-  @if (readingSide() === 'front') {
-    <h3>{{ title() || 'Untitled card' }}</h3>
-    <p>{{ type() || 'Untyped' }}</p>
-    @if (quote()) { <blockquote class="plain">{{ quote() }}</blockquote> }
-    @if (summary()) { <p class="plain">{{ summary() }}</p> }
+  <button type="button" (click)="closeDetails()">Close details</button>
+  <h3>{{ title() || 'Untitled card' }}</h3>
+  <p>{{ type() || 'Untyped' }}</p>
+  @if (quote()) { <blockquote class="plain">{{ quote() }}</blockquote> }
+  @if (backRevealed() && summary()) { <p class="plain">{{ summary() }}</p> }
+  @if (backRevealed() && tags().length) {
     <ul aria-label="Card tags">
-      @for (tag of tags(); track $index) {
-        <li>{{ tag }}</li>
-      }
+      @for (tag of tags(); track $index) { <li>{{ tag }}</li> }
     </ul>
-  } @else {
-    <h3>Card back</h3>
-    <p class="plain">{{ backText() || 'No back text.' }}</p>
   }
+  @if (detailsImage() || localDetailsImage()) {
+    <artwork-image class="details-image" [source]="detailsImage()" [local]="localDetailsImage()"
+      [uncropped]="true" label="Additional card image" />
+  }
+  <h4>Back information</h4>
+  <p class="plain" data-details-back>{{ backRevealed() ? (backText() || (stats() ? 'No back text' : 'No back information')) : 'Back not revealed' }}</p>
+  @if (backRevealed() && stats(); as values) { <stats-reader [value]="values" /> }
 </dialog>

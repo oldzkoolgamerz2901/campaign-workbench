@@ -15,10 +15,12 @@ interface ApprovedRevisionStore {
 class SessionDraftService(private val campaigns: Campaigns, private val drafts: DraftStore,
     private val revisions: ApprovedRevisionStore, private val authoring: Authoring, private val library: CardLibraryService,
     private val tx: Transactions, private val images: WritingImageStore, private val layouts: CardLayoutCalculator) : SessionDrafts {
-    override fun image(campaign: UUID, draft: UUID, revision: Long): Either<Failure, ProcessedImage?> = tx.run { either {
+    override fun image(campaign: UUID, draft: UUID, revision: Long) = artwork(campaign, draft, revision, false)
+    override fun detailsImage(campaign: UUID, draft: UUID, revision: Long) = artwork(campaign, draft, revision, true)
+    private fun artwork(campaign: UUID, draft: UUID, revision: Long, details: Boolean): Either<Failure, ProcessedImage?> = tx.run { either {
         campaigns.configuration(campaign).bind()
         val approved = ensureNotNull(revisions.get(campaign, draft, revision)) { Failure.NotFound("writing.approval-not-found", "Approved revision not found.") }
-        val m = approved.snapshot.image ?: return@either null
+        val m = (if (details) approved.snapshot.detailsImage else approved.snapshot.image) ?: return@either null
         ensureNotNull(images.bundle(WritingImageOwner.Campaign(campaign), m.hash)) { Failure.Unreadable("image.unavailable", "Retained artwork is unavailable.") }.also {
             ensure(it.metadata == m) { Failure.Unreadable("image.unavailable", "Retained artwork differs from its approved descriptor.") }
         }
@@ -33,8 +35,8 @@ class SessionDraftService(private val campaigns: Campaigns, private val drafts: 
             encoded.markdown.toByteArray(Charsets.UTF_8).size <= 2 * 1024 * 1024) {
             Failure.Invalid("writing.not-ready", "A valid session card, campaign-relative path and Markdown within 2 MiB are required for approval.")
         }
-        val fit = layouts.layout(encoded.preview.classification.metadata?.layoutInput() ?: CardLayoutInput(d.title, d.type, d.summary, d.tags, d.backText, d.quote))
-        ensure(fit.front.fits && fit.back.fits) { Failure.Invalid("writing.card-does-not-fit", "Card text does not fit. Shorten the front title, summary or tags, or the back text in Write before adding it to a session.") }
+        val fit = layouts.layout((encoded.preview.classification.metadata?.layoutInput() ?: CardLayoutInput(d.title, d.type, d.summary, d.tags, d.backText, d.quote)).copy(stats = d.stats?.layoutStats()))
+        ensure(fit.front.fits) { Failure.Invalid("writing.card-does-not-fit", "Card text does not fit. Shorten the front title or quote in Write before adding it to a session.") }
         revisions.get(campaign, draft, revision)?.let { return@either it }
         val resolved = library.resolveLinks(campaign, d).bind()
         ApprovedDraft(draftData(d), encoded.markdown, contentHash(encoded.markdown), encoded.preview, resolved.capture, resolved.links).also(revisions::put)

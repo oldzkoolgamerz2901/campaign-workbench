@@ -1,0 +1,3774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lost Sisters — Statblock Cards</title>
+<style>
+/* ============================================================
+   LOST SISTERS — STATBLOCK CARDS
+   Design ported from Rules&Instructions/Statblock designs/*.png
+   Card proportion 243 x 420 (1 : 1.728). Print size: tarot 70 x 120 mm.
+   ------------------------------------------------------------
+   Everything inside a card is sized in `em` against the card's
+   own font-size, which is derived from the card width. So one
+   variable (--card-w) rescales the entire design, on screen and
+   on paper, with no other change.
+   ============================================================ */
+
+:root{
+  --card-w: 300px;          /* screen size; the slider writes this */
+  --card-print-w: 70mm;     /* tarot. 63mm = poker, 89mm = bridge-tall */
+
+  /* --------------------------------------------------------
+     COLOR TOKENS — card content only (front + back panels),
+     same scope as the type tokens below. The design system's
+     palette, verbatim, plus its own semantic aliases:
+       Font_Header_Color → Brand-red
+       Font_Body_Color   → Gray800
+       Font_Secondary    → Gray700
+     -------------------------------------------------------- */
+  --color-brand-red:      #420000;
+  --color-paper-yellow:   #F2EFDD;
+  --color-contrast-brown: #766A56;
+  --color-gray-800:       #161616;
+  --color-gray-700:       #505050;
+  --color-gray-500:       #999999;
+  --color-gray-300:       #D6D6D6;
+  --color-gray-100:       #F4F4F4;
+
+  --font-header-color: var(--color-brand-red);
+  --font-body-color:   var(--color-gray-800);
+  --font-secondary:    var(--color-gray-700);
+
+  /* card roles, built only from the tokens above */
+  --parchment:   var(--color-paper-yellow);
+  /* tinted ability rows: Contrast-brown mixed into the parchment,
+     not a separately invented hex, so the banding is still made of
+     only the given colors */
+  --parchment-2: color-mix(in srgb, var(--color-contrast-brown) 10%, var(--color-paper-yellow));
+  --parchment-3: color-mix(in srgb, var(--color-contrast-brown) 20%, var(--color-paper-yellow));
+  --ink:    var(--font-body-color);
+  --muted:  var(--font-secondary);
+  --accent: var(--font-header-color);   /* ability labels, section rules */
+  --rule:   var(--color-gray-500);
+  --edge:   var(--color-gray-800);
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans:  "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+
+  /* --------------------------------------------------------
+     TYPE TOKENS — card content only (front + back panels).
+     Five styles, nothing else. Each size is a unitless multiple
+     of the card's own base font-size (--card-w / 24, ~10px at
+     the 243px reference width the source design was built at),
+     so H1's "10px" and the rest hold that exact ratio to it at
+     any card size and survive auto-fit's shrinking untouched.
+     -------------------------------------------------------- */
+  --card-font: "Inter", "Segoe UI", Arial, sans-serif;
+
+  --fs-h1: 1;      --fw-h1: 700;   /* H1 — Inter Bold   10px — ALL CAPS */
+  --fs-h2: .8;     --fw-h2: 400;   /* H2 — Inter Reg     8px — ALL CAPS */
+  --fs-h3: .9;     --fw-h3: 700;   /* H3 — Inter Bold    9px            */
+  --fs-p:  .8;     --fw-p:  400;   /* P  — Inter Reg     8px            */
+  --fs-pb: .8;     --fw-pb: 700;   /* P bold — Inter Bold 8px           */
+}
+
+/* Inter, bundled locally (SIL OFL) so the card works fully offline —
+   this file is meant to be opened by double-click, not served. One
+   variable-font file per Unicode range covers every weight 100–900,
+   so both the 400 and 700 the tokens above use come from one file. */
+@font-face{
+  font-family:"Inter";
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+  src:url("../../Downloads/lost_sisters_cards/Cards/fonts/inter-latin.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,
+    U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,
+    U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:"Inter";
+  font-style:normal;
+  font-weight:100 900;
+  font-display:swap;
+  src:url("../../Downloads/lost_sisters_cards/Cards/fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,
+    U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,
+    U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+*{ box-sizing: border-box; }
+
+html{ background:#1a1714; }
+body{
+  margin:0; padding: 28px 24px 80px;
+  font-family: var(--sans);
+  color:#e8e2d6;
+  background:
+    radial-gradient(1200px 700px at 50% -200px, #2e2822 0%, #1a1714 70%);
+  min-height:100vh;
+}
+
+/* ---------- control bar (screen only) ---------- */
+.bar{
+  position: sticky; top:0; z-index:50;
+  display:flex; flex-wrap:wrap; gap:18px; align-items:center;
+  margin:-28px -24px 26px; padding:12px 24px 0;
+  background:rgba(20,17,14,.92);
+  backdrop-filter: blur(8px);
+  border-bottom:1px solid #3a332b;
+  font-size:13px;
+}
+.bar h1{
+  font-family:var(--serif); font-size:16px; font-weight:600;
+  margin:0 6px 0 0; letter-spacing:.02em; color:#d8cfbd;
+}
+.bar label{ display:flex; align-items:center; gap:7px; color:#a79d8c; white-space:nowrap; cursor:pointer; }
+.bar input[type=range]{ width:150px; accent-color:#a8563f; }
+.bar input[type=checkbox]{ accent-color:#a8563f; }
+.bar input[type=search],
+.bar select{
+  background:#241f1a; border:1px solid #453d33; color:#e8e2d6;
+  border-radius:5px; padding:5px 9px; font:inherit;
+}
+.bar input[type=search]{ width:190px; }
+.bar button{
+  background:#7d2b28; color:#f3ece0; border:0; border-radius:5px;
+  padding:6px 14px; font:inherit; cursor:pointer;
+}
+.bar button:hover{ background:#96352f; }
+.bar button:disabled{ opacity:.45; cursor:default; }
+.bar button:disabled:hover{ background:#7d2b28; }
+.bar button.quiet{ background:none; border:1px solid #453d33; color:#a79d8c; padding:5px 13px; }
+.bar button.quiet:hover{ background:none; color:#e8e2d6; border-color:#6f6659; }
+.bar .spacer{ flex:1 1 auto; }
+.bar .count{ color:#6f6659; }
+/* selection count on the Print button */
+.bar .badge{
+  display:inline-block; min-width:1.6em; margin-left:8px; padding:0 .45em;
+  border-radius:999px; background:#f3ece0; color:#7d2b28;
+  font-size:11px; font-weight:700; line-height:1.6; text-align:center;
+}
+.bar .badge[hidden]{ display:none; }
+
+/* the card browser and the print selection share one page: the body
+   class picks which of the bar's controls belong to the current screen */
+body:not(.selection-view) .selection-only,
+body.selection-view .cards-only{ display:none !important; }
+
+/* ---------- tabs: the bar's second row, sitting on its bottom border ---------- */
+.tabs{ flex:1 0 100%; display:flex; gap:4px; }
+.bar .tabs button{
+  background:none; border:0; border-radius:0;
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+  color:#a79d8c; padding:7px 12px 9px;
+  font-family:var(--serif); font-size:15px; letter-spacing:.02em;
+}
+.bar .tabs button:hover{ background:none; color:#e8e2d6; }
+.bar .tabs button[aria-selected="true"]{ color:#e8e2d6; border-bottom-color:#a8563f; }
+.tabs .n{ font-family:var(--sans); font-size:12px; color:#6f6659; margin-left:6px; }
+/* the selection screen has no tabs, just its own title in their place */
+.tabs .tab-title{
+  color:#e8e2d6; padding:7px 12px 9px; margin-bottom:-1px;
+  border-bottom:2px solid #a8563f;
+  font-family:var(--serif); font-size:15px; letter-spacing:.02em;
+}
+
+/* ---------- page layout ---------- */
+.sheet{ display:flex; flex-direction:column; gap:38px; }
+
+/* ---------- groups: headed sections within a tab ---------- */
+.group-head{
+  font-family:var(--serif); font-size:17px; font-weight:600; color:#d8cfbd;
+  letter-spacing:.02em;
+  margin:0 0 16px; padding-bottom:7px;
+  border-bottom:1px solid #3a332b;
+}
+.group-head .n{ font-family:var(--sans); font-size:12px; font-weight:400; color:#6f6659; margin-left:8px; }
+.group-empty{ color:#6f6659; font-family:var(--serif); font-size:14px; margin:0 2px; }
+.group:not(.none) .group-empty{ display:none; }
+.group-cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, var(--card-w));
+  gap:26px 18px;
+}
+
+.item[hidden]{ display:none; }
+/* other tabs' groups */
+.group.offtab{ display:none; }
+
+/* the row above a card: its name, and on the selection screen its copies */
+.item-head{
+  display:flex; align-items:center; gap:8px;
+  width:var(--card-w); margin:0 0 8px 2px;
+}
+.item-label{
+  flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-family:var(--serif); font-size:14px; color:#9b9081;
+  letter-spacing:.03em;
+}
+.item-label span{ color:#6b6254; font-size:12px; font-family:var(--sans); }
+
+/* ---------- copies to print: − n +, selection screen only ---------- */
+.copies{ display:none; flex:none; align-items:center; gap:2px; }
+body.selection-view .copies{ display:flex; }
+.copies button{
+  width:22px; height:22px; padding:0;
+  background:#241f1a; border:1px solid #453d33; border-radius:5px;
+  color:#e8e2d6; font:600 14px/1 var(--sans); cursor:pointer;
+}
+.copies button:hover{ border-color:#a8563f; }
+.copies button:disabled{ opacity:.35; cursor:default; border-color:#453d33; }
+.copies input{
+  width:30px; height:22px; padding:0;
+  background:none; border:0; color:#e8e2d6;
+  font:600 13px var(--sans); text-align:center;
+  appearance:textfield; -moz-appearance:textfield;
+}
+.copies input::-webkit-inner-spin-button,
+.copies input::-webkit-outer-spin-button{ -webkit-appearance:none; margin:0; }
+.copies :focus-visible{ outline:2px solid #a8563f; outline-offset:1px; }
+
+.empty{ color:#6f6659; font-family:var(--serif); font-size:15px; margin:10px 2px; }
+
+/* ---------- select-for-print button: on hover, or always once selected ---------- */
+.card-slot{ position:relative; }
+.pick{
+  position:absolute; top:10px; right:10px; z-index:2;
+  width:34px; height:34px; padding:0;
+  display:grid; place-items:center;
+  border-radius:6px;
+  background:rgba(20,17,14,.85);
+  border:1px solid #a8563f; cursor:pointer;
+  opacity:0; transition:opacity .15s;
+}
+/* the icon file is drawn in black. Red lines by default, through the
+   #icon-red filter at the top of <body> (a CSS mask would be the usual
+   way, but browsers block masks from file:// pages); white once hovered
+   or selected, on the red button. */
+.pick img{ width:26px; height:26px; filter:url(#icon-red); pointer-events:none; }
+.pick:hover img,
+.item.selected .pick img{ filter:brightness(0) invert(1); opacity:.92; }
+.card-slot:hover .pick, .pick:focus-visible{ opacity:1; }
+.pick:hover{ background:#3a2a22; }
+.pick:focus-visible{ outline:2px solid #a8563f; outline-offset:2px; }
+.item.selected .pick{ opacity:1; background:#7d2b28; border-color:#7d2b28; }
+.item.selected .pick:hover{ background:#96352f; }
+/* selected: a check in the button's corner */
+.item.selected .pick::after{
+  content:"✓"; position:absolute; right:-6px; bottom:-6px;
+  width:16px; height:16px; border-radius:50%;
+  display:grid; place-items:center;
+  background:#f3ece0; color:#7d2b28;
+  font:700 10px/1 var(--sans);
+}
+.item.selected .flip{ box-shadow:0 0 0 3px #a8563f; }
+/* on the selection screen every card is selected, so marking them all
+   is noise: back to hover-only, where the button offers removal */
+body.selection-view .item.selected .flip{ box-shadow:none; }
+body.selection-view .item.selected .pick{ opacity:0; }
+body.selection-view .card-slot:hover .pick,
+body.selection-view .pick:focus-visible{ opacity:1; }
+/* touch screens have no hover: keep the button showing */
+@media (hover: none){ .pick{ opacity:1 !important; } }
+@media (prefers-reduced-motion: reduce){ .pick{ transition:none; } }
+
+/* ---------- flip: front and back stacked, click turns the card over ---------- */
+.flip{
+  position:relative;
+  width:var(--card-w);
+  aspect-ratio:243 / 420;
+  perspective:calc(var(--card-w) * 4);
+  cursor:pointer;
+  border-radius:calc(var(--card-w) / 24 * .95);
+}
+.flip:focus-visible{ outline:2px solid #a8563f; outline-offset:3px; }
+.flip-inner{
+  position:absolute; inset:0;
+  transform-style:preserve-3d;
+  transition:transform .45s ease;
+}
+.item.flipped .flip-inner{ transform:rotateY(180deg); }
+.flip .card{
+  position:absolute; inset:0;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+}
+.flip .card--back{ transform:rotateY(180deg); }
+@media (prefers-reduced-motion: reduce){
+  .flip-inner{ transition:none; }
+}
+
+/* ---------- the card shell ---------- */
+.card{
+  position:relative;
+  width: var(--card-w);
+  aspect-ratio: 243 / 420;
+  font-size: calc(var(--card-w) / 24);   /* the master scale */
+
+  /* Geometry of the floating panel. Derived from --card-w, NOT em:
+     auto-fit rescales the panel's font-size, so an em-based margin
+     would move every time the text was shrunk to fit. */
+  --inset:   calc(var(--card-w) * 0.022);   /* the art margin, all four sides */
+  --inner-r: calc(var(--card-w) * 0.024);
+  --hair:    max(1px, calc(var(--card-w) * 0.0035));
+  --pad:     calc(var(--card-w) * 0.026);   /* one padding, all four edges, both sides */
+  border-radius: .95em;
+  overflow:hidden;
+  color: var(--ink);
+  background-color:var(--color-gray-800);
+  background-image: var(--art);          /* own art, then _default.png beneath */
+  background-size: cover, cover;
+  background-position: var(--art-pos, 50% 35%), 50% 35%;
+  box-shadow:
+    inset 0 0 0 .09em rgba(255,255,255,.30),
+    0 6px 22px rgba(0,0,0,.55);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+/* print bleed: copies of the card's art, mirrored outward past each edge.
+   Same background as .card, so the art runs on unbroken across the cut. */
+.bleed-tile{
+  position:absolute;
+  background-color:var(--color-gray-800);
+  background-image: var(--art);
+  background-size: cover, cover;
+  background-position: var(--art-pos, 50% 35%), 50% 35%;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+/* "flat" mode: drop the art, print-friendly and easier to read */
+body.flat .card,
+body.flat .bleed-tile{
+  background-image:none;
+  background-color:color-mix(in srgb, var(--color-contrast-brown) 35%, var(--color-paper-yellow));
+}
+
+
+/* ---------- the floating panel (both sides) ---------- */
+.panel{
+  position:absolute;
+  left: var(--inset); right: var(--inset);
+  background: var(--parchment);
+  color: var(--ink);
+  border: var(--hair) solid var(--edge);
+  border-radius: var(--inner-r);
+  box-shadow:
+    0 calc(var(--card-w) * .008) calc(var(--card-w) * .022) rgba(0,0,0,.55);
+  padding: var(--pad);
+  overflow:hidden;
+}
+
+/* ---------- FRONT ---------- */
+/* content-sized, sitting on the bottom margin, capped so the art stays dominant */
+.card--front .panel{
+  bottom: var(--inset);
+  max-height: 64%;
+}
+
+.cname{
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-h1) * 1em); font-weight:var(--fw-h1); line-height:1.15;
+  text-transform:uppercase; color:var(--font-header-color);
+  border-bottom:1px solid var(--edge);
+  padding-bottom:.12em; margin:0 0 .3em;
+}
+.ctype{
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-p) * 1em); font-weight:var(--fw-p); line-height:1.3;
+  color:var(--font-secondary);
+  margin:0 0 .45em;
+}
+.ctype:last-child{ margin-bottom:0; }
+/* item cards: the short piece of world lore under the type line, centered */
+.cdesc{
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-p) * 1em); font-weight:var(--fw-p); line-height:1.45;
+  color:var(--font-body-color);
+  text-align:center;
+  margin:0 0 .42em;
+}
+.cdesc:last-child{ margin-bottom:0; }
+.cdesc i{ font-style:italic; }
+/* a check to read the back: right-aligned on the type line */
+.ctype.has-check{ display:flex; justify-content:space-between; align-items:baseline; gap:.6em; }
+.ccheck{ white-space:nowrap; }
+.hr{ height:1px; background:var(--rule); margin:.25em 0 .4em; border:0; }
+
+/* two-column key stats: AC|Initiative, HP|CR, Speed|— */
+.keys{
+  display:grid; grid-template-columns:1fr 1fr;
+  column-gap:.6em; row-gap:.12em;
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-p) * 1em); font-weight:var(--fw-p); line-height:1.4;
+}
+.keys b{ color:var(--font-body-color); font-size:calc(var(--fs-pb) / var(--fs-p) * 1em); font-weight:var(--fw-pb); }
+.keys span{ color:var(--font-body-color); }
+
+/* ---------- ability grid ---------- */
+.abils{
+  display:flex; gap:.5em;
+  margin:.45em 0 0;
+}
+.abil-half{ flex:1 1 0; min-width:0; }
+/* header and row share one font-size context (the P token) so the
+   em column widths line up between them; individual cells then scale
+   up or down from there by the RATIO of their own token to that
+   shared P context — never by an invented number. */
+.abil-hd,
+.abil-row{
+  display:grid;
+  grid-template-columns: 2.7em 1fr 2.3em 2.3em;
+  column-gap:.35em;
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-p) * 1em);
+}
+.abil-hd{ line-height:1.2; margin-bottom:.05em; }
+.abil-hd i{
+  font-style:normal; font-weight:var(--fw-h2); color:var(--muted);
+  text-transform:uppercase; letter-spacing:.02em;
+  text-align:center;
+}
+.abil-row{ align-items:center; line-height:1.7; font-weight:var(--fw-p); }
+.abil-row.tint{ background:var(--parchment-2); }
+.abil-row .ab{
+  color:var(--accent); letter-spacing:.02em;
+  font-size:calc(var(--fs-h3) / var(--fs-p) * 1em); font-weight:var(--fw-h3);
+}
+.abil-row .sc,
+.abil-row .md,
+.abil-row .sv{ text-align:center; }
+.abil-row.tint .md,
+.abil-row.tint .sv{ background:var(--parchment-3); }
+
+/* ---------- BACK ---------- */
+/* fills the inset box exactly, so the art margin is even all the way round */
+.card--back .panel{
+  top: var(--inset);
+  height: calc(100% - 2 * var(--inset));
+}
+
+.sec{ margin-bottom:.5em; }
+.sec:last-child{ margin-bottom:0; }
+.sec-head{
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-h2) * 1em); font-weight:var(--fw-h2); text-transform:uppercase;
+  letter-spacing:.06em; color:var(--font-header-color);
+  border-bottom:1px solid var(--edge);
+  padding-bottom:.12em; margin:0 0 .3em;
+}
+.kv{
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-p) * 1em); font-weight:var(--fw-p); line-height:1.4; margin:0;
+}
+.kv b{ font-size:calc(var(--fs-pb) / var(--fs-p) * 1em); font-weight:var(--fw-pb); }
+
+.entry{
+  font-family:var(--card-font);
+  font-size:calc(var(--fs-p) * 1em); font-weight:var(--fw-p); line-height:1.45;
+  margin:0 0 .42em;
+}
+.entry:last-child{ margin-bottom:0; }
+.entry .en{ font-size:calc(var(--fs-pb) / var(--fs-p) * 1em); font-weight:var(--fw-pb); }
+.entry i{ font-style:italic; }
+
+/* ---------- print: one card side per page ----------
+   Built by buildPrintPages() just before the print dialog opens, then
+   emptied again. On screen they sit hidden off to the side, at real
+   print size, only so auto-fit can measure the cards there. */
+#print-pages{ position:absolute; left:-10000px; top:0; visibility:hidden; }
+.ppage{ position:relative; overflow:hidden; background:#fff; }   /* size: pageLayout() in the script */
+.pslot{ position:absolute; }
+.ppage .card{
+  --card-w: var(--card-print-w);
+  box-shadow: inset 0 0 0 .09em rgba(0,0,0,.35);
+}
+.ppage .marks{ position:absolute; inset:0; width:100%; height:100%; }
+/* with bleed the cut makes the card's edge: square corners (round them
+   with a corner punch), and no outline that a slightly-off cut would halve.
+   The card sits above its bleed, which tucks just under its edge. */
+.ppage .bleed{ position:absolute; overflow:hidden; z-index:0; }
+.ppage.with-bleed .card{ z-index:1; border-radius:0; box-shadow:none; }
+
+@media print{
+  /* @page is in #page-rule below, written by the script */
+  html,body{ background:#fff !important; color:#000; }
+  body{ padding:0; margin:0; min-height:0; }
+  .bar, .empty, .sheet{ display:none !important; }
+  #print-pages{ position:static; visibility:visible; }
+  .ppage{ break-after:page; }
+  .ppage:last-child{ break-after:auto; }
+}
+</style>
+<!-- the print page size: the card plus its bleed and crop marks, so it
+     follows those two settings. Written by setPageRule() in the script. -->
+<style id="page-rule"></style>
+</head>
+<body>
+
+<!-- paints an icon's shape in one flat color: the .pick button's red -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="icon-red" color-interpolation-filters="sRGB">
+    <feFlood flood-color="#a8563f"/>
+    <feComposite in2="SourceAlpha" operator="in"/>
+  </filter>
+</svg>
+
+<div class="bar">
+  <h1>Statblock Cards</h1>
+  <button id="back" class="quiet selection-only">← Back to cards</button>
+  <label>Size <input id="size" type="range" min="200" max="620" step="10" value="300"></label>
+  <label><input id="flat" type="checkbox"> Flat (no art)</label>
+  <label><input id="marks" type="checkbox" checked> Crop marks</label>
+  <label><input id="bleed" type="checkbox" checked> Bleed</label>
+  <label>Sort
+    <select id="sort">
+      <option value="file">File order</option>
+      <option value="cr">CR</option>
+      <option value="name">Name</option>
+    </select>
+  </label>
+  <input id="find" class="cards-only" type="search" placeholder="filter by name…" aria-label="Filter by name">
+  <span class="spacer"></span>
+  <span class="count" id="count"></span>
+  <button id="print" class="cards-only">Print<span class="badge" id="selection-n" hidden></span></button>
+  <button id="clear" class="quiet selection-only">Clear selection</button>
+  <button id="print-go" class="selection-only">Print selection</button>
+  <nav class="tabs cards-only" id="tabs" role="tablist" aria-label="Card type"></nav>
+  <div class="tabs selection-only"><span class="tab-title">Selected for print</span></div>
+</div>
+
+<p class="empty" id="empty" hidden></p>
+<div class="sheet" id="sheet"></div>
+<div id="print-pages" aria-hidden="true"></div>
+
+<script>
+/* ============================================================
+   CHARACTERS
+   ------------------------------------------------------------
+   Add a character by appending an object to this array.
+   Every field is optional except `name` — omitted fields are
+   simply left off the card.
+
+   category  which tab it appears under: "characters", "enemies",
+             "items" or "other". Missing or unknown → "other".
+   group     the headed section within that tab, e.g. "Goblins".
+             Groups listed in TABS (in the renderer below) show in
+             that order, even while empty; any other group name gets
+             its own section after them. No group → no header.
+   art       path to an image. Falls back to art/_default.png
+             automatically if the file is missing.
+   artPos    focal point of that image, CSS background-position.
+             "50% 20%" pushes the crop toward the top.
+   description
+             item cards: short world-lore text on the front, under
+             the type line, center-aligned. A string, or an array of strings for
+             several paragraphs. Supports **bold** and *italic*.
+             A card with no ac/hp/speed/initiative/cr gets no stat
+             grid on its front, so an item's front is name, type
+             line and description only; its rules go in `sections`.
+   check     a skill check to read the back, right-aligned on the
+             type line: check:{ skill:"History", dc:16 } prints
+             "History DC 16".
+   abilities [score, mod, save] per stat.
+   vulnerabilities, resistances, immunities
+             one line each on the back, between Skills and Gear.
+   sections  each { title, entries: [ {name, text} | "plain line" ] }
+   text      supports **bold** and *italic*.
+   spellcasting
+             an entry of its own, in place of {name, text}:
+               { spellcasting:{ ability:"Wisdom", dc:17, spells:"*At Will:* Light." } }
+             prints **Spellcasting (Spell save (wisdom) DC 17)** and then
+             the spells on a new line. Leave `dc` out and it prints
+             "Spellcasting (wisdom)". Put any extra (to-hit bonus, "No
+             Material components.") at the end of `spells`.
+   ============================================================ */
+
+/* The four ways a poison is delivered, verbatim from SRD 5.2.1 ("Poison",
+   p. 197). Every poison card ends with the rule for its own type, so a
+   card can be read on its own. Used as entries: POISON_TYPE.injury */
+const POISON_TYPE = {
+  contact:  { name:"Contact",  text:"Contact poison can be smeared on an object and remains potent until it is touched or washed off. A creature that touches contact poison with exposed skin suffers its effects." },
+  ingested: { name:"Ingested", text:"A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing Advantage on the saving throw or dealing only half as much damage on a failed save." },
+  inhaled:  { name:"Inhaled",  text:"Poisonous powders and gases take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot Cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body." },
+  injury:   { name:"Injury",   text:"Injury poison can be applied as a Bonus Action to a weapon, a piece of ammunition, or similar object. The poison remains potent until delivered through a wound or washed off. A creature that takes Piercing or Slashing damage from an object coated with the poison is exposed to its effects." }
+};
+
+/* The Poisoned condition, verbatim from the SRD 5.2.1 Rules Glossary. Every
+   poison card that gives the condition has it just before its type rule. */
+const POISONED_CONDITION = { name:"Poisoned", text:"While you have the Poisoned condition, you experience the following effect. *Ability Checks and Attacks Affected.* You have Disadvantage on attack rolls and ability checks." };
+
+/* Weapon properties and masteries (SRD 5.2.1 pp. 89–90) and armor rules
+   (p. 92), verbatim. Weapon and armor cards end with the rules they use,
+   the same way poison cards do. Only the ones a card uses are here. */
+const WEAPON_PROPERTY = {
+  ammunition: { name:"Ammunition", text:"You can use a weapon that has the Ammunition property to make a ranged attack only if you have ammunition to fire from it. The type of ammunition required is specified with the weapon's range. Each attack expends one piece of ammunition. Drawing the ammunition is part of the attack (you need a free hand to load a one-handed weapon). After a fight, you can spend 1 minute to recover half the ammunition (round down) you used in the fight; the rest is lost." },
+  finesse:    { name:"Finesse",    text:"When making an attack with a Finesse weapon, use your choice of your Strength or Dexterity modifier for the attack and damage rolls. You must use the same modifier for both rolls." },
+  heavy:      { name:"Heavy",      text:"You have Disadvantage on attack rolls with a Heavy weapon if it's a Melee weapon and your Strength score isn't at least 13 or if it's a Ranged weapon and your Dexterity score isn't at least 13." },
+  light:      { name:"Light",      text:"When you take the Attack action on your turn and attack with a Light weapon, you can make one extra attack as a Bonus Action later on the same turn. That extra attack must be made with a different Light weapon, and you don't add your ability modifier to the extra attack's damage unless that modifier is negative. For example, you can attack with a Shortsword in one hand and a Dagger in the other using the Attack action and a Bonus Action, but you don't add your Strength or Dexterity modifier to the damage roll of the Bonus Action unless that modifier is negative." },
+  range:      { name:"Range",      text:"A Range weapon has a range in parentheses after the Ammunition or Thrown property. The range lists two numbers. The first is the weapon's normal range in feet, and the second is the weapon's long range. When attacking a target beyond normal range, you have Disadvantage on the attack roll. You can't attack a target beyond the long range." },
+  thrown:     { name:"Thrown",     text:"If a weapon has the Thrown property, you can throw the weapon to make a ranged attack, and you can draw that weapon as part of the attack. If the weapon is a Melee weapon, use the same ability modifier for the attack and damage rolls that you use for a melee attack with that weapon." },
+  twoHanded:  { name:"Two-Handed", text:"A Two-Handed weapon requires two hands when you attack with it." },
+  versatile:  { name:"Versatile",  text:"A Versatile weapon can be used with one or two hands. A damage value in parentheses appears with the property. The weapon deals that damage when used with two hands to make a melee attack." }
+};
+
+const WEAPON_MASTERY = {
+  note: "Each weapon has a mastery property, which is usable only by a character who has a feature, such as Weapon Mastery, that unlocks the property for the character.",
+  graze: { name:"Graze", text:"If your attack roll with this weapon misses a creature, you can deal damage to that creature equal to the ability modifier you used to make the attack roll. This damage is the same type dealt by the weapon, and the damage can be increased only by increasing the ability modifier." },
+  nick: { name:"Nick", text:"When you make the extra attack of the Light property, you can make it as part of the Attack action instead of as a Bonus Action. You can make this extra attack only once per turn." },
+  sap:  { name:"Sap",  text:"If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn." },
+  slow: { name:"Slow", text:"If you hit a creature with this weapon and deal damage to it, you can reduce its Speed by 10 feet until the start of your next turn. If the creature is hit more than once by weapons that have this property, the Speed reduction doesn't exceed 10 feet." },
+  vex:  { name:"Vex",  text:"If you hit a creature with this weapon and deal damage to the creature, you have Advantage on your next attack roll against that creature before the end of your next turn." }
+};
+
+const ARMOR_RULE = {
+  strength:       { name:"Strength",       text:"If the table shows a Strength score in the Strength column for an armor type, that armor reduces the wearer's speed by 10 feet unless the wearer has a Strength score equal to or higher than the listed score." },
+  stealth:        { name:"Stealth",        text:"If the table shows \"Disadvantage\" in the Stealth column for an armor type, the wearer has Disadvantage on Dexterity (Stealth) checks." },
+  training:       { name:"Armor Training", text:"If you wear Light, Medium, or Heavy armor and lack training with it, you have Disadvantage on any D20 Test that involves Strength or Dexterity, and you can't cast spells." },
+  shieldTraining: { name:"Armor Training", text:"You gain the Armor Class benefit of a Shield only if you have training with it." },
+  oneAtATime:     { name:"One at a Time",  text:"A creature can wear only one suit of armor at a time and wield only one Shield at a time." }
+};
+
+/* Riding rules from SRD 5.2.1: Travel Pace (p. 12), Mounting and
+   Dismounting (p. 15), Controlling a Mount and Falling Off (p. 16).
+   Every mount card ends with all four. Adapted, not verbatim: travel
+   is one sentence of the pace rule with the table's speeds in it, and
+   the other three drop the SRD's examples and cross-references. */
+const MOUNT_RULE = {
+  travel:   { name:"Travel Pace", text:"A mounted group can move twice its travel-pace distance for 1 hour (Fast 4, Normal 3, Slow 2 miles per hour), after which the mounts need a Short or Long Rest before they can move at that increased pace again." },
+  mounting: { name:"Mounting and Dismounting", text:"During your move, you can mount a creature that is within 5 feet of you or dismount. Doing so costs an amount of movement equal to half your Speed (round down)." },
+  control:  { name:"Controlling a Mount", text:"Domesticated horses, mules, and similar creatures are trained to accept a rider. The Initiative of a controlled mount changes to match yours when you mount it. It moves on your turn as you direct it, and it has only three action options during that turn: **Dash, Disengage, and Dodge**. A controlled mount can move and act even on the turn that you mount it." },
+  fallOff:  { name:"Falling Off", text:"If an effect is about to move your mount against its will while you're on it, you must succeed on a **DC 10 Dexterity saving throw** or fall off, landing with the **Prone** condition in an unoccupied space within 5 feet of the mount. While mounted, you must make the same save if you're knocked Prone or the mount is." }
+};
+
+const CHARACTERS = [
+
+{
+  name: "Gus the Bull",
+  category: "characters",
+  group: "Abbey of the Lost Sisters",
+  tag: "NPC · Level 11 Barbarian",
+  subtitle: "Medium Humanoid (Barbarian), Lawful Good",
+  art: "art/gus_the_bull.png",
+  artPos: "50% 30%",
+  ac: "14",
+  hp: "115 (11d12 Hit Dice)",
+  speed: "40 ft.",
+  initiative: "+1 (11)",
+  cr: "Level 11 (PB +4)",
+  abilities: {
+    STR:[20,"+5","+9"], DEX:[13,"+1","+1"], CON:[16,"+3","+7"],
+    INT:[ 8,"−1","−1"], WIS:[12,"+1","+1"], CHA:[10,"+0","+0"]
+  },
+  skills: "Athletics +9, Intimidation +4, Perception +5, Survival +5",
+  vulnerabilities: "",
+  resistances: "",
+  immunities: "",
+  gear: "Greataxe",
+  senses: "Passive Perception 15",
+  languages: "Common",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Unarmored Defense", text:"He wears no armour. His AC is as listed." },
+      { name:"Reckless Attack", text:"At the start of his turn, he can gain Advantage on all his Strength-based melee attack rolls this turn. If he does, attack rolls against him have Advantage until the start of his next turn." },
+      { name:"Divine Fury", text:"Once per turn, when he hits with a weapon *while Raging*, the target takes an extra 8 (1d6 + 5) Radiant damage." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"He makes two Greataxe attacks." },
+      { name:"Greataxe", text:"*Melee Attack Roll:* +9, reach 5 ft. *Hit:* 11 (1d12 + 5) Slashing damage, or 14 (1d12 + 8) while Raging. **Cleave (1/Turn):** after a hit, he attacks a second creature within 5 ft. of the first; *Hit:* 6 (1d12), or 9 (1d12 + 3) while Raging." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Rage (4/Day)", text:"For up to 10 minutes: **Resistance** to Bludgeoning, Piercing and Slashing, and +3 damage (included above)." },
+      { name:"Warrior of the Gods", text:"He spends dice from a pool of **5d12** and regains that many hit points. Refills on a Long Rest." }
+    ]}
+  ]
+},
+
+{
+  name: "Sister Amandala",
+  category: "characters",
+  group: "Abbey of the Lost Sisters",
+  tag: "NPC · Level 11 Cleric",
+  subtitle: "Medium Humanoid (Cleric), Lawful Good",
+  art: "art/sister_amandala.png",
+  artPos: "50% 15%",
+  ac: "17",
+  hp: "80 (11d8 Hit Dice)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "Level 11 (PB +4)",
+  abilities: {
+    STR:[ 8,"−1","−1"], DEX:[14,"+2","+2"], CON:[14,"+2","+2"],
+    INT:[13,"+1","+1"], WIS:[20,"+5","+9"], CHA:[10,"+0","+4"]
+  },
+  skills: "History +5, Insight +9, Medicine +9, Religion +9",
+  vulnerabilities: "",
+  resistances: "",
+  immunities: "",
+  gear: "Half Plate Armor, Holy Symbol",
+  senses: "Passive Perception 15",
+  languages: "Common plus two other languages",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Blessed Healer", text:"When she heals another creature, she heals too: **5** hit points after Healing Word, **10** after Preserve Life." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Sacred Flame", text:"*Dexterity Saving Throw:* DC 17, one creature she can see within 60 ft.; cover gives no benefit. *Failure:* 18 (3d8 + 5) Radiant damage." },
+      { name:"Word of Radiance", text:"*Constitution Saving Throw:* DC 17, each creature of her choice she can see within 5 ft. *Failure:* 15 (3d6 + 5) Radiant damage." },
+      { name:"Preserve Life (2/Day)", text:"She restores **55 hit points**, divided as she chooses among **Bloodied** creatures within 30 ft. No creature is raised above half its hit point maximum." },
+      { spellcasting:{ ability:"Wisdom", dc:17, spells:"*At Will:* Light, Spare the Dying, Thaumaturgy. *1/Day Each:* Bless, Lesser Restoration." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Healing Word (3/Day)", text:"One creature she can see within 60 ft. regains 13 (2d4 + 8) hit points." }
+    ]}
+  ]
+},
+
+{
+  name: "Taranel Maelorin",
+  category: "characters",
+  group: "Abbey of the Lost Sisters",
+  tag: "NPC · Level 11 Paladin",
+  subtitle: "Medium Humanoid (Elf, Paladin), Lawful Neutral",
+  art: "art/taranel_maelorin.png",
+  artPos: "50% 15%",
+  ac: "21",
+  hp: "92 (11d10 Hit Dice)",
+  speed: "30 ft.",
+  initiative: "+0 (10)",
+  cr: "Level 11 (PB +4)",
+  abilities: {
+    STR:[18,"+4","+7"], DEX:[10,"+0","+3"], CON:[14,"+2","+5"],
+    INT:[ 8,"−1","+2"], WIS:[13,"+1","+8"], CHA:[16,"+3","+10"]
+  },
+  skills: "Athletics +8, History +3, Perception +5, Persuasion +7, Religion +3",
+  vulnerabilities: "",
+  resistances: "",
+  immunities: "",
+  gear: "Plate Armor, Shield, Longsword, Holy Symbol",
+  senses: "Darkvision 60 ft.; Passive Perception 15",
+  languages: "Common, Elvish and one other language",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Aura of Protection", text:"He and allies within 10 ft. add **+3** to saving throws (included in his own) and **can't be Charmed**. Gone while he is Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"He makes two Longsword attacks." },
+      { name:"Longsword", text:"*Melee Attack Roll:* +8, reach 5 ft. *Hit:* 8 (1d8 + 4) Slashing plus 4 (1d8) Radiant damage. **Sap:** the target has Disadvantage on its next attack roll before the start of his next turn." },
+      { spellcasting:{ ability:"Charisma", dc:15, spells:"*1/Day Each:* Bless, Dispel Magic, Shield of Faith (Bonus Action). Bless and Shield of Faith: only one at a time (Concentration)." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Divine Smite (3/Day)", text:"Immediately after he hits with a melee attack, the target takes an extra 18 (4d8) Radiant damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Brother Colm",
+  category: "characters",
+  group: "Abbey of the Lost Sisters",
+  tag: "NPC · Level 8 Monk",
+  subtitle: "Medium Humanoid (Monk), Lawful Good",
+  art: "art/brother_colm.png",
+  ac: "17",
+  hp: "59 (8d8 Hit Dice)",
+  speed: "45 ft.",
+  initiative: "+4 (14)",
+  cr: "Level 8 (PB +3)",
+  abilities: {
+    STR:[ 8,"−1","+2"], DEX:[18,"+4","+7"], CON:[14,"+2","+2"],
+    INT:[12,"+1","+1"], WIS:[16,"+3","+3"], CHA:[11,"+0","+0"]
+  },
+  skills: "Acrobatics +7, History +4, Insight +6, Religion +4",
+  vulnerabilities: "",
+  resistances: "",
+  immunities: "",
+  gear: "",
+  senses: "Passive Perception 13",
+  languages: "Common, plus two picked up on Church missions",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Unarmored Defense", text:"No armour, no shield; his AC is as listed." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"He makes two Unarmed Strikes." },
+      { name:"Unarmed Strike", text:"*Melee Attack Roll:* +7, reach 5 ft. *Hit:* 8 (1d8 + 4) Bludgeoning damage." },
+      { name:"Stunning Strike (3/Day)", text:"On a hit with an Unarmed Strike: *Constitution Saving Throw:* DC 14. *Failure:* **Stunned** until the start of his next turn. *Success:* Speed halved, and the next attack roll against it before then has Advantage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Step of the Wind", text:"He takes the **Disengage** or **Dash** action." }
+    ]}
+  ]
+},
+
+{
+  name: "Rector Severin von Oaksworn",
+  category: "characters",
+  group: "Abbey of the Lost Sisters",
+  tag: "NPC · CR 11",
+  subtitle: "Medium Humanoid (Cleric), Lawful Good",
+  art: "art/severin_von_oaksworn.png",
+  ac: "16",
+  hp: "240 (32d8 + 96)",
+  speed: "25 ft.",
+  initiative: "+5 (15)",
+  cr: "11 (PB +4)",
+  abilities: {
+    STR:[11,"+0","+0"], DEX:[12,"+1","+1"], CON:[16,"+3","+7"],
+    INT:[16,"+3","+7"], WIS:[21,"+5","+9"], CHA:[18,"+4","+8"]
+  },
+  skills: "History +7, Insight +9, Medicine +9, Perception +9, Religion +11",
+  vulnerabilities: "",
+  resistances: "",
+  immunities: "",
+  gear: "Holy Symbol, vestments",
+  senses: "Passive Perception 19",
+  languages: "Common plus two other languages",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Radiant Burst", text:"*Melee or Ranged Attack Roll:* +9, reach 5 ft. or range 60 ft. *Hit:* 27 (4d10 + 5) Radiant damage." },
+      { name:"Holy Word (Recharge 4–6)", text:"*Wisdom Saving Throw:* DC 17, each enemy in a 20-foot Emanation. *Failure:* 21 (6d6) Radiant damage and **Stunned** until the end of his next turn. *Success:* Half damage only." },
+      { spellcasting:{ ability:"Wisdom", dc:17, spells:"*At Will:* Light, Thaumaturgy. *1/Day Each:* Greater Restoration, Hold Person (level 5), Mass Healing Word (Bonus Action). No Material components." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Divine Aid (5/Day)", text:"Casts *Bless*, *Dispel Magic*, *Healing Word* or *Lesser Restoration*. Bless and Hold Person: only one at a time (Concentration)." }
+    ]}
+  ]
+},
+
+{
+  name: "Ruffles",
+  category: "characters",
+  group: "Abbey of the Lost Sisters",
+  tag: "NPC · CR 1/8",
+  subtitle: "Medium Beast, Unaligned",
+  art: "art/ruffles.png",
+  ac: "12",
+  hp: "5 (1d8 + 1)",
+  speed: "40 ft.",
+  initiative: "+2 (12)",
+  cr: "1/8 (PB +2)",
+  abilities: {
+    STR:[13,"+1","+1"], DEX:[14,"+2","+2"], CON:[12,"+1","+1"],
+    INT:[ 3,"−4","−4"], WIS:[12,"+1","+3"], CHA:[ 7,"−2","−2"]
+  },
+  skills: "Perception +5",
+  senses: "Darkvision 60 ft.; Passive Perception 15",
+  languages: "None",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Bite", text:"*Melee Attack Roll:* +3, reach 5 ft. *Hit:* 4 (1d6 + 1) Piercing damage. If the target is a Medium or smaller creature, it has the Prone condition." }
+    ]}
+  ]
+},
+
+{
+  name: "Goblin Minion",
+  category: "enemies",
+  group: "Goblins",
+  tag: "Enemy · CR 1/8",
+  subtitle: "Small Fey (Goblinoid), Chaotic Neutral",
+  art: "art/goblin_minion.png",
+  ac: "12",
+  hp: "7 (2d6)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "1/8 (PB +2)",
+  abilities: {
+    STR:[ 8,"−1","−1"], DEX:[15,"+2","+2"], CON:[10,"+0","+0"],
+    INT:[10,"+0","+0"], WIS:[ 8,"−1","−1"], CHA:[ 8,"−1","−1"]
+  },
+  skills: "Stealth +6",
+  gear: "Daggers (3)",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Dagger", text:"*Melee or Ranged Attack Roll:* +4, reach 5 ft. or range 20/60 ft. *Hit:* 4 (1d4 + 2) Piercing damage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Nimble Escape", text:"Takes the Disengage or Hide action." }
+    ]}
+  ]
+},
+
+{
+  name: "Goblin Warrior",
+  category: "enemies",
+  group: "Goblins",
+  tag: "Enemy · CR 1/4",
+  subtitle: "Small Fey (Goblinoid), Chaotic Neutral",
+  art: "art/goblin.png",
+  ac: "15",
+  hp: "10 (3d6)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "1/4 (PB +2)",
+  abilities: {
+    STR:[ 8,"−1","−1"], DEX:[15,"+2","+2"], CON:[10,"+0","+0"],
+    INT:[10,"+0","+0"], WIS:[ 8,"−1","−1"], CHA:[ 8,"−1","−1"]
+  },
+  skills: "Stealth +6",
+  gear: "Leather Armor, Scimitar, Shield, Shortbow",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Scimitar", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Slashing damage, plus 2 (1d4) Slashing if the roll had Advantage." },
+      { name:"Shortbow", text:"*Ranged Attack Roll:* +4, range 80/320 ft. *Hit:* 5 (1d6 + 2) Piercing damage, plus 2 (1d4) Piercing if the roll had Advantage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Nimble Escape", text:"Takes the Disengage or Hide action." }
+    ]}
+  ]
+},
+
+{
+  name: "Goblin Boss",
+  category: "enemies",
+  group: "Goblins",
+  tag: "Enemy · CR 1",
+  subtitle: "Small Fey (Goblinoid), Chaotic Neutral",
+  art: "art/goblin_boss.png",
+  ac: "17",
+  hp: "21 (6d6)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "1 (PB +2)",
+  abilities: {
+    STR:[10,"+0","+0"], DEX:[15,"+2","+2"], CON:[10,"+0","+0"],
+    INT:[10,"+0","+0"], WIS:[ 8,"−1","−1"], CHA:[10,"+0","+0"]
+  },
+  skills: "Stealth +6",
+  gear: "Chain Shirt, Scimitar, Shield, Shortbow",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Scimitar or Shortbow in any combination." },
+      { name:"Scimitar", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Slashing damage, plus 2 (1d4) Slashing if the roll had Advantage." },
+      { name:"Shortbow", text:"*Ranged Attack Roll:* +4, range 80/320 ft. *Hit:* 5 (1d6 + 2) Piercing damage, plus 2 (1d4) Piercing if the roll had Advantage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Nimble Escape", text:"Takes the Disengage or Hide action." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Redirect Attack", text:"*Trigger:* A creature it can see makes an attack roll against it. *Response:* It chooses a Small or Medium ally within 5 feet; the two swap places and the ally becomes the target instead." }
+    ]}
+  ]
+},
+
+{
+  name: "Goblin Hexer",
+  category: "enemies",
+  group: "Goblins",
+  tag: "Enemy · CR 3",
+  subtitle: "Small Fey (Goblinoid), Chaotic Neutral",
+  art: "art/goblin_hexer.png",
+  ac: "13",
+  hp: "45 (10d6 + 10)",
+  speed: "30 ft.",
+  initiative: "+3 (13)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[ 8,"−1","−1"], DEX:[16,"+3","+3"], CON:[12,"+1","+1"],
+    INT:[16,"+3","+3"], WIS:[10,"+0","+0"], CHA:[10,"+0","+0"]
+  },
+  skills: "Sleight of Hand +5, Stealth +7",
+  senses: "Darkvision 60 ft.; Passive Perception 10",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two Hex Stick attacks. It can replace one attack with a use of Spellcasting." },
+      { name:"Hex Stick", text:"*Melee or Ranged Attack Roll:* +5, reach 5 ft. or range 60 ft. *Hit:* 12 (2d8 + 3) Psychic damage." },
+      { spellcasting:{ ability:"Intelligence", dc:13, spells:"*At Will:* Minor Illusion. *1/Day Each:* Blindness/Deafness, Faerie Fire, Grease." } }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Jinx", text:"*Trigger:* A creature it can see hits it with an attack roll. *Response — Wisdom Saving Throw:* DC 13, the triggering creature. *Failure:* The attack misses instead." }
+    ]}
+  ]
+},
+
+{
+  name: "Mercenary Footsoldier",
+  category: "enemies",
+  group: "Mercenaries",
+  tag: "Enemy · CR 1/8",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/mercenary_footsoldier.png",
+  ac: "13",
+  hp: "9 (2d8)",
+  speed: "30 ft.",
+  initiative: "+0 (10)",
+  cr: "1/8 (PB +2)",
+  abilities: {
+    STR:[13,"+1","+1"], DEX:[11,"+0","+0"], CON:[11,"+0","+0"],
+    INT:[ 8,"−1","−1"], WIS:[11,"+0","+0"], CHA:[ 8,"−1","−1"]
+  },
+  gear: "Chain Shirt, Spear",
+  senses: "Passive Perception 10",
+  languages: "Common",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Pack Tactics", text:"Advantage on an attack roll against a creature if at least one of its allies is within 5 feet of the creature and isn't Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Spear", text:"*Melee or Ranged Attack Roll:* +3, reach 5 ft. or range 20/60 ft. *Hit:* 4 (1d6 + 1) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Mercenary Scout",
+  category: "enemies",
+  group: "Mercenaries",
+  tag: "Enemy · CR 1/2",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/mercenary_scout.png",
+  ac: "13",
+  hp: "16 (3d8 + 3)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "1/2 (PB +2)",
+  abilities: {
+    STR:[11,"+0","+0"], DEX:[14,"+2","+2"], CON:[12,"+1","+1"],
+    INT:[11,"+0","+0"], WIS:[13,"+1","+1"], CHA:[11,"+0","+0"]
+  },
+  skills: "Nature +4, Perception +5, Stealth +6, Survival +5",
+  gear: "Leather Armor, Longbow, Shortsword",
+  senses: "Passive Perception 15",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Shortsword and Longbow in any combination." },
+      { name:"Shortsword", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Piercing damage." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +4, range 150/600 ft. *Hit:* 6 (1d8 + 2) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Mercenary Captain",
+  category: "enemies",
+  group: "Mercenaries",
+  tag: "Enemy · CR 3",
+  subtitle: "Medium Humanoid, Neutral",
+  art: "art/mercenary_captain.png",
+  ac: "17",
+  hp: "58 (9d8 + 18)",
+  speed: "30 ft.",
+  initiative: "+4 (14)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[15,"+2","+2"], DEX:[14,"+2","+2"], CON:[14,"+2","+2"],
+    INT:[12,"+1","+1"], WIS:[10,"+0","+0"], CHA:[13,"+1","+1"]
+  },
+  gear: "Greatsword, Half Plate Armor, Longbow",
+  senses: "Passive Perception 10",
+  languages: "Common",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Aura of Authority", text:"While in a 10-foot Emanation from the captain, it and its allies have **Advantage on attack rolls and saving throws**, unless the captain is Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Greatsword or Longbow in any combination." },
+      { name:"Greatsword", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 9 (2d6 + 2) Slashing damage plus 3 (1d6) Poison damage." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +4, range 150/600 ft. *Hit:* 6 (1d8 + 2) Piercing damage plus 5 (2d4) Poison damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Mercenary Champion",
+  category: "enemies",
+  group: "Mercenaries",
+  tag: "Enemy · CR 5",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/mercenary_champion.png",
+  artPos: "50% 30%",
+  ac: "16",
+  hp: "112 (15d8 + 45)",
+  speed: "30 ft.",
+  initiative: "+5 (15)",
+  cr: "5 (PB +3)",
+  abilities: {
+    STR:[18,"+4","+7"], DEX:[15,"+2","+5"], CON:[16,"+3","+6"],
+    INT:[10,"+0","+0"], WIS:[12,"+1","+4"], CHA:[15,"+2","+2"]
+  },
+  skills: "Athletics +10, Performance +5",
+  gear: "Shield, Spears (3), Studded Leather Armor",
+  senses: "Passive Perception 11",
+  languages: "Common",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Spear attacks. It can replace one attack with a use of Shield Bash." },
+      { name:"Spear", text:"*Melee or Ranged Attack Roll:* +7, reach 5 ft. or range 20/60 ft. *Hit:* 11 (2d6 + 4) Piercing damage." },
+      { name:"Shield Bash", text:"*Strength Saving Throw:* DC 15, one creature within 5 feet it can see. *Failure:* 9 (2d4 + 4) Bludgeoning damage, and a Medium or smaller target has the **Prone** condition." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Parry", text:"*Trigger:* It is hit by a melee attack roll while holding a weapon. *Response:* It adds 3 to its AC against that attack, possibly causing it to miss." }
+    ]}
+  ]
+},
+
+{
+  name: "Mercenary Mage",
+  category: "enemies",
+  group: "Mercenaries",
+  tag: "Enemy · CR 6",
+  subtitle: "Medium or Small Humanoid (Wizard), Neutral",
+  art: "art/mercenary_mage.png",
+  artPos: "45% 30%",
+  ac: "15",
+  hp: "81 (18d8)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "6 (PB +3)",
+  abilities: {
+    STR:[ 9,"−1","−1"], DEX:[14,"+2","+2"], CON:[11,"+0","+0"],
+    INT:[17,"+3","+6"], WIS:[12,"+1","+4"], CHA:[11,"+0","+0"]
+  },
+  skills: "Arcana +6, History +6, Perception +4",
+  gear: "Wand",
+  senses: "Passive Perception 14",
+  languages: "Common plus three other languages",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Arcane Burst attacks." },
+      { name:"Arcane Burst", text:"*Melee or Ranged Attack Roll:* +6, reach 5 ft. or range 120 ft. *Hit:* 16 (3d8 + 3) Force damage." },
+      { spellcasting:{ ability:"Intelligence", dc:14, spells:"*At Will:* Detect Magic, Light, Mage Armor (in AC), Mage Hand, Prestidigitation. *2/Day Each:* Fireball (level 4), Invisibility. *1/Day Each:* Cone of Cold, Fly." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Misty Step (3/Day)", text:"Casts *Misty Step*." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Protective Magic (3/Day)", text:"Casts *Counterspell* or *Shield* in response to that spell's trigger." }
+    ]}
+  ]
+},
+
+{
+  name: "Mercenary Commander",
+  category: "enemies",
+  group: "Mercenaries",
+  tag: "Enemy · CR 10",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/mercenary_commander.png",
+  ac: "18",
+  hp: "161 (19d8 + 76)",
+  speed: "30 ft.",
+  initiative: "+9 (19)",
+  cr: "10 (PB +4)",
+  abilities: {
+    STR:[21,"+5","+9"], DEX:[20,"+5","+9"], CON:[18,"+4","+8"],
+    INT:[14,"+2","+2"], WIS:[16,"+3","+7"], CHA:[14,"+2","+2"]
+  },
+  skills: "Athletics +9, Insight +7, Perception +7",
+  gear: "Greatsword, Longbow, Plate Armor",
+  senses: "Passive Perception 17",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three attacks, using Greatsword or Longbow in any combination." },
+      { name:"Greatsword", text:"*Melee Attack Roll:* +9, reach 5 ft. *Hit:* 19 (4d6 + 5) Slashing damage, plus one effect: **Sap** — the target has Disadvantage on its next attack roll before the start of the commander's next turn; or **Maneuver** — one ally who can see or hear it can use a Reaction to move up to half its Speed without provoking Opportunity Attacks." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +9, range 150/600 ft. *Hit:* 18 (3d8 + 5) Piercing damage, and the target's Speed decreases by 10 feet until the end of its next turn." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Tactical Charge", text:"Moves up to half its Speed straight toward an enemy it can see without provoking Opportunity Attacks." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Counterattack", text:"*Trigger:* It is hit by an attack roll. *Response:* It adds 4 to its AC against that attack, possibly causing it to miss. On a miss, it can make one Greatsword or Longbow attack against the attacker." }
+    ]}
+  ]
+},
+{
+  name: "Assassin",
+  category: "enemies",
+  group: "Assassins",
+  tag: "Enemy · CR 8",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/assassin.png",
+  ac: "16",
+  hp: "97 (15d8 + 30)",
+  speed: "30 ft.",
+  initiative: "+10 (20)",
+  cr: "8 (PB +3)",
+  abilities: {
+    STR:[11,"+0","+0"], DEX:[18,"+4","+7"], CON:[14,"+2","+2"],
+    INT:[16,"+3","+6"], WIS:[11,"+0","+0"], CHA:[10,"+0","+0"]
+  },
+  skills: "Acrobatics +7, Perception +6, Stealth +10",
+  resistances: "Poison",
+  gear: "Light Crossbow, Shortsword, Studded Leather Armor",
+  senses: "Passive Perception 16",
+  languages: "Common, Thieves' Cant",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Evasion", text:"On a Dexterity save against an effect that deals half damage on a success, it instead takes **no** damage on a success and **half** on a failure. Unusable while Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three attacks, using Shortsword or Light Crossbow in any combination." },
+      { name:"Shortsword", text:"*Melee Attack Roll:* +7, reach 5 ft. *Hit:* 7 (1d6 + 4) Piercing damage plus 17 (5d6) Poison damage, and the target has the **Poisoned** condition until the start of the assassin's next turn." },
+      { name:"Light Crossbow", text:"*Ranged Attack Roll:* +7, range 80/320 ft. *Hit:* 8 (1d8 + 4) Piercing damage plus 21 (6d6) Poison damage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Cunning Action", text:"Takes the Dash, Disengage, or Hide action." }
+    ]}
+  ]
+},
+
+{
+  name: "Awakened Shrub",
+  category: "enemies",
+  group: "Awakened Plants",
+  tag: "Enemy · CR 0",
+  subtitle: "Small Plant, Neutral",
+  art: "art/awakened_shrub.png",
+  ac: "9",
+  hp: "10 (3d6)",
+  speed: "20 ft.",
+  initiative: "−1 (9)",
+  cr: "0 (PB +2)",
+  abilities: {
+    STR:[ 3,"−4","−4"], DEX:[ 8,"−1","−1"], CON:[11,"+0","+0"],
+    INT:[10,"+0","+0"], WIS:[10,"+0","+0"], CHA:[ 6,"−2","−2"]
+  },
+  vulnerabilities: "Fire",
+  resistances: "Piercing",
+  senses: "Passive Perception 10",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Rake", text:"*Melee Attack Roll:* +1, reach 5 ft. *Hit:* 1 Slashing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Awakened Tree",
+  category: "enemies",
+  group: "Awakened Plants",
+  tag: "Enemy · CR 2",
+  subtitle: "Huge Plant, Neutral",
+  art: "art/awakened_tree.png",
+  ac: "13",
+  hp: "59 (7d12 + 14)",
+  speed: "20 ft.",
+  initiative: "−2 (8)",
+  cr: "2 (PB +2)",
+  abilities: {
+    STR:[19,"+4","+4"], DEX:[ 6,"−2","−2"], CON:[15,"+2","+2"],
+    INT:[10,"+0","+0"], WIS:[10,"+0","+0"], CHA:[ 7,"−2","−2"]
+  },
+  vulnerabilities: "Fire",
+  resistances: "Bludgeoning, Piercing",
+  senses: "Passive Perception 10",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Slam", text:"*Melee Attack Roll:* +6, reach 10 ft. *Hit:* 14 (3d6 + 4) Bludgeoning damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Bugbear Warrior",
+  category: "enemies",
+  group: "Bugbears",
+  tag: "Enemy · CR 1",
+  subtitle: "Medium Fey (Goblinoid), Chaotic Evil",
+  art: "art/bugbear_warrior.png",
+  ac: "14",
+  hp: "33 (6d8 + 6)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "1 (PB +2)",
+  abilities: {
+    STR:[15,"+2","+2"], DEX:[14,"+2","+2"], CON:[13,"+1","+1"],
+    INT:[ 8,"−1","−1"], WIS:[11,"+0","+0"], CHA:[ 9,"−1","−1"]
+  },
+  skills: "Stealth +6, Survival +2",
+  gear: "Hide Armor, Light Hammers (3)",
+  senses: "Darkvision 60 ft.; Passive Perception 10",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Abduct", text:"It needn't spend extra movement to move a creature it is grappling." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Grab", text:"*Melee Attack Roll:* +4, reach 10 ft. *Hit:* 9 (2d6 + 2) Bludgeoning damage. A Medium or smaller target has the **Grappled** condition (escape DC 12)." },
+      { name:"Light Hammer", text:"*Melee or Ranged Attack Roll:* +4 (with Advantage if the target is Grappled by it), reach 10 ft. or range 20/60 ft. *Hit:* 9 (3d4 + 2) Bludgeoning damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Bugbear Stalker",
+  category: "enemies",
+  group: "Bugbears",
+  tag: "Enemy · CR 3",
+  subtitle: "Medium Fey (Goblinoid), Chaotic Evil",
+  art: "art/bugbear_stalker.png",
+  ac: "15",
+  hp: "65 (10d8 + 20)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[17,"+3","+3"], DEX:[14,"+2","+2"], CON:[14,"+2","+4"],
+    INT:[11,"+0","+0"], WIS:[12,"+1","+3"], CHA:[11,"+0","+0"]
+  },
+  skills: "Stealth +6, Survival +3",
+  gear: "Chain Shirt, Javelins (6), Morningstar",
+  senses: "Darkvision 60 ft.; Passive Perception 11",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Abduct", text:"It needn't spend extra movement to move a creature it is grappling." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two Javelin or Morningstar attacks." },
+      { name:"Javelin", text:"*Melee or Ranged Attack Roll:* +5, reach 10 ft. or range 30/120 ft. *Hit:* 13 (3d6 + 3) Piercing damage." },
+      { name:"Morningstar", text:"*Melee Attack Roll:* +5 (with Advantage if the target is Grappled by it), reach 10 ft. *Hit:* 12 (2d8 + 3) Piercing damage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Quick Grapple", text:"*Dexterity Saving Throw:* DC 13, one Medium or smaller creature it can see within 10 feet. *Failure:* The target has the **Grappled** condition (escape DC 13)." }
+    ]}
+  ]
+},
+
+{
+  name: "Druid",
+  category: "enemies",
+  group: "Druids",
+  tag: "Enemy · CR 2",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/druid.png",
+  ac: "13",
+  hp: "44 (8d8 + 8)",
+  speed: "30 ft.",
+  initiative: "+1 (11)",
+  cr: "2 (PB +2)",
+  abilities: {
+    STR:[10,"+0","+0"], DEX:[12,"+1","+1"], CON:[13,"+1","+1"],
+    INT:[12,"+1","+1"], WIS:[16,"+3","+3"], CHA:[11,"+0","+0"]
+  },
+  skills: "Medicine +5, Nature +3, Perception +5",
+  gear: "Studded Leather Armor",
+  senses: "Passive Perception 15",
+  languages: "Common, Druidic, Sylvan",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Vine Staff or Verdant Wisp in any combination." },
+      { name:"Vine Staff", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 7 (1d8 + 3) Bludgeoning damage plus 2 (1d4) Poison damage." },
+      { name:"Verdant Wisp", text:"*Ranged Attack Roll:* +5, range 90 ft. *Hit:* 10 (3d6) Radiant damage." },
+      { spellcasting:{ ability:"Wisdom", dc:13, spells:"*At Will:* Druidcraft, Speak with Animals. *2/Day Each:* Entangle, Thunderwave. *1/Day Each:* Animal Messenger, Longstrider, Moonbeam." } }
+    ]}
+  ]
+},
+
+{
+  name: "Dryad",
+  category: "enemies",
+  group: "Dryads",
+  tag: "Enemy · CR 1",
+  subtitle: "Medium Fey, Neutral",
+  art: "art/dryad.png",
+  ac: "16",
+  hp: "22 (5d8)",
+  speed: "30 ft.",
+  initiative: "+1 (11)",
+  cr: "1 (PB +2)",
+  abilities: {
+    STR:[10,"+0","+0"], DEX:[12,"+1","+1"], CON:[11,"+0","+0"],
+    INT:[14,"+2","+2"], WIS:[15,"+2","+2"], CHA:[18,"+4","+4"]
+  },
+  skills: "Perception +4, Stealth +5",
+  senses: "Darkvision 60 ft.; Passive Perception 14",
+  languages: "Elvish, Sylvan",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Magic Resistance", text:"Advantage on saving throws against spells and other magical effects." },
+      { name:"Speak with Beasts and Plants", text:"It can communicate with Beasts and Plants as if they shared a language." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"One Vine Lash or Thorn Burst attack, and it can use Spellcasting to cast *Charm Monster*." },
+      { name:"Vine Lash", text:"*Melee Attack Roll:* +6, reach 10 ft. *Hit:* 8 (1d8 + 4) Slashing damage." },
+      { name:"Thorn Burst", text:"*Ranged Attack Roll:* +6, range 60 ft. *Hit:* 7 (1d6 + 4) Piercing damage." },
+      { spellcasting:{ ability:"Charisma", dc:14, spells:"*At Will:* Animal Friendship, Charm Monster (lasts 24 hours; ends early if it casts the spell again), Druidcraft. *1/Day Each:* Entangle, Pass without Trace. No Material components." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Tree Stride", text:"If within 5 feet of a Large or bigger tree, it teleports to an unoccupied space within 5 feet of a second Large or bigger tree within 60 feet of the first." }
+    ]}
+  ]
+},
+
+{
+  name: "Gladiator",
+  category: "enemies",
+  group: "Gladiators",
+  tag: "Enemy · CR 5",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/gladiator.png",
+  ac: "16",
+  hp: "112 (15d8 + 45)",
+  speed: "30 ft.",
+  initiative: "+5 (15)",
+  cr: "5 (PB +3)",
+  abilities: {
+    STR:[18,"+4","+7"], DEX:[15,"+2","+5"], CON:[16,"+3","+6"],
+    INT:[10,"+0","+0"], WIS:[12,"+1","+4"], CHA:[15,"+2","+2"]
+  },
+  skills: "Athletics +10, Performance +5",
+  gear: "Shield, Spears (3), Studded Leather Armor",
+  senses: "Passive Perception 11",
+  languages: "Common",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Spear attacks. It can replace one attack with a use of Shield Bash." },
+      { name:"Spear", text:"*Melee or Ranged Attack Roll:* +7, reach 5 ft. or range 20/60 ft. *Hit:* 11 (2d6 + 4) Piercing damage." },
+      { name:"Shield Bash", text:"*Strength Saving Throw:* DC 15, one creature within 5 feet it can see. *Failure:* 9 (2d4 + 4) Bludgeoning damage, and a Medium or smaller target has the **Prone** condition." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Parry", text:"*Trigger:* It is hit by a melee attack roll while holding a weapon. *Response:* It adds 3 to its AC against that attack, possibly causing it to miss." }
+    ]}
+  ]
+},
+
+{
+  name: "Hobgoblin Warrior",
+  category: "enemies",
+  group: "Hobgoblins",
+  tag: "Enemy · CR 1/2",
+  subtitle: "Medium Fey (Goblinoid), Lawful Evil",
+  art: "art/hobgoblin_warrior.png",
+  ac: "18",
+  hp: "11 (2d8 + 2)",
+  speed: "30 ft.",
+  initiative: "+3 (13)",
+  cr: "1/2 (PB +2)",
+  abilities: {
+    STR:[13,"+1","+1"], DEX:[12,"+1","+1"], CON:[12,"+1","+1"],
+    INT:[10,"+0","+0"], WIS:[10,"+0","+0"], CHA:[ 9,"−1","−1"]
+  },
+  gear: "Half Plate Armor, Longbow, Longsword, Shield",
+  senses: "Darkvision 60 ft.; Passive Perception 10",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Pack Tactics", text:"Advantage on an attack roll against a creature if at least one of its allies is within 5 feet of the creature and isn't Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Longsword", text:"*Melee Attack Roll:* +3, reach 5 ft. *Hit:* 12 (2d10 + 1) Slashing damage." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +3, range 150/600 ft. *Hit:* 5 (1d8 + 1) Piercing damage plus 7 (3d4) Poison damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Hobgoblin Captain",
+  category: "enemies",
+  group: "Hobgoblins",
+  tag: "Enemy · CR 3",
+  subtitle: "Medium Fey (Goblinoid), Lawful Evil",
+  art: "art/hobgoblin_captain.png",
+  ac: "17",
+  hp: "58 (9d8 + 18)",
+  speed: "30 ft.",
+  initiative: "+4 (14)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[15,"+2","+2"], DEX:[14,"+2","+2"], CON:[14,"+2","+2"],
+    INT:[12,"+1","+1"], WIS:[10,"+0","+0"], CHA:[13,"+1","+1"]
+  },
+  gear: "Greatsword, Half Plate Armor, Longbow",
+  senses: "Darkvision 60 ft.; Passive Perception 10",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Aura of Authority", text:"While in a 10-foot Emanation from the hobgoblin, it and its allies have **Advantage on attack rolls and saving throws**, unless the hobgoblin is Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Greatsword or Longbow in any combination." },
+      { name:"Greatsword", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 9 (2d6 + 2) Slashing damage plus 3 (1d6) Poison damage." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +4, range 150/600 ft. *Hit:* 6 (1d8 + 2) Piercing damage plus 5 (2d4) Poison damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Hobgoblin Warlord",
+  category: "enemies",
+  group: "Hobgoblins",
+  tag: "Enemy · CR 6",
+  subtitle: "Medium Fey (Goblinoid), Lawful Evil",
+  art: "art/hobgoblin_warlord.png",
+  ac: "20",
+  hp: "112 (15d8 + 45)",
+  speed: "30 ft.",
+  initiative: "+5 (15)",
+  cr: "6 (PB +3)",
+  abilities: {
+    STR:[17,"+3","+3"], DEX:[14,"+2","+5"], CON:[16,"+3","+3"],
+    INT:[14,"+2","+5"], WIS:[11,"+0","+3"], CHA:[15,"+2","+5"]
+  },
+  gear: "Javelins (9), Longsword, Plate Armor, Shield",
+  senses: "Darkvision 60 ft.; Passive Perception 10",
+  languages: "Common, Goblin",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Aura of Authority", text:"While in a 30-foot Emanation from the hobgoblin, it and its allies have **Advantage on attack rolls and saving throws**, unless the hobgoblin is Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three attacks, using Javelin or Longsword in any combination." },
+      { name:"Javelin", text:"*Melee or Ranged Attack Roll:* +6, reach 5 ft. or range 30/120 ft. *Hit:* 11 (2d6 + 4) Piercing damage, and the target's Speed decreases by 10 feet until the start of the hobgoblin's next turn." },
+      { name:"Longsword", text:"*Melee Attack Roll:* +6, reach 5 ft. *Hit:* 12 (2d8 + 3) Slashing damage." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Parry", text:"*Trigger:* It is hit by a melee attack roll while holding a weapon. *Response:* It adds 3 to its AC against that attack, possibly causing it to miss." }
+    ]}
+  ]
+},
+
+{
+  name: "Riding Horse",
+  category: "enemies",
+  group: "Horses",
+  tag: "Mount · CR 1/4",
+  subtitle: "Large Beast, Unaligned",
+  art: "art/riding_horse.png",
+  ac: "11",
+  hp: "13 (2d10 + 2)",
+  speed: "60 ft.",
+  initiative: "+1 (11)",
+  cr: "1/4 (PB +2)",
+  abilities: {
+    STR:[16,"+3","+3"], DEX:[13,"+1","+1"], CON:[12,"+1","+1"],
+    INT:[ 2,"−4","−4"], WIS:[11,"+0","+0"], CHA:[ 7,"−2","−2"]
+  },
+  senses: "Passive Perception 10",
+  languages: "None",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Hooves", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 7 (1d8 + 3) Bludgeoning damage." }
+    ]},
+    { title:"Riding", entries:[
+      MOUNT_RULE.travel, MOUNT_RULE.mounting, MOUNT_RULE.control, MOUNT_RULE.fallOff
+    ]}
+  ]
+},
+
+{
+  name: "Pony",
+  category: "enemies",
+  group: "Horses",
+  tag: "Mount · CR 1/8",
+  subtitle: "Medium Beast, Unaligned",
+  art: "art/pony.png",
+  ac: "10",
+  hp: "11 (2d8 + 2)",
+  speed: "40 ft.",
+  initiative: "+0 (10)",
+  cr: "1/8 (PB +2)",
+  abilities: {
+    STR:[15,"+2","+4"], DEX:[10,"+0","+0"], CON:[13,"+1","+1"],
+    INT:[ 2,"−4","−4"], WIS:[11,"+0","+0"], CHA:[ 7,"−2","−2"]
+  },
+  senses: "Passive Perception 10",
+  languages: "None",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Hooves", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 4 (1d4 + 2) Bludgeoning damage." }
+    ]},
+    { title:"Riding", entries:[
+      MOUNT_RULE.travel, MOUNT_RULE.mounting, MOUNT_RULE.control, MOUNT_RULE.fallOff
+    ]}
+  ]
+},
+
+{
+  name: "Mage Apprentice",
+  category: "enemies",
+  group: "Mages",
+  tag: "Enemy · CR 2",
+  subtitle: "Medium or Small Humanoid (Wizard), Neutral",
+  art: "art/mage_apprentice.png",
+  ac: "15",
+  hp: "49 (9d8 + 9)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "2 (PB +2)",
+  abilities: {
+    STR:[ 8,"−1","−1"], DEX:[14,"+2","+2"], CON:[12,"+1","+1"],
+    INT:[16,"+3","+5"], WIS:[13,"+1","+3"], CHA:[10,"+0","+0"]
+  },
+  skills: "Arcana +5, Perception +3",
+  gear: "Component Pouch",
+  senses: "Passive Perception 13",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Arcane Burst", text:"*Melee or Ranged Attack Roll:* +5, reach 5 ft. or range 120 ft. *Hit:* 14 (2d10 + 3) Force damage." },
+      { spellcasting:{ ability:"Intelligence", dc:13, spells:"*At Will:* Mage Hand, Prestidigitation. *1/Day Each:* Disguise Self, Ice Knife, Mage Armor (in AC), Thunderwave. +5 to hit with spell attacks." } }
+    ]}
+  ]
+},
+
+{
+  name: "Mage",
+  category: "enemies",
+  group: "Mages",
+  tag: "Enemy · CR 6",
+  subtitle: "Medium or Small Humanoid (Wizard), Neutral",
+  art: "art/mage.png",
+  ac: "15",
+  hp: "81 (18d8)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "6 (PB +3)",
+  abilities: {
+    STR:[ 9,"−1","−1"], DEX:[14,"+2","+2"], CON:[11,"+0","+0"],
+    INT:[17,"+3","+6"], WIS:[12,"+1","+4"], CHA:[11,"+0","+0"]
+  },
+  skills: "Arcana +6, History +6, Perception +4",
+  gear: "Wand",
+  senses: "Passive Perception 14",
+  languages: "Common plus three other languages",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Arcane Burst attacks." },
+      { name:"Arcane Burst", text:"*Melee or Ranged Attack Roll:* +6, reach 5 ft. or range 120 ft. *Hit:* 16 (3d8 + 3) Force damage." },
+      { spellcasting:{ ability:"Intelligence", dc:14, spells:"*At Will:* Detect Magic, Light, Mage Armor (in AC), Mage Hand, Prestidigitation. *2/Day Each:* Fireball (level 4), Invisibility. *1/Day Each:* Cone of Cold, Fly." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Misty Step (3/Day)", text:"Casts *Misty Step*." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Protective Magic (3/Day)", text:"Casts *Counterspell* or *Shield* in response to that spell's trigger." }
+    ]}
+  ]
+},
+
+{
+  name: "Archmage",
+  category: "enemies",
+  group: "Mages",
+  tag: "Enemy · CR 12",
+  subtitle: "Medium or Small Humanoid (Wizard), Neutral",
+  art: "art/archmage.png",
+  ac: "17",
+  hp: "170 (31d8 + 31)",
+  speed: "30 ft.",
+  initiative: "+7 (17)",
+  cr: "12 (PB +4)",
+  abilities: {
+    STR:[10,"+0","+0"], DEX:[14,"+2","+2"], CON:[12,"+1","+1"],
+    INT:[20,"+5","+9"], WIS:[15,"+2","+6"], CHA:[16,"+3","+3"]
+  },
+  skills: "Arcana +13, History +9, Perception +6",
+  immunities: "Psychic; Charmed (with Mind Blank)",
+  gear: "Wand",
+  senses: "Passive Perception 16",
+  languages: "Common plus five other languages",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Magic Resistance", text:"Advantage on saving throws against spells and other magical effects." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Four Arcane Burst attacks." },
+      { name:"Arcane Burst", text:"*Melee or Ranged Attack Roll:* +9, reach 5 ft. or range 150 ft. *Hit:* 27 (4d10 + 5) Force damage." },
+      { spellcasting:{ ability:"Intelligence", dc:17, spells:"*At Will:* Detect Magic, Detect Thoughts, Disguise Self, Invisibility, Light, Mage Armor (in AC), Mage Hand, Prestidigitation. *2/Day Each:* Fly, Lightning Bolt (level 7). *1/Day Each:* Cone of Cold (level 9), Mind Blank (cast before combat), Scrying, Teleport." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Misty Step (3/Day)", text:"Casts *Misty Step*." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Protective Magic (3/Day)", text:"Casts *Counterspell* or *Shield* in response to that spell's trigger." }
+    ]}
+  ]
+},
+
+{
+  name: "Mastiff",
+  category: "enemies",
+  group: "Mastiffs",
+  tag: "Enemy · CR 1/8",
+  subtitle: "Medium Beast, Unaligned",
+  art: "art/mastiff.png",
+  ac: "12",
+  hp: "5 (1d8 + 1)",
+  speed: "40 ft.",
+  initiative: "+2 (12)",
+  cr: "1/8 (PB +2)",
+  abilities: {
+    STR:[13,"+1","+1"], DEX:[14,"+2","+2"], CON:[12,"+1","+1"],
+    INT:[ 3,"−4","−4"], WIS:[12,"+1","+3"], CHA:[ 7,"−2","−2"]
+  },
+  skills: "Perception +5",
+  senses: "Darkvision 60 ft.; Passive Perception 15",
+  languages: "None",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Bite", text:"*Melee Attack Roll:* +3, reach 5 ft. *Hit:* 4 (1d6 + 1) Piercing damage. If the target is a Medium or smaller creature, it has the Prone condition." }
+    ]}
+  ]
+},
+
+{
+  name: "Ogrillon Ogre",
+  category: "enemies",
+  group: "Ogres",
+  tag: "Enemy · CR 1",
+  subtitle: "Large Giant, Chaotic Evil",
+  art: "art/ogrillon_ogre.png",
+  ac: "12",
+  hp: "52 (7d10 + 14)",
+  speed: "30 ft.",
+  initiative: "+0 (10)",
+  cr: "1 (PB +2)",
+  abilities: {
+    STR:[17,"+3","+3"], DEX:[10,"+0","+0"], CON:[14,"+2","+2"],
+    INT:[ 7,"−2","−2"], WIS:[ 9,"−1","−1"], CHA:[10,"+0","+0"]
+  },
+  gear: "Battleaxe, Javelins (3)",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "Common, Giant",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Battleaxe", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 7 (1d8 + 3) Slashing damage." },
+      { name:"Javelin", text:"*Melee or Ranged Attack Roll:* +5, reach 5 ft. or range 30/120 ft. *Hit:* 6 (1d6 + 3) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Ogre",
+  category: "enemies",
+  group: "Ogres",
+  tag: "Enemy · CR 2",
+  subtitle: "Large Giant, Chaotic Evil",
+  art: "art/ogre.png",
+  ac: "11",
+  hp: "68 (8d10 + 24)",
+  speed: "40 ft.",
+  initiative: "−1 (9)",
+  cr: "2 (PB +2)",
+  abilities: {
+    STR:[19,"+4","+4"], DEX:[ 8,"−1","−1"], CON:[16,"+3","+3"],
+    INT:[ 5,"−3","−3"], WIS:[ 7,"−2","−2"], CHA:[ 7,"−2","−2"]
+  },
+  gear: "Greatclub, Javelins (3)",
+  senses: "Darkvision 60 ft.; Passive Perception 8",
+  languages: "Common, Giant",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Greatclub", text:"*Melee Attack Roll:* +6, reach 5 ft. *Hit:* 13 (2d8 + 4) Bludgeoning damage." },
+      { name:"Javelin", text:"*Melee or Ranged Attack Roll:* +6, reach 5 ft. or range 30/120 ft. *Hit:* 11 (2d6 + 4) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Pixie",
+  category: "enemies",
+  group: "Pixies",
+  tag: "Enemy · CR 1/4",
+  subtitle: "Tiny Fey, Neutral Good",
+  art: "art/pixie.png",
+  ac: "15",
+  hp: "9 (6d4 − 6)",
+  speed: "10 ft., Fly 30 ft.",
+  initiative: "+5 (15)",
+  cr: "1/4 (PB +2)",
+  abilities: {
+    STR:[ 2,"−4","−4"], DEX:[20,"+5","+5"], CON:[ 8,"−1","−1"],
+    INT:[10,"+0","+0"], WIS:[14,"+2","+2"], CHA:[15,"+2","+2"]
+  },
+  skills: "Perception +4, Stealth +7",
+  senses: "Passive Perception 14",
+  languages: "Sylvan",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Magic Resistance", text:"Advantage on saving throws against spells and other magical effects." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Faerie Dust", text:"*Melee or Ranged Attack Roll:* +4, reach 5 ft. or range 60 ft. *Hit:* 1 Radiant damage, and the target has the **Charmed** or **Poisoned** condition (pixie's choice) until the start of the pixie's next turn." },
+      { spellcasting:{ ability:"Charisma", dc:12, spells:"*At Will:* Dancing Lights, Druidcraft, Invisibility (self only). *1/Day Each:* Detect Thoughts, Fly, Sleep. No Material components." } }
+    ]}
+  ]
+},
+
+{
+  name: "Pixie Wonderbringer",
+  category: "enemies",
+  group: "Pixies",
+  tag: "Enemy · CR 5",
+  subtitle: "Tiny Fey, Neutral Good",
+  art: "art/pixie_wonderbringer.png",
+  ac: "15",
+  hp: "60 (24d4)",
+  speed: "10 ft., Fly 30 ft.",
+  initiative: "+5 (15)",
+  cr: "5 (PB +3)",
+  abilities: {
+    STR:[ 2,"−4","−4"], DEX:[20,"+5","+5"], CON:[10,"+0","+0"],
+    INT:[11,"+0","+0"], WIS:[14,"+2","+2"], CHA:[18,"+4","+4"]
+  },
+  skills: "Arcana +3, Perception +5, Stealth +8",
+  senses: "Passive Perception 15",
+  languages: "Common, Elvish, Sylvan",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Magic Resistance", text:"Advantage on saving throws against spells and other magical effects." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two Faerie Dust attacks." },
+      { name:"Faerie Dust", text:"*Melee or Ranged Attack Roll:* +7, reach 5 ft. or range 60 ft. *Hit:* 15 (2d10 + 4) Radiant damage, and the target has the **Charmed** or **Poisoned** condition (pixie's choice) until the start of the pixie's next turn." },
+      { spellcasting:{ ability:"Charisma", dc:15, spells:"*At Will:* Dancing Lights, Druidcraft, Invisibility (self only). *1/Day Each:* Detect Thoughts, Fly, Major Image. No Material components." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Burst of Wonder (Recharge 5–6)", text:"Casts *Entangle*, *Polymorph*, or *Tasha's Hideous Laughter*, no Material components." }
+    ]}
+  ]
+},
+
+{
+  name: "Priest Acolyte",
+  category: "enemies",
+  group: "Priests",
+  tag: "Enemy · CR 1/4",
+  subtitle: "Medium or Small Humanoid (Cleric), Neutral",
+  art: "art/priest_acolyte.png",
+  ac: "13",
+  hp: "11 (2d8 + 2)",
+  speed: "30 ft.",
+  initiative: "+0 (10)",
+  cr: "1/4 (PB +2)",
+  abilities: {
+    STR:[14,"+2","+2"], DEX:[10,"+0","+0"], CON:[12,"+1","+1"],
+    INT:[10,"+0","+0"], WIS:[14,"+2","+2"], CHA:[11,"+0","+0"]
+  },
+  skills: "Medicine +4, Religion +2",
+  gear: "Chain Shirt, Holy Symbol, Mace",
+  senses: "Passive Perception 12",
+  languages: "Common",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Mace", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Bludgeoning damage plus 2 (1d4) Radiant damage." },
+      { name:"Radiant Flame", text:"*Ranged Attack Roll:* +4, range 60 ft. *Hit:* 7 (2d6) Radiant damage." },
+      { spellcasting:{ ability:"Wisdom", spells:"*At Will:* Light, Thaumaturgy." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Divine Aid (1/Day)", text:"Casts *Bless*, *Healing Word*, or *Sanctuary*." }
+    ]}
+  ]
+},
+
+{
+  name: "Priest",
+  category: "enemies",
+  group: "Priests",
+  tag: "Enemy · CR 2",
+  subtitle: "Medium or Small Humanoid (Cleric), Neutral",
+  art: "art/priest.png",
+  ac: "13",
+  hp: "38 (7d8 + 7)",
+  speed: "30 ft.",
+  initiative: "+0 (10)",
+  cr: "2 (PB +2)",
+  abilities: {
+    STR:[16,"+3","+3"], DEX:[10,"+0","+0"], CON:[12,"+1","+1"],
+    INT:[13,"+1","+1"], WIS:[16,"+3","+3"], CHA:[13,"+1","+1"]
+  },
+  skills: "Medicine +7, Perception +5, Religion +5",
+  gear: "Chain Shirt, Holy Symbol, Mace",
+  senses: "Passive Perception 15",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Mace or Radiant Flame in any combination." },
+      { name:"Mace", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 6 (1d6 + 3) Bludgeoning damage plus 5 (2d4) Radiant damage." },
+      { name:"Radiant Flame", text:"*Ranged Attack Roll:* +5, range 60 ft. *Hit:* 11 (2d10) Radiant damage." },
+      { spellcasting:{ ability:"Wisdom", dc:13, spells:"*At Will:* Light, Thaumaturgy. *1/Day:* Spirit Guardians." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Divine Aid (3/Day)", text:"Casts *Bless*, *Dispel Magic*, *Healing Word*, or *Lesser Restoration*." }
+    ]}
+  ]
+},
+
+{
+  name: "Archpriest",
+  category: "enemies",
+  group: "Priests",
+  tag: "Enemy · CR 12",
+  subtitle: "Medium or Small Humanoid (Cleric), Neutral",
+  art: "art/archpriest.png",
+  ac: "16",
+  hp: "240 (32d8 + 96)",
+  speed: "30 ft.",
+  initiative: "+5 (15)",
+  cr: "12 (PB +4)",
+  abilities: {
+    STR:[16,"+3","+7"], DEX:[12,"+1","+1"], CON:[17,"+3","+7"],
+    INT:[14,"+2","+6"], WIS:[21,"+5","+9"], CHA:[14,"+2","+2"]
+  },
+  skills: "Insight +9, Medicine +9, Perception +9, Religion +10",
+  gear: "Chain Mail, Holy Symbol",
+  senses: "Passive Perception 19",
+  languages: "Common plus two other languages",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Radiant Burst attacks." },
+      { name:"Radiant Burst", text:"*Melee or Ranged Attack Roll:* +9, reach 5 ft. or range 60 ft. *Hit:* 27 (4d10 + 5) Radiant damage." },
+      { name:"Holy Word (Recharge 4–6)", text:"*Wisdom Saving Throw:* DC 17, each enemy in a 20-foot Emanation. *Failure:* 21 (6d6) Radiant damage and **Stunned** until the end of the archpriest's next turn. *Success:* Half damage only." },
+      { spellcasting:{ ability:"Wisdom", dc:17, spells:"*At Will:* Light, Thaumaturgy. *1/Day Each:* Flame Strike (level 6), Greater Restoration, Raise Dead, Zone of Truth. No Material components." } }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Divine Aid (3/Day)", text:"Casts *Bless*, *Dispel Magic*, *Healing Word*, or *Lesser Restoration*." }
+    ]}
+  ]
+},
+
+{
+  name: "Red Dragon Wyrmling",
+  category: "enemies",
+  group: "Red Dragons",
+  tag: "Enemy · CR 4",
+  subtitle: "Medium Dragon (Chromatic), Chaotic Evil",
+  art: "art/red_dragon_wyrmling.png",
+  ac: "17",
+  hp: "75 (10d8 + 30)",
+  speed: "30 ft., Climb 30 ft., Fly 60 ft.",
+  initiative: "+2 (12)",
+  cr: "4 (PB +2)",
+  abilities: {
+    STR:[19,"+4","+4"], DEX:[10,"+0","+2"], CON:[17,"+3","+3"],
+    INT:[12,"+1","+1"], WIS:[11,"+0","+2"], CHA:[15,"+2","+2"]
+  },
+  skills: "Perception +4, Stealth +2",
+  immunities: "Fire",
+  senses: "Blindsight 10 ft., Darkvision 60 ft.; Passive Perception 14",
+  languages: "Draconic",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two Rend attacks." },
+      { name:"Rend", text:"*Melee Attack Roll:* +6, reach 5 ft. *Hit:* 9 (1d10 + 4) Slashing damage plus 3 (1d6) Fire damage." },
+      { name:"Fire Breath (Recharge 5–6)", text:"*Dexterity Saving Throw:* DC 13, each creature in a 15-foot Cone. *Failure:* 24 (7d6) Fire damage. *Success:* Half damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Young Red Dragon",
+  category: "enemies",
+  group: "Red Dragons",
+  tag: "Enemy · CR 10",
+  subtitle: "Large Dragon (Chromatic), Chaotic Evil",
+  art: "art/young_red_dragon.png",
+  ac: "18",
+  hp: "178 (17d10 + 85)",
+  speed: "40 ft., Climb 40 ft., Fly 80 ft.",
+  initiative: "+4 (14)",
+  cr: "10 (PB +4)",
+  abilities: {
+    STR:[23,"+6","+6"], DEX:[10,"+0","+4"], CON:[21,"+5","+5"],
+    INT:[14,"+2","+2"], WIS:[11,"+0","+4"], CHA:[19,"+4","+4"]
+  },
+  skills: "Perception +8, Stealth +4",
+  immunities: "Fire",
+  senses: "Blindsight 30 ft., Darkvision 120 ft.; Passive Perception 18",
+  languages: "Common, Draconic",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Rend attacks." },
+      { name:"Rend", text:"*Melee Attack Roll:* +10, reach 10 ft. *Hit:* 13 (2d6 + 6) Slashing damage plus 3 (1d6) Fire damage." },
+      { name:"Fire Breath (Recharge 5–6)", text:"*Dexterity Saving Throw:* DC 17, each creature in a 30-foot Cone. *Failure:* 56 (16d6) Fire damage. *Success:* Half damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Adult Red Dragon",
+  category: "enemies",
+  group: "Red Dragons",
+  tag: "Enemy · CR 17",
+  subtitle: "Huge Dragon (Chromatic), Chaotic Evil",
+  art: "art/adult_red_dragon.png",
+  ac: "19",
+  hp: "256 (19d12 + 133)",
+  speed: "40 ft., Climb 40 ft., Fly 80 ft.",
+  initiative: "+12 (22)",
+  cr: "17 (PB +6)",
+  abilities: {
+    STR:[27,"+8","+8"], DEX:[10,"+0","+6"], CON:[25,"+7","+7"],
+    INT:[16,"+3","+3"], WIS:[13,"+1","+7"], CHA:[23,"+6","+6"]
+  },
+  skills: "Perception +13, Stealth +6",
+  immunities: "Fire",
+  senses: "Blindsight 60 ft., Darkvision 120 ft.; Passive Perception 23",
+  languages: "Common, Draconic",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Legendary Resistance (3/Day, or 4/Day in Lair)", text:"If it fails a saving throw, it can choose to succeed instead." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Rend attacks. It can replace one attack with a use of Spellcasting to cast *Scorching Ray*." },
+      { name:"Rend", text:"*Melee Attack Roll:* +14, reach 10 ft. *Hit:* 13 (1d10 + 8) Slashing damage plus 5 (2d4) Fire damage." },
+      { name:"Fire Breath (Recharge 5–6)", text:"*Dexterity Saving Throw:* DC 21, each creature in a 60-foot Cone. *Failure:* 59 (17d6) Fire damage. *Success:* Half damage." },
+      { spellcasting:{ ability:"Charisma", dc:20, spells:"*At Will:* Command (level 2), Detect Magic, Scorching Ray. *1/Day:* Fireball. +12 to hit with spell attacks. No Material components." } }
+    ]},
+    { title:"Legendary Actions", entries:[
+      "*3 uses (4 in Lair).* Immediately after another creature's turn, it can expend a use to take one of these actions. It regains all uses at the start of each of its turns.",
+      { name:"Commanding Presence", text:"Casts *Command* (level 2). Not again until the start of its next turn." },
+      { name:"Fiery Rays", text:"Casts *Scorching Ray*. Not again until the start of its next turn." },
+      { name:"Pounce", text:"Moves up to half its Speed and makes one Rend attack." }
+    ]}
+  ]
+},
+
+{
+  name: "Ancient Red Dragon",
+  category: "enemies",
+  group: "Red Dragons",
+  tag: "Enemy · CR 24",
+  subtitle: "Gargantuan Dragon (Chromatic), Chaotic Evil",
+  art: "art/ancient_red_dragon.png",
+  ac: "22",
+  hp: "507 (26d20 + 234)",
+  speed: "40 ft., Climb 40 ft., Fly 80 ft.",
+  initiative: "+14 (24)",
+  cr: "24 (PB +7)",
+  abilities: {
+    STR:[30,"+10","+10"], DEX:[10,"+0","+7"], CON:[29,"+9","+9"],
+    INT:[18,"+4","+4"],   WIS:[15,"+2","+9"], CHA:[27,"+8","+8"]
+  },
+  skills: "Perception +16, Stealth +7",
+  immunities: "Fire",
+  senses: "Blindsight 60 ft., Darkvision 120 ft.; Passive Perception 26",
+  languages: "Common, Draconic",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Legendary Resistance (4/Day, or 5/Day in Lair)", text:"If it fails a saving throw, it can choose to succeed instead." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Rend attacks. It can replace one attack with a use of Spellcasting to cast *Scorching Ray* (level 3)." },
+      { name:"Rend", text:"*Melee Attack Roll:* +17, reach 15 ft. *Hit:* 19 (2d8 + 10) Slashing damage plus 10 (3d6) Fire damage." },
+      { name:"Fire Breath (Recharge 5–6)", text:"*Dexterity Saving Throw:* DC 24, each creature in a 90-foot Cone. *Failure:* 91 (26d6) Fire damage. *Success:* Half damage." },
+      { spellcasting:{ ability:"Charisma", dc:23, spells:"*At Will:* Command (level 2), Detect Magic, Scorching Ray (level 3). *1/Day Each:* Fireball (level 6), Scrying. +15 to hit with spell attacks. No Material components." } }
+    ]},
+    { title:"Legendary Actions", entries:[
+      "*3 uses (4 in Lair).* Immediately after another creature's turn, it can expend a use to take one of these actions. It regains all uses at the start of each of its turns.",
+      { name:"Commanding Presence", text:"Casts *Command* (level 2). Not again until the start of its next turn." },
+      { name:"Fiery Rays", text:"Casts *Scorching Ray* (level 3). Not again until the start of its next turn." },
+      { name:"Pounce", text:"Moves up to half its Speed and makes one Rend attack." }
+    ]}
+  ]
+},
+
+{
+  name: "Scout",
+  category: "enemies",
+  group: "Scouts",
+  tag: "Enemy · CR 1/2",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/scout.png",
+  ac: "13",
+  hp: "16 (3d8 + 3)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "1/2 (PB +2)",
+  abilities: {
+    STR:[11,"+0","+0"], DEX:[14,"+2","+2"], CON:[12,"+1","+1"],
+    INT:[11,"+0","+0"], WIS:[13,"+1","+1"], CHA:[11,"+0","+0"]
+  },
+  skills: "Nature +4, Perception +5, Stealth +6, Survival +5",
+  gear: "Leather Armor, Longbow, Shortsword",
+  senses: "Passive Perception 15",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Shortsword and Longbow in any combination." },
+      { name:"Shortsword", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Piercing damage." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +4, range 150/600 ft. *Hit:* 6 (1d8 + 2) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Scout Captain",
+  category: "enemies",
+  group: "Scouts",
+  tag: "Enemy · CR 3",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/scout_captain.png",
+  ac: "15",
+  hp: "66 (12d8 + 12)",
+  speed: "30 ft., Climb 30 ft.",
+  initiative: "+5 (15)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[11,"+0","+0"], DEX:[16,"+3","+5"], CON:[12,"+1","+1"],
+    INT:[14,"+2","+4"], WIS:[15,"+2","+2"], CHA:[11,"+0","+0"]
+  },
+  skills: "Perception +6, Stealth +7, Survival +6",
+  gear: "Longbow, Shortsword, Studded Leather Armor",
+  senses: "Passive Perception 16",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Shortsword or Longbow in any combination." },
+      { name:"Shortsword", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 6 (1d6 + 3) Piercing damage, plus 10 (3d6) Piercing if the roll had Advantage." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +5, range 150/600 ft. *Hit:* 7 (1d8 + 3) Piercing damage, plus 10 (3d6) Piercing if the roll had Advantage." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Aim", text:"It has Advantage on the next attack roll it makes this turn." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Uncanny Dodge", text:"*Trigger:* It is hit by an attack roll. *Response:* It halves the damage (round down) it takes from that attack." }
+    ]}
+  ]
+},
+
+{
+  name: "Shadow",
+  category: "enemies",
+  group: "Shadows",
+  tag: "Enemy · CR 1/2",
+  subtitle: "Medium Undead, Chaotic Evil",
+  art: "art/shadow.png",
+  ac: "12",
+  hp: "27 (5d8 + 5)",
+  speed: "40 ft.",
+  initiative: "+2 (12)",
+  cr: "1/2 (PB +2)",
+  abilities: {
+    STR:[ 6,"−2","−2"], DEX:[14,"+2","+2"], CON:[13,"+1","+1"],
+    INT:[ 6,"−2","−2"], WIS:[10,"+0","+0"], CHA:[ 8,"−1","−1"]
+  },
+  skills: "Stealth +6",
+  vulnerabilities: "Radiant",
+  resistances: "Acid, Cold, Fire, Lightning, Thunder",
+  immunities: "Necrotic, Poison; Exhaustion, Frightened, Grappled, Paralyzed, Petrified, Poisoned, Prone, Restrained, Unconscious",
+  senses: "Darkvision 60 ft.; Passive Perception 10",
+  languages: "None",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Amorphous", text:"It can move through a space as narrow as 1 inch without expending extra movement to do so." },
+      { name:"Sunlight Weakness", text:"While in sunlight, it has **Disadvantage on D20 Tests**." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Draining Swipe", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Necrotic damage, and the target's **Strength score decreases by 1d4**. The target dies if this reduces that score to 0. A Humanoid slain by this attack rises as a Shadow 1d4 hours later." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Shadow Stealth", text:"While in Dim Light or Darkness, it takes the Hide action." }
+    ]}
+  ]
+},
+
+{
+  name: "Skeleton",
+  category: "enemies",
+  group: "Skeletons",
+  tag: "Enemy · CR 1/4",
+  subtitle: "Medium Undead, Lawful Evil",
+  art: "art/skeleton.png",
+  ac: "14",
+  hp: "13 (2d8 + 4)",
+  speed: "30 ft.",
+  initiative: "+3 (13)",
+  cr: "1/4 (PB +2)",
+  abilities: {
+    STR:[10,"+0","+0"], DEX:[16,"+3","+3"], CON:[15,"+2","+2"],
+    INT:[ 6,"−2","−2"], WIS:[ 8,"−1","−1"], CHA:[ 5,"−3","−3"]
+  },
+  vulnerabilities: "Bludgeoning",
+  immunities: "Poison; Exhaustion, Poisoned",
+  gear: "Shortbow, Shortsword",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "Understands Common plus one other language but can't speak",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Shortsword", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 6 (1d6 + 3) Piercing damage." },
+      { name:"Shortbow", text:"*Ranged Attack Roll:* +5, range 80/320 ft. *Hit:* 6 (1d6 + 3) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Warhorse Skeleton",
+  category: "enemies",
+  group: "Skeletons",
+  tag: "Enemy · CR 1/2",
+  subtitle: "Large Undead, Lawful Evil",
+  art: "art/warhorse_skeleton.png",
+  ac: "13",
+  hp: "22 (3d10 + 6)",
+  speed: "60 ft.",
+  initiative: "+1 (11)",
+  cr: "1/2 (PB +2)",
+  abilities: {
+    STR:[18,"+4","+4"], DEX:[12,"+1","+1"], CON:[15,"+2","+2"],
+    INT:[ 2,"−4","−4"], WIS:[ 8,"−1","−1"], CHA:[ 5,"−3","−3"]
+  },
+  vulnerabilities: "Bludgeoning",
+  immunities: "Poison; Exhaustion, Poisoned",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "None",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Hooves", text:"*Melee Attack Roll:* +6, reach 5 ft. *Hit:* 7 (1d6 + 4) Bludgeoning damage. If the target is Large or smaller and the skeleton moved 20+ feet straight toward it immediately before the hit, the target has the **Prone** condition." }
+    ]}
+  ]
+},
+
+{
+  name: "Minotaur Skeleton",
+  category: "enemies",
+  group: "Skeletons",
+  tag: "Enemy · CR 2",
+  subtitle: "Large Undead, Lawful Evil",
+  art: "art/minotaur_skeleton.png",
+  ac: "12",
+  hp: "45 (6d10 + 12)",
+  speed: "40 ft.",
+  initiative: "+0 (10)",
+  cr: "2 (PB +2)",
+  abilities: {
+    STR:[18,"+4","+4"], DEX:[11,"+0","+0"], CON:[15,"+2","+2"],
+    INT:[ 6,"−2","−2"], WIS:[ 8,"−1","−1"], CHA:[ 5,"−3","−3"]
+  },
+  vulnerabilities: "Bludgeoning",
+  immunities: "Poison; Exhaustion, Poisoned",
+  senses: "Darkvision 60 ft.; Passive Perception 9",
+  languages: "Understands Abyssal but can't speak",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Gore", text:"*Melee Attack Roll:* +6, reach 5 ft. *Hit:* 11 (2d6 + 4) Piercing damage. If the target is Large or smaller and the skeleton moved 20+ feet straight toward it immediately before the hit, the target takes an extra 9 (2d8) Piercing damage and has the **Prone** condition." },
+      { name:"Slam", text:"*Melee Attack Roll:* +6, reach 5 ft. *Hit:* 15 (2d10 + 4) Bludgeoning damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Flaming Skeleton",
+  category: "enemies",
+  group: "Skeletons",
+  tag: "Enemy · CR 3",
+  subtitle: "Medium Undead, Lawful Evil",
+  art: "art/flaming_skeleton.png",
+  ac: "15",
+  hp: "65 (10d8 + 20)",
+  speed: "30 ft.",
+  initiative: "+2 (12)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[10,"+0","+0"], DEX:[14,"+2","+2"], CON:[15,"+2","+2"],
+    INT:[10,"+0","+0"], WIS:[15,"+2","+2"], CHA:[ 8,"−1","−1"]
+  },
+  vulnerabilities: "Bludgeoning",
+  immunities: "Fire, Poison; Exhaustion, Poisoned",
+  senses: "Darkvision 60 ft.; Passive Perception 12",
+  languages: "Understands Common plus one other language but can't speak",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Death Burst", text:"It explodes when it dies. *Dexterity Saving Throw:* DC 12, each creature in a 10-foot Emanation. *Failure:* 14 (4d6) Fire damage. *Success:* Half damage." },
+      { name:"Illumination", text:"It sheds Bright Light in a 15-foot radius and Dim Light for an additional 15 feet." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two attacks, using Flame Scepter or Hurl Flame in any combination." },
+      { name:"Flame Scepter", text:"*Melee Attack Roll:* +4, reach 5 ft. *Hit:* 5 (1d6 + 2) Bludgeoning damage plus 3 (1d6) Fire damage." },
+      { name:"Hurl Flame", text:"*Ranged Attack Roll:* +4, range 60 ft. *Hit:* 7 (1d10 + 2) Fire damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Treant",
+  category: "enemies",
+  group: "Treants",
+  tag: "Enemy · CR 9",
+  subtitle: "Huge Plant, Chaotic Good",
+  art: "art/treant.png",
+  ac: "16",
+  hp: "138 (12d12 + 60)",
+  speed: "30 ft.",
+  initiative: "+3 (13)",
+  cr: "9 (PB +4)",
+  abilities: {
+    STR:[23,"+6","+6"], DEX:[ 8,"−1","−1"], CON:[21,"+5","+5"],
+    INT:[12,"+1","+1"], WIS:[16,"+3","+3"], CHA:[12,"+1","+1"]
+  },
+  vulnerabilities: "Fire",
+  resistances: "Bludgeoning, Piercing",
+  senses: "Passive Perception 13",
+  languages: "Common, Druidic, Elvish, Sylvan",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Siege Monster", text:"It deals double damage to objects and structures." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two Slam attacks." },
+      { name:"Slam", text:"*Melee Attack Roll:* +10, reach 5 ft. *Hit:* 16 (3d6 + 6) Bludgeoning damage." },
+      { name:"Hail of Bark", text:"*Ranged Attack Roll:* +10, range 180 ft. *Hit:* 28 (4d10 + 6) Piercing damage." },
+      { name:"Animate Trees (1/Day)", text:"Animates up to two trees it can see within 60 feet. Each uses this stat block, except INT and CHA 1, it can't speak, and it lacks this action. They act right after the treant and obey it, and stay animate for 1 day or until they die, the treant dies, or they are more than 120 feet from it. They then take root if possible." }
+    ]}
+  ]
+},
+
+{
+  name: "Warrior Infantry",
+  category: "enemies",
+  group: "Warriors",
+  tag: "Enemy · CR 1/8",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/warrior_infantry.png",
+  ac: "13",
+  hp: "9 (2d8)",
+  speed: "30 ft.",
+  initiative: "+0 (10)",
+  cr: "1/8 (PB +2)",
+  abilities: {
+    STR:[13,"+1","+1"], DEX:[11,"+0","+0"], CON:[11,"+0","+0"],
+    INT:[ 8,"−1","−1"], WIS:[11,"+0","+0"], CHA:[ 8,"−1","−1"]
+  },
+  gear: "Chain Shirt, Spear",
+  senses: "Passive Perception 10",
+  languages: "Common",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Pack Tactics", text:"Advantage on an attack roll against a creature if at least one of its allies is within 5 feet of the creature and isn't Incapacitated." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Spear", text:"*Melee or Ranged Attack Roll:* +3, reach 5 ft. or range 20/60 ft. *Hit:* 4 (1d6 + 1) Piercing damage." }
+    ]}
+  ]
+},
+
+{
+  name: "Warrior Veteran",
+  category: "enemies",
+  group: "Warriors",
+  tag: "Enemy · CR 3",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/warrior_veteran.png",
+  ac: "17",
+  hp: "65 (10d8 + 20)",
+  speed: "30 ft.",
+  initiative: "+3 (13)",
+  cr: "3 (PB +2)",
+  abilities: {
+    STR:[16,"+3","+3"], DEX:[13,"+1","+1"], CON:[14,"+2","+2"],
+    INT:[10,"+0","+0"], WIS:[11,"+0","+0"], CHA:[10,"+0","+0"]
+  },
+  skills: "Athletics +5, Perception +2",
+  gear: "Greatsword, Heavy Crossbow, Splint Armor",
+  senses: "Passive Perception 12",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Two Greatsword or Heavy Crossbow attacks." },
+      { name:"Greatsword", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 10 (2d6 + 3) Slashing damage." },
+      { name:"Heavy Crossbow", text:"*Ranged Attack Roll:* +3, range 100/400 ft. *Hit:* 12 (2d10 + 1) Piercing damage." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Parry", text:"*Trigger:* It is hit by a melee attack roll while holding a weapon. *Response:* It adds 2 to its AC against that attack, possibly causing it to miss." }
+    ]}
+  ]
+},
+
+{
+  name: "Warrior Commander",
+  category: "enemies",
+  group: "Warriors",
+  tag: "Enemy · CR 10",
+  subtitle: "Medium or Small Humanoid, Neutral",
+  art: "art/warrior_commander.png",
+  ac: "18",
+  hp: "161 (19d8 + 76)",
+  speed: "30 ft.",
+  initiative: "+9 (19)",
+  cr: "10 (PB +4)",
+  abilities: {
+    STR:[21,"+5","+9"], DEX:[20,"+5","+9"], CON:[18,"+4","+8"],
+    INT:[14,"+2","+2"], WIS:[16,"+3","+7"], CHA:[14,"+2","+2"]
+  },
+  skills: "Athletics +9, Insight +7, Perception +7",
+  gear: "Greatsword, Longbow, Plate Armor",
+  senses: "Passive Perception 17",
+  languages: "Common plus one other language",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three attacks, using Greatsword or Longbow in any combination." },
+      { name:"Greatsword", text:"*Melee Attack Roll:* +9, reach 5 ft. *Hit:* 19 (4d6 + 5) Slashing damage, plus one effect: **Sap** — the target has Disadvantage on its next attack roll before the start of the warrior's next turn; or **Maneuver** — one ally who can see or hear it can use a Reaction to move up to half its Speed without provoking Opportunity Attacks." },
+      { name:"Longbow", text:"*Ranged Attack Roll:* +9, range 150/600 ft. *Hit:* 18 (3d8 + 5) Piercing damage, and the target's Speed decreases by 10 feet until the end of its next turn." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Tactical Charge", text:"Moves up to half its Speed straight toward an enemy it can see without provoking Opportunity Attacks." }
+    ]},
+    { title:"Reactions", entries:[
+      { name:"Counterattack", text:"*Trigger:* It is hit by an attack roll. *Response:* It adds 4 to its AC against that attack, possibly causing it to miss. On a miss, it can make one Greatsword or Longbow attack against the attacker." }
+    ]}
+  ]
+},
+
+{
+  name: "Worg",
+  category: "enemies",
+  group: "Worgs",
+  tag: "Enemy · CR 1/2",
+  subtitle: "Large Fey, Neutral Evil",
+  art: "art/worg.png",
+  ac: "13",
+  hp: "26 (4d10 + 4)",
+  speed: "50 ft.",
+  initiative: "+1 (11)",
+  cr: "1/2 (PB +2)",
+  abilities: {
+    STR:[16,"+3","+3"], DEX:[13,"+1","+1"], CON:[13,"+1","+1"],
+    INT:[ 7,"−2","−2"], WIS:[11,"+0","+0"], CHA:[ 8,"−1","−1"]
+  },
+  skills: "Perception +4",
+  senses: "Darkvision 60 ft.; Passive Perception 14",
+  languages: "Goblin, Worg",
+  sections: [
+    { title:"Actions", entries:[
+      { name:"Bite", text:"*Melee Attack Roll:* +5, reach 5 ft. *Hit:* 7 (1d8 + 3) Piercing damage, and the next attack roll made against the target before the start of the worg's next turn has **Advantage**." }
+    ]}
+  ]
+},
+
+{
+  name: "Dire Worg",
+  category: "enemies",
+  group: "Worgs",
+  tag: "Enemy · CR 10",
+  subtitle: "Huge Fey, Neutral Evil",
+  art: "art/dire_worg.png",
+  ac: "16",
+  hp: "147 (14d12 + 56)",
+  speed: "50 ft.",
+  initiative: "+2 (12)",
+  cr: "10 (PB +4)",
+  abilities: {
+    STR:[22,"+6","+6"], DEX:[14,"+2","+6"], CON:[18,"+4","+4"],
+    INT:[ 7,"−2","−2"], WIS:[16,"+3","+7"], CHA:[ 8,"−1","−1"]
+  },
+  skills: "Perception +11",
+  senses: "Darkvision 120 ft.; Passive Perception 21",
+  languages: "Goblin, Sylvan, Worg",
+  sections: [
+    { title:"Traits", entries:[
+      { name:"Magic Resistance", text:"Advantage on saving throws against spells and other magical effects." }
+    ]},
+    { title:"Actions", entries:[
+      { name:"Multiattack", text:"Three Bite attacks." },
+      { name:"Bite", text:"*Melee Attack Roll:* +10, reach 5 ft. *Hit:* 15 (2d8 + 6) Piercing damage plus 7 (2d6) Poison damage, and the target has the **Poisoned** condition until the start of the worg's next turn. While Poisoned, the target can't regain Hit Points." },
+      { name:"Dreadful Howl (Recharge 5–6)", text:"*Wisdom Saving Throw:* DC 16, each creature within 30 feet that isn't a worg. *Failure:* 36 (8d8) Psychic damage and **Frightened** until the start of the worg's next turn. *Success:* Half damage only." }
+    ]},
+    { title:"Bonus Actions", entries:[
+      { name:"Warp Step", text:"Teleports, along with a willing creature of its choice within 5 feet of it, up to 30 feet to an unoccupied space it can see." }
+    ]}
+  ]
+},
+
+{
+  name: "The Cloak of the Holy Protectors",
+  category: "items",
+  group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Wondrous Item, Uncommon (Requires Attunement)",
+  art: "art/cloak_of_the_holy_protectors.png",
+  description: [
+    "Cloak of those sent out in the name of the Church of the Tides, marked with the cresting wave of its sacred sign.",
+    "The faithful wear it openly, that friend and foe alike may know them. Let there be no doubt whom the Church has sent.",
+    "Such a cloak is seen from a long way off."
+  ],
+  sections: [
+    { title:"Properties", entries:[
+      { name:"Arcane Attunement", text:"While wearing this cloak, you can cast *Detect Magic* from it at will." },
+      { name:"Unity of the Church", text:"The magic woven into these cloaks rebels against internal strife. While wearing this cloak, you have Disadvantage on attack rolls against any creature wearing a matching cloak, and such a creature has Advantage on saving throws against your spells and other effects." }
+    ]}
+  ]
+},
+
+/* ---------- Magic items: SRD 5.2.1, "Magic Items A–Z". Text verbatim;
+   a spell an item casts follows as its own section, from "Spell
+   Descriptions". Variant items (Potion of Healing, +1 gear) show their
+   own row of the book's table as a named line. ---------- */
+
+{
+  name: "Ammunition, +1",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Weapon (Arrows), Uncommon",
+  art: "art/ammunition_plus_1.png",
+  sections: [
+    { title:"Properties", entries:[
+      "You have a bonus to attack rolls and damage rolls made with this piece of magic ammunition. The bonus is determined by the rarity of the ammunition. Once it hits a target, the ammunition is no longer magical.",
+      { name:"Bonus", text:"+1" },
+      "This ammunition is typically found or sold in quantities of ten or twenty pieces. Ten pieces of this ammunition are equivalent in value to a potion of the same rarity."
+    ]}
+  ]
+},
+
+{
+  name: "Bag of Holding",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Wondrous Item, Uncommon",
+  art: "art/bag_of_holding.png",
+  sections: [
+    { title:"Properties", entries:[
+      "This bag has an interior space considerably larger than its outside dimensions--roughly 2 feet square and 4 feet deep on the inside. The bag can hold up to 500 pounds, not exceeding a volume of 64 cubic feet. The bag weighs 5 pounds, regardless of its contents. Retrieving an item from the bag requires a Utilize action.",
+      "If the bag is overloaded, pierced, or torn, it is destroyed, and its contents are scattered in the Astral Plane. If the bag is turned inside out, its contents spill forth unharmed, but the bag must be put right before it can be used again. The bag holds enough air for 10 minutes of breathing, divided by the number of breathing creatures inside.",
+      "Placing a Bag of Holding inside an extradimensional space created by a Handy Haversack, Portable Hole, or similar item instantly destroys both items and opens a gate to the Astral Plane. The gate originates where the one item was placed inside the other. Any creature within a 10-foot-radius Sphere centered on the gate is sucked through it to a random location on the Astral Plane. The gate then closes. The gate is one-way and can't be reopened."
+    ]}
+  ]
+},
+
+{
+  name: "Boots of Elvenkind",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Wondrous Item, Uncommon",
+  art: "art/boots_of_elvenkind.png",
+  sections: [
+    { title:"Properties", entries:[
+      "While you wear these boots, your steps make no sound, regardless of the surface you are moving across. You also have Advantage on Dexterity (Stealth) checks."
+    ]}
+  ]
+},
+
+{
+  name: "Bracers of Defense",
+  category: "items", group: "Magic Items",
+  tag: "Item · Rare",
+  subtitle: "Wondrous Item, Rare (Requires Attunement)",
+  art: "art/bracers_of_defense.png",
+  sections: [
+    { title:"Properties", entries:[
+      "While wearing these bracers, you gain a +2 bonus to Armor Class if you are wearing no armor and using no Shield."
+    ]}
+  ]
+},
+
+{
+  name: "Flame Tongue",
+  category: "items", group: "Magic Items",
+  tag: "Item · Rare",
+  subtitle: "Weapon (Greatsword), Rare (Requires Attunement)",
+  art: "art/flame_tongue.png",
+  description: [
+    "Greatsword of the infernal troops, who rose from the burning deep at the command of their winged master.",
+    "Forged in the fires below to bring ruin above, made of steel and fire alike.",
+    "Make manifest the flames of ambition."
+  ],
+  sections: [
+    { title:"Properties", entries:[
+      "While holding this magic weapon, you can take a Bonus Action and use a command word to cause flames to engulf the damage-dealing part of the weapon. These flames shed Bright Light in a 40-foot radius and Dim Light for an additional 40 feet. While the weapon is ablaze, it deals an extra 2d6 Fire damage on a hit. The flames last until you take a Bonus Action to issue the command again or until you drop, stow, or sheathe the weapon."
+    ]},
+    { title:"Greatsword", entries:[
+      { name:"Damage", text:"2d6 Slashing" },
+      { name:"Properties", text:"Heavy, Two-Handed" },
+      { name:"Mastery", text:"Graze" }
+    ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.graze ]}
+  ]
+},
+
+{
+  name: "Javelin of Lightning",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Weapon (Javelin), Uncommon",
+  art: "art/javelin_of_lightning.png",
+  sections: [
+    { title:"Properties", entries:[
+      "Each time you make an attack roll with this magic weapon and hit, you can have it deal Lightning damage instead of Piercing damage.",
+      { name:"Lightning Bolt", text:"When you throw this weapon at a target no farther than 120 feet from you, you can forgo making a ranged attack roll and instead turn the weapon into a bolt of lightning. This bolt forms a 5-foot-wide Line between you and the target. The target and each other creature in the Line (excluding you) makes a DC 13 Dexterity saving throw, taking 4d6 Lightning damage on a failed save or half as much damage on a successful one. Immediately after dealing this damage, the weapon reappears in your hand. This property can't be used again until the next dawn." }
+    ]},
+    { title:"Javelin", entries:[
+      { name:"Damage", text:"1d6 Piercing" },
+      { name:"Properties", text:"Thrown (Range 30/120)" },
+      { name:"Mastery", text:"Slow" }
+    ]}
+  ]
+},
+
+{
+  name: "Periapt of Wound Closure",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Wondrous Item, Uncommon (Requires Attunement)",
+  art: "art/periapt_of_wound_closure.png",
+  sections: [
+    { title:"Properties", entries:[
+      "While wearing this pendant, you gain the following benefits.",
+      { name:"Life Preservation", text:"Whenever you make a Death Saving Throw, you can change a roll of 9 or lower to a 10, turning a failed save into a successful one." },
+      { name:"Natural Healing Boost", text:"Whenever you roll a Hit Point Die to regain Hit Points, double the number of Hit Points it restores." }
+    ]}
+  ]
+},
+
+{
+  name: "Potion of Climbing",
+  category: "items", group: "Potions",
+  tag: "Item · Common",
+  subtitle: "Potion, Common",
+  art: "art/potion_of_climbing.png",
+  sections: [
+    { title:"Properties", entries:[
+      "When you drink this potion, you gain a Climb Speed equal to your Speed for 1 hour. During this time, you have Advantage on Strength (Athletics) checks to climb.",
+      "This potion is separated into brown, silver, and gray layers resembling bands of stone. Shaking the bottle fails to mix the colors."
+    ]}
+  ]
+},
+
+{
+  name: "Potion of Healing",
+  category: "items", group: "Potions",
+  tag: "Item · Common",
+  subtitle: "Potion, Common",
+  art: "art/potion_of_healing.png",
+  sections: [
+    { title:"Properties", entries:[
+      "You regain Hit Points when you drink this potion.",
+      { name:"HP Regained", text:"2d4 + 2" },
+      "Whatever its potency, the potion's red liquid glimmers when agitated."
+    ]}
+  ]
+},
+
+{
+  name: "Potion of Healing (greater)",
+  category: "items", group: "Potions",
+  tag: "Item · Uncommon",
+  subtitle: "Potion, Uncommon",
+  art: "art/potion_of_healing_greater.png",
+  sections: [
+    { title:"Properties", entries:[
+      "You regain Hit Points when you drink this potion.",
+      { name:"HP Regained", text:"4d4 + 4" },
+      "Whatever its potency, the potion's red liquid glimmers when agitated."
+    ]}
+  ]
+},
+
+{
+  name: "Potion of Healing (superior)",
+  category: "items", group: "Potions",
+  tag: "Item · Rare",
+  subtitle: "Potion, Rare",
+  art: "art/potion_of_healing_superior.png",
+  sections: [
+    { title:"Properties", entries:[
+      "You regain Hit Points when you drink this potion.",
+      { name:"HP Regained", text:"8d4 + 8" },
+      "Whatever its potency, the potion's red liquid glimmers when agitated."
+    ]}
+  ]
+},
+
+{
+  name: "Potion of Resistance",
+  category: "items", group: "Potions",
+  tag: "Item · Uncommon",
+  subtitle: "Potion, Uncommon",
+  art: "art/potion_of_resistance.png",
+  sections: [
+    { title:"Properties", entries:[
+      "When you drink this potion, you have Resistance to one type of damage for 1 hour. The GM chooses the type or determines it randomly by rolling on the following table.",
+      { name:"1d10", text:"1 Acid, 2 Cold, 3 Fire, 4 Force, 5 Lightning, 6 Necrotic, 7 Poison, 8 Psychic, 9 Radiant, 10 Thunder" }
+    ]}
+  ]
+},
+
+{
+  name: "Ring of Protection",
+  category: "items", group: "Magic Items",
+  tag: "Item · Rare",
+  subtitle: "Ring, Rare (Requires Attunement)",
+  art: "art/ring_of_protection.png",
+  sections: [
+    { title:"Properties", entries:[
+      "You gain a +1 bonus to Armor Class and saving throws while wearing this ring."
+    ]}
+  ]
+},
+
+{
+  name: "Shield, +1",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Armor (Shield), Uncommon",
+  art: "art/shield_plus_1.png",
+  sections: [
+    { title:"Properties", entries:[
+      "While holding this Shield, you have a bonus to Armor Class determined by the Shield's rarity, in addition to the Shield's normal bonus to AC.",
+      { name:"Bonus", text:"+1" }
+    ]},
+    { title:"Shield", entries:[
+      { name:"Armor Class", text:"+2" }
+    ]}
+  ]
+},
+
+{
+  name: "Spell Scroll (Revivify)",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Scroll, Uncommon",
+  art: "art/spell_scroll_revivify.png",
+  sections: [
+    { title:"Properties", entries:[
+      "A Spell Scroll bears the words of a single spell, written in a mystical cipher. If the spell is on your spell list, you can read the scroll and cast its spell without Material components. Otherwise, the scroll is unintelligible. Casting the spell by reading the scroll requires the spell's normal casting time. Once the spell is cast, the scroll crumbles to dust. If the casting is interrupted, the scroll isn't lost.",
+      "If the spell is on your spell list but of a higher level than you can normally cast, you make an ability check using your spellcasting ability to determine whether you cast the spell. The DC equals 10 plus the spell's level. On a failed check, the spell disappears from the scroll with no other effect."
+    ]},
+    { title:"Revivify", entries:[
+      "*Level 3 Necromancy (Cleric, Druid, Paladin, Ranger)*",
+      "**Casting Time:** Action",
+      "**Range:** Touch",
+      "**Components:** V, S, M (a diamond worth 300+ GP, which the spell consumes)",
+      "**Duration:** Instantaneous",
+      "You touch a creature that has died within the last minute. That creature revives with 1 Hit Point. This spell can't revive a creature that has died of old age, nor does it restore any missing body parts."
+    ]}
+  ]
+},
+
+{
+  name: "Wand of Magic Missiles",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Wand, Uncommon",
+  art: "art/wand_of_magic_missiles.png",
+  sections: [
+    { title:"Properties", entries:[
+      "This wand has 7 charges. While holding it, you can expend no more than 3 charges to cast *Magic Missile* from it. For 1 charge, you cast the level 1 version of the spell. You can increase the spell's level by 1 for each additional charge you expend.",
+      { name:"Regaining Charges", text:"The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand's last charge, roll 1d20. On a 1, the wand crumbles into ashes and is destroyed." }
+    ]},
+    { title:"Magic Missile", entries:[
+      "*Level 1 Evocation (Sorcerer, Wizard)*",
+      "**Casting Time:** Action",
+      "**Range:** 120 feet",
+      "**Components:** V, S",
+      "**Duration:** Instantaneous",
+      "You create three glowing darts of magical force. Each dart strikes a creature of your choice that you can see within range. A dart deals 1d4 + 1 Force damage to its target. The darts all strike simultaneously, and you can direct them to hit one creature or several.",
+      { name:"Using a Higher-Level Spell Slot", text:"The spell creates one more dart for each spell slot level above 1." }
+    ]}
+  ]
+},
+
+{
+  name: "Wand of Web",
+  category: "items", group: "Magic Items",
+  tag: "Item · Uncommon",
+  subtitle: "Wand, Uncommon (Requires Attunement by a Spellcaster)",
+  art: "art/wand_of_web.png",
+  sections: [
+    { title:"Properties", entries:[
+      "This wand has 7 charges. While holding it, you can expend 1 charge to cast *Web* (save DC 13) from it.",
+      { name:"Regaining Charges", text:"The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand's last charge, roll 1d20. On a 1, the wand crumbles into ashes and is destroyed." }
+    ]},
+    { title:"Web", entries:[
+      "*Level 2 Conjuration (Sorcerer, Wizard)*",
+      "**Casting Time:** Action",
+      "**Range:** 60 feet",
+      "**Components:** V, S, M (a bit of spiderweb)",
+      "**Duration:** Concentration, up to 1 hour",
+      "You conjure a mass of sticky webbing at a point within range. The webs fill a 20-foot Cube there for the duration. The webs are Difficult Terrain, and the area within them is Lightly Obscured.",
+      "If the webs aren't anchored between two solid masses (such as walls or trees) or layered across a floor, wall, or ceiling, the web collapses on itself, and the spell ends at the start of your next turn. Webs layered over a flat surface have a depth of 5 feet.",
+      "The first time a creature enters the webs on a turn or starts its turn there, it must succeed on a Dexterity saving throw or have the Restrained condition while in the webs or until it breaks free.",
+      "A creature Restrained by the webs can take an action to make a Strength (Athletics) check against your spell save DC. If it succeeds, it is no longer Restrained.",
+      "The webs are flammable. Any 5-foot Cube of webs exposed to fire burns away in 1 round, dealing 2d4 Fire damage to any creature that starts its turn in the fire."
+    ]}
+  ]
+},
+
+/* ---------- Adventuring gear: SRD 5.2.1, "Adventuring Gear" (pp. 94–99),
+   verbatim. The spellbook's rules come from the Wizard class (p. 78). ---------- */
+
+{
+  name: "Alchemist's Fire",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 50 GP",
+  subtitle: "Adventuring Gear (50 GP)",
+  art: "art/alchemists_fire.png",
+  sections: [
+    { title:"Properties", entries:[
+      "When you take the Attack action, you can replace one of your attacks with throwing a flask of Alchemist's Fire. Target one creature or object you can see within 20 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or take 1d4 Fire damage and start burning (see \"Rules Glossary\").",
+      { name:"Burning", text:"A burning creature or object takes 1d4 Fire damage at the start of each of its turns. As an action, you can extinguish fire on yourself by giving yourself the Prone condition and rolling on the ground. The fire also goes out if it is doused, submerged, or suffocated." }
+    ]}
+  ]
+},
+
+{
+  name: "Antitoxin",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 50 GP",
+  subtitle: "Adventuring Gear (50 GP)",
+  art: "art/antitoxin.png",
+  sections: [
+    { title:"Properties", entries:[
+      "As a Bonus Action, you can drink a vial of Antitoxin to gain Advantage on saving throws to avoid or end the Poisoned condition for 1 hour."
+    ]}
+  ]
+},
+
+{
+  name: "Crowbar",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 2 GP",
+  subtitle: "Adventuring Gear (2 GP)",
+  art: "art/crowbar.png",
+  sections: [
+    { title:"Properties", entries:[
+      "Using a Crowbar gives you Advantage on Strength checks where the Crowbar's leverage can be applied."
+    ]}
+  ]
+},
+
+{
+  name: "Healer's Kit",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 5 GP",
+  subtitle: "Adventuring Gear (5 GP)",
+  art: "art/healers_kit.png",
+  sections: [
+    { title:"Properties", entries:[
+      "A Healer's Kit has ten uses. As a Utilize action, you can expend one of its uses to stabilize an Unconscious creature that has 0 Hit Points without needing to make a Wisdom (Medicine) check."
+    ]}
+  ]
+},
+
+{
+  name: "Manacles",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 2 GP",
+  subtitle: "Adventuring Gear (2 GP)",
+  art: "art/manacles.png",
+  sections: [
+    { title:"Properties", entries:[
+      "As a Utilize action, you can use Manacles to bind an unwilling Small or Medium creature within 5 feet of yourself that has the Grappled, Incapacitated, or Restrained condition if you succeed on a DC 13 Dexterity (Sleight of Hand) check. While bound, a creature has Disadvantage on attack rolls, and the creature is Restrained if the Manacles are attached to a chain or hook that is fixed in place. Escaping the Manacles requires a successful DC 20 Dexterity (Sleight of Hand) check as an action. Bursting them requires a successful DC 25 Strength (Athletics) check as an action.",
+      "Each set of Manacles comes with a key. Without the key, a creature can use Thieves' Tools to pick the Manacles' lock with a successful DC 15 Dexterity (Sleight of Hand) check."
+    ]}
+  ]
+},
+
+{
+  name: "Oil",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 1 SP",
+  subtitle: "Adventuring Gear (1 SP per flask)",
+  art: "art/oil.png",
+  sections: [
+    { title:"Properties", entries:[
+      "You can douse a creature, object, or space with Oil or use it as fuel, as detailed below.",
+      { name:"Dousing a Creature or an Object", text:"When you take the Attack action, you can replace one of your attacks with throwing an Oil flask. Target one creature or object within 20 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or be covered in oil. If the target takes Fire damage before the oil dries (after 1 minute), the target takes an extra 5 Fire damage from burning oil." },
+      { name:"Dousing a Space", text:"You can take the Utilize action to pour an Oil flask on level ground to cover a 5-foot-square area within 5 feet of yourself. If lit, the oil burns until the end of the turn 2 rounds from when the oil was lit (or 12 seconds) and deals 5 Fire damage to any creature that enters the area or ends its turn there. A creature can take this damage only once per turn." },
+      { name:"Fuel", text:"Oil serves as fuel for Lamps and Lanterns. Once lit, a flask of Oil burns for 6 hours in a Lamp or Lantern. That duration doesn't need to be consecutive; you can extinguish the burning Oil (as a Utilize action) and rekindle it again until it has burned for a total of 6 hours." }
+    ]}
+  ]
+},
+
+{
+  name: "Rope",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · 1 GP",
+  subtitle: "Adventuring Gear (1 GP)",
+  art: "art/rope.png",
+  sections: [
+    { title:"Properties", entries:[
+      "As a Utilize action, you can tie a knot with Rope if you succeed on a DC 10 Dexterity (Sleight of Hand) check. The Rope can be burst with a successful DC 20 Strength (Athletics) check.",
+      "You can bind an unwilling creature with the Rope only if the creature has the Grappled, Incapacitated, or Restrained condition. If the creature's legs are bound, the creature has the Restrained condition until it escapes. Escaping the Rope requires the creature to make a successful DC 15 Dexterity (Acrobatics) check as an action."
+    ]}
+  ]
+},
+
+/* The Mercenary Mage's book (chapter 04). Its contents are the level 1+
+   spells in that stat block; cantrips aren't written in a spellbook. */
+{
+  name: "Spellbook",
+  category: "items", group: "Adventuring Gear",
+  tag: "Gear · Mercenary Mage",
+  subtitle: "Adventuring Gear",
+  art: "art/spellbook.png",
+  sections: [
+    { title:"Contents", entries:[
+      "**Level 1:** *Detect Magic*, *Mage Armor*, *Shield*",
+      "**Level 2:** *Invisibility*, *Misty Step*",
+      "**Level 3:** *Counterspell*, *Fireball*, *Fly*",
+      "**Level 5:** *Cone of Cold*"
+    ]},
+    { title:"Properties", entries:[
+      "It is a Tiny object that weighs 3 pounds, contains 100 pages, and can be read only by its owner or someone casting *Identify*.",
+      { name:"Copying a Spell into the Book", text:"When you find a level 1+ Wizard spell, you can copy it into your spellbook if it's of a level you can prepare and if you have time to copy it. For each level of the spell, the transcription takes 2 hours and costs 50 GP. Afterward you can prepare the spell like the other spells in your spellbook." }
+    ]}
+  ]
+},
+
+/* ---------- Weapons: SRD 5.2.1, "Weapons" table (p. 91). ---------- */
+
+{
+  name: "Dagger",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 2 GP",
+  subtitle: "Simple Melee Weapon (2 GP)",
+  art: "art/dagger.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d4 Piercing" },
+      { name:"Properties", text:"Finesse, Light, Thrown (Range 20/60)" },
+      { name:"Mastery", text:"Nick" },
+      { name:"Weight", text:"1 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.finesse, WEAPON_PROPERTY.light, WEAPON_PROPERTY.thrown, WEAPON_PROPERTY.range ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.nick ]}
+  ]
+},
+
+{
+  name: "Javelin",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 5 SP",
+  subtitle: "Simple Melee Weapon (5 SP)",
+  art: "art/javelin.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d6 Piercing" },
+      { name:"Properties", text:"Thrown (Range 30/120)" },
+      { name:"Mastery", text:"Slow" },
+      { name:"Weight", text:"2 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.thrown, WEAPON_PROPERTY.range ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.slow ]}
+  ]
+},
+
+{
+  name: "Longbow",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 50 GP",
+  subtitle: "Martial Ranged Weapon (50 GP)",
+  art: "art/longbow.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d8 Piercing" },
+      { name:"Properties", text:"Ammunition (Range 150/600; Arrow), Heavy, Two-Handed" },
+      { name:"Mastery", text:"Slow" },
+      { name:"Weight", text:"2 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.ammunition, WEAPON_PROPERTY.range, WEAPON_PROPERTY.heavy, WEAPON_PROPERTY.twoHanded ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.slow ]}
+  ]
+},
+
+{
+  name: "Longsword",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 15 GP",
+  subtitle: "Martial Melee Weapon (15 GP)",
+  art: "art/longsword.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d8 Slashing" },
+      { name:"Properties", text:"Versatile (1d10)" },
+      { name:"Mastery", text:"Sap" },
+      { name:"Weight", text:"3 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.versatile ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.sap ]}
+  ]
+},
+
+{
+  name: "Scimitar",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 25 GP",
+  subtitle: "Martial Melee Weapon (25 GP)",
+  art: "art/scimitar.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d6 Slashing" },
+      { name:"Properties", text:"Finesse, Light" },
+      { name:"Mastery", text:"Nick" },
+      { name:"Weight", text:"3 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.finesse, WEAPON_PROPERTY.light ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.nick ]}
+  ]
+},
+
+{
+  name: "Shortbow",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 25 GP",
+  subtitle: "Simple Ranged Weapon (25 GP)",
+  art: "art/shortbow.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d6 Piercing" },
+      { name:"Properties", text:"Ammunition (Range 80/320; Arrow), Two-Handed" },
+      { name:"Mastery", text:"Vex" },
+      { name:"Weight", text:"2 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.ammunition, WEAPON_PROPERTY.range, WEAPON_PROPERTY.twoHanded ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.vex ]}
+  ]
+},
+
+{
+  name: "Shortsword",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 10 GP",
+  subtitle: "Martial Melee Weapon (10 GP)",
+  art: "art/shortsword.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d6 Piercing" },
+      { name:"Properties", text:"Finesse, Light" },
+      { name:"Mastery", text:"Vex" },
+      { name:"Weight", text:"2 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.finesse, WEAPON_PROPERTY.light ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.vex ]}
+  ]
+},
+
+{
+  name: "Spear",
+  category: "items", group: "Weapons",
+  tag: "Weapon · 1 GP",
+  subtitle: "Simple Melee Weapon (1 GP)",
+  art: "art/spear.png",
+  sections: [
+    { title:"Weapon", entries:[
+      { name:"Damage", text:"1d6 Piercing" },
+      { name:"Properties", text:"Thrown (Range 20/60), Versatile (1d8)" },
+      { name:"Mastery", text:"Sap" },
+      { name:"Weight", text:"3 lb." }
+    ]},
+    { title:"Properties", entries:[ WEAPON_PROPERTY.thrown, WEAPON_PROPERTY.range, WEAPON_PROPERTY.versatile ]},
+    { title:"Mastery", entries:[ WEAPON_MASTERY.note, WEAPON_MASTERY.sap ]}
+  ]
+},
+
+/* ---------- Armor: SRD 5.2.1, "Armor" table (p. 92). ---------- */
+
+{
+  name: "Leather Armor",
+  category: "items", group: "Armor",
+  tag: "Armor · 10 GP",
+  subtitle: "Light Armor (10 GP)",
+  art: "art/leather_armor.png",
+  sections: [
+    { title:"Armor", entries:[
+      { name:"Armor Class", text:"11 + Dex modifier" },
+      { name:"Weight", text:"10 lb." },
+      { name:"Don and Doff", text:"1 Minute to Don or Doff" }
+    ]},
+    { title:"Rules", entries:[ ARMOR_RULE.training, ARMOR_RULE.oneAtATime ]}
+  ]
+},
+
+{
+  name: "Plate Armor",
+  category: "items", group: "Armor",
+  tag: "Armor · 1,500 GP",
+  subtitle: "Heavy Armor (1,500 GP)",
+  art: "art/plate_armor.png",
+  sections: [
+    { title:"Armor", entries:[
+      { name:"Armor Class", text:"18" },
+      { name:"Strength", text:"Str 15" },
+      { name:"Stealth", text:"Disadvantage" },
+      { name:"Weight", text:"65 lb." },
+      { name:"Don and Doff", text:"10 Minutes to Don and 5 Minutes to Doff" }
+    ]},
+    { title:"Rules", entries:[ ARMOR_RULE.strength, ARMOR_RULE.stealth, ARMOR_RULE.training, ARMOR_RULE.oneAtATime ]}
+  ]
+},
+
+{
+  name: "Shield",
+  category: "items", group: "Armor",
+  tag: "Armor · 10 GP",
+  subtitle: "Shield (10 GP)",
+  art: "art/shield.png",
+  sections: [
+    { title:"Armor", entries:[
+      { name:"Armor Class", text:"+2" },
+      { name:"Weight", text:"6 lb." },
+      { name:"Don and Doff", text:"Utilize Action to Don or Doff" }
+    ]},
+    { title:"Rules", entries:[ ARMOR_RULE.shieldTraining, ARMOR_RULE.oneAtATime ]}
+  ]
+},
+
+{
+  name: "Studded Leather Armor",
+  category: "items", group: "Armor",
+  tag: "Armor · 45 GP",
+  subtitle: "Light Armor (45 GP)",
+  art: "art/studded_leather_armor.png",
+  sections: [
+    { title:"Armor", entries:[
+      { name:"Armor Class", text:"12 + Dex modifier" },
+      { name:"Weight", text:"13 lb." },
+      { name:"Don and Doff", text:"1 Minute to Don or Doff" }
+    ]},
+    { title:"Rules", entries:[ ARMOR_RULE.training, ARMOR_RULE.oneAtATime ]}
+  ]
+},
+
+/* ---------- Poisons: SRD 5.2.1, "Sample Poisons" (pp. 197–198),
+   plus Basic Poison from the equipment list (p. 99). Text verbatim. ---------- */
+
+{
+  name: "Serpent Venom",
+  category: "items", group: "Poisons",
+  tag: "Poison · 200 GP",
+  subtitle: "Injury Poison (200 GP per dose)",
+  art: "art/serpent_venom.png",
+  sections: [
+    { title:"Properties", entries:[
+      "A creature subjected to Serpent Venom must succeed on a DC 11 Constitution saving throw, taking 10 (3d6) Poison damage on a failed save or half as much damage on a successful one.",
+      POISON_TYPE.injury
+    ]}
+  ]
+},
+
+/* ---------- Factions: the sigil, a short lore text and a check on the
+   front; the faction's lore on the back, for a player who passes the
+   check. ---------- */
+
+{
+  name: "The Oak Hammer Company",
+  category: "other", group: "Factions",
+  tag: "Faction · Mercenaries",
+  subtitle: "Faction Sigil",
+  check: { skill:"History", dc:16 },
+  art: "art/oak_hammer_company.png",
+  description: [
+    "Sigil of the Oak Hammer Company, sellswords for hire.",
+    "Halvardsport kept a chartered company against the raids. The city fell. A company has no walls to fall with.",
+    "The hammer has come back across the water."
+  ],
+  sections: [
+    { title:"Reputation", entries:[
+      "You'll have heard of them, if you've spent any time near the sea. Not famous, mind. Just known.",
+      "Folk expect cutthroats. What they get is a contract and a fair price. As long as the coin's good, the hammer's yours.",
+      "They'll swear blind there's work they won't touch. Funny, then, how blood turns up wherever that hammer flies.",
+      "Well-mannered lot, mostly. Depends which one you end up drinking with."
+    ]},
+    { title:"Organisation", entries:[
+      "Don't go looking for their hall; they haven't got one. They live on their ships, and the ships go where the work is.",
+      "You'll never see all of them. One ship takes a job here, another there, and nobody knows how many there are.",
+      "Sellswords, scouts that see you first, and mages: young, sharp, and bored stiff by books."
+    ]}
+  ]
+}
+
+];
+</script>
+
+<script>
+/* ============================================================
+   RENDERER — no build step, no dependencies.
+   ============================================================ */
+
+const FALLBACK_ART = "art/_default.png";
+const PRINT_ICON   = "Icons/Print-icon.svg";
+
+const esc = s => String(s).replace(/[&<>"]/g, c =>
+  ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+/* **bold** and *italic*, applied after escaping */
+const md = s => esc(s)
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+  .replace(/\*(.+?)\*/g, "<i>$1</i>");
+
+const ABILITY_ROWS = [["STR","DEX"], ["INT","WIS"], ["CON","CHA"]];
+function abilityHalf(c, which){
+  const hd = `<div class="abil-hd"><i></i><i></i><i>Mod</i><i>Save</i></div>`;
+  const rows = ABILITY_ROWS.map(([l, r], i) => {
+    const key = which === 0 ? l : r;
+    const v = (c.abilities || {})[key] || ["—","—","—"];
+    return `<div class="abil-row${i % 2 === 0 ? " tint" : ""}">`
+         +   `<span class="ab">${esc(key)}</span>`
+         +   `<span class="sc">${esc(v[0])}</span>`
+         +   `<span class="md">${esc(v[1])}</span>`
+         +   `<span class="sv">${esc(v[2])}</span>`
+         + `</div>`;
+  }).join("");
+  return `<div class="abil-half">${hd}${rows}</div>`;
+}
+
+function frontCard(c){
+  const keys = [
+    ["AC", c.ac],            ["Initiative", c.initiative],
+    ["HP", c.hp],            ["CR", c.cr],
+    ["Speed", c.speed],      [null, null]
+  ];
+  const keyHtml = keys.map(([k, v]) =>
+    k && v ? `<div><b>${esc(k)}:</b> <span>${esc(v)}</span></div>` : `<div></div>`
+  ).join("");
+
+  const hasKeys = keys.some(([k, v]) => k && v);
+
+  const abils = c.abilities
+    ? `<div class="abils">${abilityHalf(c, 0)}${abilityHalf(c, 1)}</div>` : "";
+
+  const desc = [].concat(c.description || []).filter(Boolean)
+    .map(p => `<p class="cdesc">${md(p)}</p>`).join("");
+
+  return `<div class="card card--front" style="${artStyle(c)}">
+    <div class="panel" data-fit>
+      <h2 class="cname">${esc(c.name)}</h2>
+      ${c.subtitle || c.check ? `<p class="ctype${c.check ? " has-check" : ""}">`
+        + `<span>${esc(c.subtitle || "")}</span>`
+        + (c.check ? `<span class="ccheck">${esc(c.check.skill)} DC ${esc(c.check.dc)}</span>` : "")
+        + `</p>` : ""}
+      ${hasKeys ? `<div class="keys">${keyHtml}</div>` : ""}
+      ${abils}
+      ${desc}
+    </div>
+  </div>`;
+}
+
+/* Spellcasting has one fixed layout, so the heading is built here rather
+   than typed per card:
+     **Spellcasting (Spell save (wisdom) DC 17)**
+     the spells, on a new line
+   No `dc` → "Spellcasting (wisdom)". */
+function spellcastingEntry(s){
+  const ability = String(s.ability || "").toLowerCase();
+  const inner = s.dc != null ? `Spell save (${ability}) DC ${s.dc}` : ability;
+  return `<p class="entry"><span class="en">Spellcasting${inner ? ` (${esc(inner)})` : ""}</span>`
+       + `<br>${md(s.spells || "")}</p>`;
+}
+
+function backCard(c){
+  const out = [];
+
+  const head = [
+    ["Skills", c.skills],
+    ["Vulnerabilities", c.vulnerabilities], ["Resistances", c.resistances],
+    ["Immunities", c.immunities], ["Gear", c.gear],
+    ["Senses", c.senses], ["Languages", c.languages]
+  ].filter(([, v]) => v)
+   .map(([k, v]) => `<p class="kv"><b>${esc(k)}</b> ${esc(v)}</p>`).join("");
+
+  if (head) out.push(`<div class="sec">
+      <h3 class="sec-head">Skills &amp; Gear</h3>${head}</div>`);
+
+  for (const sec of (c.sections || [])){
+    const entries = (sec.entries || []).map(e =>
+      typeof e === "string"
+        ? `<p class="entry">${md(e)}</p>`
+        : e.spellcasting
+        ? spellcastingEntry(e.spellcasting)
+        : `<p class="entry"><span class="en">${esc(e.name)}.</span> ${md(e.text || "")}</p>`
+    ).join("");
+    out.push(`<div class="sec">
+        <h3 class="sec-head">${esc(sec.title)}</h3>${entries}</div>`);
+  }
+
+  return `<div class="card card--back" style="${artStyle(c)}">
+    <div class="panel" data-fit>${out.join("")}</div>
+  </div>`;
+}
+
+/* own art layered over the shared fallback: if the first 404s the
+   second still paints, so a character with no art yet still works */
+function artStyle(c){
+  const own = c.art ? `url('${encodeURI(c.art)}'), ` : "";
+  const pos = c.artPos ? `--art-pos:${c.artPos};` : "";
+  return `--art:${own}url('${FALLBACK_ART}');${pos}`;
+}
+
+/* ------------------------------------------------------------
+   TABS, GROUPS, SORT, FILTER
+   Tabs are for browsing only: the filter counts matches in every
+   tab. What gets printed is the print selection (below), which can
+   hold cards from every tab.
+
+   `groups` lists each tab's sections in display order. A listed
+   group shows even with no cards in it yet. A card naming a group
+   that isn't listed still gets a section, after the listed ones.
+   ------------------------------------------------------------ */
+const TABS = [
+  { id:"characters", label:"Characters", groups:[
+      "Abbey of the Lost Sisters"
+  ]},
+  { id:"enemies",    label:"Enemies",    groups:[
+      "Goblins", "Mercenaries",
+      "Assassins", "Awakened Plants", "Bugbears", "Druids", "Dryads",
+      "Gladiators", "Hobgoblins", "Horses", "Mages", "Mastiffs", "Ogres", "Pixies", "Priests",
+      "Red Dragons", "Scouts", "Shadows", "Skeletons", "Treants",
+      "Warriors", "Worgs"
+  ]},
+  { id:"items",      label:"Items",      groups:[
+      "Magic Items", "Potions", "Poisons", "Adventuring Gear", "Weapons", "Armor"
+  ]},
+  { id:"other",      label:"Other",      groups:[ "Factions" ] }
+];
+const tabOf  = c  => TABS.some(t => t.id === c.category) ? c.category : "other";
+const tabIdx = id => TABS.findIndex(t => t.id === id);
+
+/* "1/4 (PB +2)" → 0.25; no CR sorts last */
+function crValue(c){
+  const m = String(c.cr || "").match(/^\s*(\d+)(?:\s*\/\s*(\d+))?/);
+  return m ? m[1] / (m[2] || 1) : Infinity;
+}
+
+const SORTS = {
+  file: (a, b) => a.i - b.i,
+  cr:   (a, b) => crValue(a.c) - crValue(b.c) || a.i - b.i,
+  name: (a, b) => a.c.name.localeCompare(b.c.name)
+};
+
+/* mode: "cards" browses by tab; "selection" shows every selected card on one page */
+const view = { tab:"characters", sort:"file", q:"", mode:"cards" };
+
+/* ------------------------------------------------------------
+   PRINT SELECTION
+   Cards selected for printing, by name, with how many copies of
+   each, so the selection survives edits to the CHARACTERS list.
+   Kept between sessions; names that no longer exist are dropped on
+   load. Printing — the Print selection button or the browser's own
+   print — prints only these, each as many times as its copies.
+   ------------------------------------------------------------ */
+const SELECTION = "lostsisters.selection";
+const MAX_COPIES = 99;
+const selection = new Map();   // name → copies
+
+const clampCopies = k => Math.min(MAX_COPIES, Math.max(1, Math.round(+k) || 1));
+
+function saveSelection(){
+  try{ localStorage.setItem(SELECTION, JSON.stringify(Object.fromEntries(selection))); }catch(e){}
+}
+
+/* older saves are a plain list of names: one copy each */
+function loadSelection(){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(SELECTION) || "null"); }catch(e){}
+  const entries = Array.isArray(saved) ? saved.map(n => [n, 1])
+                : saved && typeof saved === "object" ? Object.entries(saved) : [];
+  const known = new Set(CHARACTERS.map(c => c.name));
+  entries.forEach(([n, k]) => known.has(n) && selection.set(n, clampCopies(k)));
+}
+
+function toggleSelection(item){
+  const name = CHARACTERS[+item.dataset.i].name;
+  if (!selection.delete(name)) selection.set(name, 1);
+  saveSelection();
+  // the selection screen drops a removed card, which needs a full pass
+  if (view.mode === "selection") applyView(); else paintSelection();
+}
+
+/* the − n + stepper on the selection screen. It stops at 1:
+   taking a card out is the print button's job. */
+function setCopies(item, k){
+  const name = CHARACTERS[+item.dataset.i].name;
+  if (!selection.has(name)) return;
+  selection.set(name, clampCopies(k));
+  saveSelection();
+  paintSelection();
+}
+
+/* "3 selected", or "3 selected, 7 to print" once a card has copies */
+function selectionText(){
+  const n = selection.size, total = printCount();
+  return total === n ? `${n} selected` : `${n} selected, ${total} to print`;
+}
+const printCount = () => [...selection.values()].reduce((a, k) => a + k, 0);
+
+/* each card's button, mark and copies, and the count on the Print button */
+function paintSelection(){
+  document.querySelectorAll("#sheet .item").forEach(el => {
+    const c  = CHARACTERS[+el.dataset.i];
+    const on = selection.has(c.name);
+    const b  = el.querySelector(".pick");
+    el.classList.toggle("selected", on);
+    b.setAttribute("aria-pressed", on);
+    b.title = on ? "Remove from print selection" : "Select for print";
+    b.setAttribute("aria-label", `${b.title}: ${c.name}`);
+    const k = selection.get(c.name) || 1;
+    el.querySelector(".copies input").value = k;
+    el.querySelector(".copies .less").disabled = k <= 1;
+    el.querySelector(".copies .more").disabled = k >= MAX_COPIES;
+  });
+  const n = selection.size;
+  $("selection-n").textContent = printCount();
+  $("selection-n").hidden = n === 0;
+  $("print").title = selectionText();
+  $("print-go").disabled = n === 0;
+  $("clear").disabled = n === 0;
+  if (view.mode === "selection") $("count").textContent = selectionText();
+}
+
+/* every { tab, group } section, in page order: each tab's listed
+   groups first, then any others its cards name, then the ungrouped */
+function buildSections(){
+  const out = [];
+  const add = (tab, group) => {
+    if (!out.some(s => s.tab === tab && s.group === group)) out.push({ tab, group });
+  };
+  TABS.forEach(t => t.groups.forEach(g => add(t.id, g)));
+  CHARACTERS.filter(c =>  c.group).forEach(c => add(tabOf(c), c.group));
+  CHARACTERS.filter(c => !c.group).forEach(c => add(tabOf(c), ""));
+  return out.sort((a, b) => tabIdx(a.tab) - tabIdx(b.tab));   // stable: keeps the order above
+}
+let SECTIONS = [];
+
+function itemHtml(c, i){
+  return `
+    <article class="item" data-i="${i}" data-name="${esc(c.name.toLowerCase())}">
+      <div class="item-head">
+        <div class="item-label">${esc(c.name)}
+          ${c.tag ? `<span>— ${esc(c.tag)}</span>` : ""}</div>
+        <div class="copies" role="group" title="Copies to print" aria-label="Copies of ${esc(c.name)}">
+          <button class="less" type="button" aria-label="One copy fewer">−</button>
+          <input type="number" min="1" max="${MAX_COPIES}" value="1" aria-label="Copies">
+          <button class="more" type="button" aria-label="One copy more">+</button>
+        </div>
+      </div>
+      <div class="card-slot">
+        <div class="flip" role="button" tabindex="0" aria-pressed="false"
+             title="Click to flip" aria-label="${esc(c.name)} — flip card">
+          <div class="flip-inner">${frontCard(c)}${backCard(c)}</div>
+        </div>
+        <button class="pick" type="button" aria-pressed="false"><img src="${PRINT_ICON}" alt=""></button>
+      </div>
+    </article>`;
+}
+
+function render(){
+  SECTIONS = buildSections();
+  document.getElementById("sheet").innerHTML = SECTIONS.map((s, k) => `
+    <section class="group" data-s="${k}">
+      ${s.group ? `<h2 class="group-head">${esc(s.group)}<span class="n"></span></h2>` : ""}
+      <p class="group-empty">No cards yet.</p>
+      <div class="group-cards">${
+        CHARACTERS.map((c, i) => tabOf(c) === s.tab && (c.group || "") === s.group ? itemHtml(c, i) : "")
+                  .join("")
+      }</div>
+    </section>`).join("");
+
+  document.getElementById("tabs").innerHTML = TABS.map(t =>
+    `<button role="tab" data-tab="${t.id}">${esc(t.label)}<span class="n"></span></button>`
+  ).join("");
+
+  applyView();
+}
+
+/* order, tab and filter applied to the cards already in the page —
+   moving rather than re-rendering keeps each card's flipped state.
+   The selection screen ignores tab and filter: it shows every selected
+   card, in its group, with groups holding none left out. */
+function applyView(){
+  const inSelectionView = view.mode === "selection";
+  document.body.classList.toggle("selection-view", inSelectionView);
+  const counts = Object.fromEntries(TABS.map(t => [t.id, 0]));
+  let matches = 0, shownHere = 0;
+
+  document.querySelectorAll("#sheet .group").forEach(sec => {
+    const s = SECTIONS[+sec.dataset.s];
+    const box = sec.querySelector(".group-cards");
+    const items = [...box.children].map(el => {
+      const i = +el.dataset.i;
+      return { el, i, c: CHARACTERS[i] };
+    });
+    items.sort(SORTS[view.sort]).forEach(x => box.appendChild(x.el));
+
+    let n = 0;
+    for (const { el, c } of items){
+      const hit = inSelectionView ? selection.has(c.name)
+                               : !view.q || el.dataset.name.includes(view.q);
+      el.hidden = !hit;
+      if (hit) n++;
+    }
+    counts[s.tab] += n;
+    matches += n;
+
+    const head = sec.querySelector(".group-head .n");
+    if (head) head.textContent = n;
+    sec.classList.toggle("none", n === 0);
+    sec.classList.toggle("offtab", !inSelectionView && s.tab !== view.tab);
+    /* while filtering, a group with no matches drops out entirely;
+       otherwise an empty listed group stays, saying "No cards yet" */
+    sec.hidden = n === 0 && (inSelectionView || !!view.q || !s.group);
+    if ((inSelectionView || s.tab === view.tab) && !sec.hidden) shownHere++;
+  });
+
+  document.querySelectorAll("#tabs button").forEach(b => {
+    b.setAttribute("aria-selected", b.dataset.tab === view.tab);
+    b.querySelector(".n").textContent = counts[b.dataset.tab];
+  });
+
+  const label = TABS[tabIdx(view.tab)].label.toLowerCase();
+  const empty = $("empty");
+  empty.hidden = shownHere > 0;
+  empty.textContent = inSelectionView
+    ? "No cards selected yet. Hover a card and press its print button to select it."
+    : view.q
+    ? `No ${label} match “${view.q}”.`
+    : `No ${label} yet.`;
+
+  const n = CHARACTERS.length;
+  if (!inSelectionView) $("count").textContent = view.q   // the selection's own: paintSelection()
+    ? `${matches} of ${n} match`
+    : n + (n === 1 ? " card" : " cards");
+
+  paintSelection();
+  fitAll();
+}
+
+/* ------------------------------------------------------------
+   AUTO-FIT
+   Statblocks vary wildly in length. Shrink a panel's type until
+   its content fits the card rather than letting it clip.
+   ------------------------------------------------------------ */
+/* Both panels now have a definite box — the back fills the inset area,
+   the front is content-sized under a max-height — so overflow is simply
+   scrollHeight beating clientHeight, and one routine handles both. */
+function fit(panel){
+  panel.style.fontSize = "";
+  if (panel.scrollHeight <= panel.clientHeight + 1) return;
+  let lo = 0.5, hi = 1;
+  for (let i = 0; i < 14; i++){
+    const mid = (lo + hi) / 2;
+    panel.style.fontSize = (mid * 100) + "%";
+    if (panel.scrollHeight <= panel.clientHeight + 1) lo = mid; else hi = mid;
+  }
+  panel.style.fontSize = (lo * 100) + "%";
+}
+
+function fitAll(){
+  document.querySelectorAll(".panel[data-fit]").forEach(fit);
+}
+
+/* ---------- controls ---------- */
+const $ = id => document.getElementById(id);
+
+$("size").addEventListener("input", e => {
+  document.documentElement.style.setProperty("--card-w", e.target.value + "px");
+  clearTimeout(window._fitT);
+  window._fitT = setTimeout(fitAll, 60);
+});
+
+$("flat").addEventListener("change", e =>
+  document.body.classList.toggle("flat", e.target.checked));
+
+$("find").addEventListener("input", e => {
+  view.q = e.target.value.trim().toLowerCase();
+  applyView();
+});
+
+$("sort").addEventListener("change", e => {
+  view.sort = e.target.value;
+  applyView();
+});
+
+$("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]");
+  if (!b) return;
+  view.tab = b.dataset.tab;
+  applyView();
+  savePrefs();
+});
+
+/* click, Enter or Space turns a card over */
+function flip(el){
+  const item = el.closest(".item");
+  const on = item.classList.toggle("flipped");
+  el.setAttribute("aria-pressed", on);
+}
+$("sheet").addEventListener("click", e => {
+  const p = e.target.closest(".pick");
+  if (p) return toggleSelection(p.closest(".item"));
+  const s = e.target.closest(".copies button");
+  if (s){
+    const item = s.closest(".item");
+    const k = selection.get(CHARACTERS[+item.dataset.i].name);
+    return setCopies(item, k + (s.classList.contains("more") ? 1 : -1));
+  }
+  const f = e.target.closest(".flip");
+  if (f) flip(f);
+});
+/* a number typed into the stepper: Enter or leaving the box */
+$("sheet").addEventListener("change", e => {
+  if (e.target.matches(".copies input")) setCopies(e.target.closest(".item"), e.target.value);
+});
+$("sheet").addEventListener("keydown", e => {
+  const f = e.target.closest(".flip");
+  if (f && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); flip(f); }
+});
+
+/* ---------- the two screens: cards, and the print selection (#selection) ----------
+   The selection lives at #selection, so the browser's back button and a
+   reload both behave like moving between two pages. */
+let cardsScroll = 0, pushedSelection = false;
+
+function syncMode(){
+  const mode = location.hash === "#selection" ? "selection" : "cards";
+  if (mode === view.mode) return;
+  if (mode === "selection") cardsScroll = window.scrollY;
+  view.mode = mode;
+  applyView();
+  window.scrollTo(0, mode === "selection" ? 0 : cardsScroll);
+}
+window.addEventListener("hashchange", syncMode);
+
+$("print").addEventListener("click", () => {
+  pushedSelection = true;
+  location.hash = "selection";
+});
+
+$("back").addEventListener("click", () => {
+  if (pushedSelection){ pushedSelection = false; history.back(); return; }
+  // opened straight on #selection: nothing to go back to, so swap in place
+  try{ history.replaceState(null, "", location.pathname + location.search); }
+  catch(e){ location.hash = ""; }
+  syncMode();
+});
+
+$("clear").addEventListener("click", () => {
+  const n = selection.size;
+  if (!n || !confirm(`Remove all ${n} card${n === 1 ? "" : "s"} from the print selection?`)) return;
+  selection.clear();
+  saveSelection();
+  applyView();
+});
+
+$("print-go").addEventListener("click", () => window.print());
+
+window.addEventListener("resize", () => {
+  clearTimeout(window._fitR);
+  window._fitR = setTimeout(fitAll, 120);
+});
+/* ------------------------------------------------------------
+   PRINT PAGES
+   Only the selection prints, from either screen, in the order the
+   selection screen shows it: each card's front on one page and its
+   back on the next, repeated for each copy, so the PDF holds every
+   physical card. A page is the card plus room for its bleed and
+   crop marks, nothing more, which is how print shops want it; they
+   print front and back on one sheet and cut along the marks.
+   Bleed: the art runs on past every cut, so a cut a little off still
+   lands on art, not white paper. Crop marks sit in the margin only,
+   never on the card, start beyond the bleed and run to the page edge.
+   ------------------------------------------------------------ */
+const PAGE = { bleed:3, markOffset:3, markLen:5 };   // mm
+
+/* the card's size, the margin around it and the page that makes, in mm */
+function pageLayout(){
+  const cw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--card-print-w"));
+  const ch = cw * 420 / 243;
+  const bleed = $("bleed").checked, marks = $("marks").checked;
+  const o = bleed ? Math.max(PAGE.markOffset, PAGE.bleed + 1) : PAGE.markOffset;   // 1 mm clear of the art
+  const m = marks ? o + PAGE.markLen : bleed ? PAGE.bleed : 0;
+  return { cw, ch, bleed, marks, o, m, w:cw + 2 * m, h:ch + 2 * m };
+}
+
+/* @page can't be set from a variable, so its size is written out here,
+   on load and whenever Bleed or Crop marks change */
+function setPageRule(){
+  const { w, h } = pageLayout();
+  $("page-rule").textContent = `@page{ size:${w}mm ${h}mm; margin:0; }`;
+}
+
+function buildPrintPages(){
+  const cards = [...document.querySelectorAll("#sheet .item")]
+    .map(el => CHARACTERS[+el.dataset.i])
+    .filter(c => selection.has(c.name));
+  const L = pageLayout();
+  const page = (c, side) => `
+    <div class="ppage${L.bleed ? " with-bleed" : ""}" style="width:${L.w}mm;height:${L.h}mm">
+      <div class="pslot" style="left:${L.m}mm;top:${L.m}mm">${
+        L.bleed ? bleedHtml(c, L.cw, L.ch) : ""}${side(c)}</div>
+      ${L.marks ? cropMarks(L) : ""}
+    </div>`;
+  $("print-pages").innerHTML = cards
+    .map(c => (page(c, frontCard) + page(c, backCard)).repeat(selection.get(c.name)))
+    .join("");
+  $("print-pages").querySelectorAll(".panel[data-fit]").forEach(fit);
+}
+
+/* The art fills the card exactly, so there is nothing past its edge to
+   bleed with. Instead: eight copies of the card's art around it, each
+   edge copy flipped across that edge and each corner copy across both,
+   so the picture mirrors outward and runs on unbroken at the cut. They
+   tuck 0.2 mm under the card so no hairline seam can open at the cut. */
+function bleedHtml(c, cw, ch){
+  const b = PAGE.bleed, tuck = 0.2;
+  const tiles = [];
+  for (const dy of [-1, 0, 1]) for (const dx of [-1, 0, 1]){
+    if (!dx && !dy) continue;
+    tiles.push(`<div class="bleed-tile" style="left:${b + dx * (cw - tuck)}mm;top:${b + dy * (ch - tuck)}mm;` +
+      `width:${cw}mm;height:${ch}mm;transform:scale(${dx ? -1 : 1},${dy ? -1 : 1})"></div>`);
+  }
+  return `<div class="bleed" style="${artStyle(c)}left:${-b}mm;top:${-b}mm;` +
+    `width:${cw + 2 * b}mm;height:${ch + 2 * b}mm">${tiles.join("")}</div>`;
+}
+
+/* a short line beyond each cut, out to the page edge: above and below
+   the card's two sides, left and right of its top and bottom */
+function cropMarks({ cw, ch, o, m, w, h }){
+  const len = PAGE.markLen, d = [];
+  [m, m + cw].forEach(x => d.push(`M${x} ${m - o}v${-len}`, `M${x} ${m + ch + o}v${len}`));
+  [m, m + ch].forEach(y => d.push(`M${m - o} ${y}h${-len}`, `M${m + cw + o} ${y}h${len}`));
+  return `<svg class="marks" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <path d="${d.join("")}" fill="none" stroke="#000" stroke-width=".15"/></svg>`;
+}
+
+window.addEventListener("beforeprint", buildPrintPages);
+window.addEventListener("afterprint", () => { $("print-pages").innerHTML = ""; });
+["bleed","marks"].forEach(id => $(id).addEventListener("change", setPageRule));
+
+/* ---------- remember view settings between sessions ---------- */
+const PREFS = "lostsisters.cards";
+
+function savePrefs(){
+  try{
+    localStorage.setItem(PREFS, JSON.stringify({
+      w: $("size").value, flat: $("flat").checked, marks: $("marks").checked, bleed: $("bleed").checked,
+      tab: view.tab, sort: view.sort
+    }));
+  }catch(e){ /* file:// with site data blocked — not worth failing over */ }
+}
+
+function loadPrefs(){
+  let p = null;
+  try{ p = JSON.parse(localStorage.getItem(PREFS) || "null"); }catch(e){}
+  const w = new URLSearchParams(location.search).get("w") || (p && p.w);
+  if (w){
+    $("size").value = w;
+    document.documentElement.style.setProperty("--card-w", w + "px");
+  }
+  if (p){
+    $("flat").checked   = !!p.flat;
+    $("marks").checked  = p.marks !== false;   // on unless turned off
+    $("bleed").checked  = p.bleed !== false;
+    document.body.classList.toggle("flat", !!p.flat);
+    if (TABS.some(t => t.id === p.tab)) view.tab = p.tab;
+    if (SORTS[p.sort]) view.sort = $("sort").value = p.sort;
+  }
+}
+
+["size","flat","marks","bleed","sort"].forEach(id => $(id).addEventListener("change", savePrefs));
+
+loadPrefs();
+setPageRule();
+loadSelection();
+view.mode = location.hash === "#selection" ? "selection" : "cards";
+render();
+
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+</script>
+
+</body>
+</html>

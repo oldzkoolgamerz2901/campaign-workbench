@@ -5,10 +5,11 @@ import workbench.platform.api.*
 import java.util.UUID
 
 class PreparedArtworkService(private val preparation: PreparationService, private val images: PreparationImageStore, private val tx: Transactions) {
-    fun read(campaign: UUID, session: UUID, item: UUID, variant: ImageVariant) = tx.run { either {
+    fun read(campaign: UUID, session: UUID, item: UUID, variant: ImageVariant, details: Boolean = false) = tx.run { either {
         val missing = Failure.NotFound("image.not-found", "Artwork is not available for this prepared item.")
         val s = preparation.open(campaign, session).bind()
-        val m = ensureNotNull(s.items.singleOrNull { it.id == item }?.image) { missing }
+        val current = s.items.singleOrNull { it.id == item }
+        val m = ensureNotNull(if (details) current?.detailsImage else current?.image) { missing }
         ensure(images.metadata(campaign, m.hash) == m) { missing }
         ensureNotNull(images.derivative(campaign, m.hash, ImageLimits.POLICY, variant)) { missing }
     } }

@@ -32,7 +32,10 @@ class JdbcWritingImageStore(private val jdbc: JdbcTemplate) : WritingImageStore 
         // Called only after references are durably flushed within the owning write transaction.
         val retained = jdbc.queryForList("""SELECT image_hash FROM writing.draft WHERE campaign=? AND image_hash IS NOT NULL
                 UNION SELECT image_hash FROM writing.approved_revision WHERE campaign=? AND image_hash IS NOT NULL
-                UNION SELECT image_hash FROM writing.export_artifact WHERE campaign=? AND image_hash IS NOT NULL""", String::class.java, id(owner), id(owner), id(owner)).toSet()
+                UNION SELECT image_hash FROM writing.export_artifact WHERE campaign=? AND image_hash IS NOT NULL
+                UNION SELECT details_image_hash FROM writing.draft WHERE campaign=? AND details_image_hash IS NOT NULL
+                UNION SELECT details_image_hash FROM writing.approved_revision WHERE campaign=? AND details_image_hash IS NOT NULL
+                UNION SELECT details_image_hash FROM writing.export_artifact WHERE campaign=? AND details_image_hash IS NOT NULL""", String::class.java, id(owner), id(owner), id(owner), id(owner), id(owner), id(owner)).toSet()
         val hashes = jdbc.queryForList("SELECT hash FROM writing.image_original WHERE owner_kind=? AND owner_id=?", String::class.java, kind(owner), id(owner))
         hashes.filter { it !in retained }.forEach { hash ->
             jdbc.update("DELETE FROM writing.image_derivative WHERE owner_kind=? AND owner_id=? AND hash=?", kind(owner), id(owner), hash)

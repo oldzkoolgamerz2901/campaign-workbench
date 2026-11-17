@@ -9,8 +9,8 @@ import { CardFitIssue } from '../../../api/generated';
         <p>{{ message(issue) }}</p>
       }
       <p>
-        Fit warnings alone do not prevent saving or exporting. Correct the text in Write before
-        adding or updating a session card.
+        Fit warnings alone do not prevent saving or exporting. Only front fit prevents
+        adding or updating a session card; complete back text remains available in Details.
       </p>
     </aside>
   }`,
@@ -33,10 +33,10 @@ export class CardFitFeedback {
       (
         {
           title: 'Front title',
-          type: 'Front type',
-          summary: 'Front summary',
+          type: 'Back type',
+          summary: 'Summary',
           quote: 'Front quote',
-          tags: 'Front tags',
+          tags: 'Tags',
           backText: 'Back text',
           card: 'Card text',
         } as Record<string, string>

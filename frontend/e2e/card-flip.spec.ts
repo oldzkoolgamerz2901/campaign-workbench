@@ -9,7 +9,8 @@ async function flip(card: Locator, text: string) {
   const show = card.getByRole('button', { name: 'Show text', exact: true });
   if (await show.isVisible()) await show.click();
   await expect(card.locator('svg [data-field="quote"]')).toContainText(['Every visitor has a story.']);
-  await expect(card.locator('svg [data-field="tags"]')).toHaveCount(0);
+  await expect(card.locator('svg [data-field="tags"], svg [data-field="summary"], svg [data-field="type"]')).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'Details', exact: true })).toHaveCount(0);
   await card.getByRole('button', { name: 'Hide text', exact: true }).press('Enter');
   await expect(card.locator('svg')).toBeHidden();
   await expect(card.getByRole('button', { name: 'Show text', exact: true })).toBeVisible();
@@ -20,6 +21,8 @@ async function flip(card: Locator, text: string) {
   await expect(card.locator('svg')).toContainText(text);
   await expect(card.getByRole('button', { name: 'Open full document' })).toHaveCount(0);
   await expect(card.locator('artwork-image')).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'Details', exact: true })).toHaveCount(0);
+  await expect(card.locator('article')).not.toHaveClass(/flipping/);
 }
 
 test('flips in all six views, resets on changed views and preserves frozen recovery content', async ({
@@ -200,19 +203,19 @@ test('captured Source backs, failed layouts and missing fonts remain readable', 
       .getByRole('button', { name: 'Card', exact: true })
       .click();
     await expect(card).toContainText('Card layout unavailable.');
-    await card.getByRole('button', { name: 'Read all front text' }).click();
-    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText(
+    await card.getByRole('button', { name: 'Details' }).click();
+    await expect(page.getByRole('dialog', { name: 'Card details' })).toContainText(
       'Source card',
     );
-    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText('Every visitor has a story.');
-    await page.getByRole('button', { name: 'Close card text' }).click();
+    await expect(page.getByRole('dialog', { name: 'Card details' })).toContainText('Every visitor has a story.');
+    await page.getByRole('button', { name: 'Close details' }).click();
     await card.getByRole('button', { name: 'Flip to back' }).press('Enter');
-    await card.getByRole('button', { name: 'Read all back text' }).click();
-    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText(
+    await card.getByRole('button', { name: 'Details' }).click();
+    await expect(page.getByRole('dialog', { name: 'Card details' })).toContainText(
       'Secret source back.',
     );
     await page.keyboard.press('Escape');
-    await expect(card.getByRole('button', { name: 'Read all back text' })).toBeFocused();
+    await expect(card.getByRole('button', { name: 'Details' })).toBeFocused();
     await page.unroute('**/api/card-layout');
     await page.route('**/fonts/*.ttf', (route) => route.abort());
     await page.reload();
@@ -225,11 +228,11 @@ test('captured Source backs, failed layouts and missing fonts remain readable', 
       .getByRole('button', { name: 'Card', exact: true })
       .click();
     await expect(card).toContainText('Card layout unavailable.');
-    await card.getByRole('button', { name: 'Read all front text' }).click();
-    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText(
+    await card.getByRole('button', { name: 'Details' }).click();
+    await expect(page.getByRole('dialog', { name: 'Card details' })).toContainText(
       'Source card',
     );
-    await expect(page.getByRole('dialog', { name: 'Complete card side text' })).toContainText('Every visitor has a story.');
+    await expect(page.getByRole('dialog', { name: 'Card details' })).toContainText('Every visitor has a story.');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

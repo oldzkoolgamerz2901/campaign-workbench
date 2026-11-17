@@ -15,23 +15,23 @@ class ArtworkService(private val campaigns: Campaigns, private val drafts: Draft
         ensure(images.metadata(owner, m.hash) == m) { missing() }
         ensureNotNull(images.derivative(owner, m.hash, ImageLimits.POLICY, variant)) { missing() }
     }
-    fun draft(campaign: UUID, draft: UUID, variant: ImageVariant) = tx.run { either {
+    fun draft(campaign: UUID, draft: UUID, variant: ImageVariant, details: Boolean = false) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val d = ensureNotNull(drafts.get(campaign, draft)) { missing() }
-        load(WritingImageOwner.Campaign(campaign), d.image, variant).bind()
+        load(WritingImageOwner.Campaign(campaign), (if (details) d.detailsImage else d.image), variant).bind()
     } }
-    fun approved(campaign: UUID, draft: UUID, revision: Long, variant: ImageVariant) = tx.run { either {
+    fun approved(campaign: UUID, draft: UUID, revision: Long, variant: ImageVariant, details: Boolean = false) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val a = ensureNotNull(revisions.get(campaign, draft, revision)) { missing() }
-        load(WritingImageOwner.Campaign(campaign), a.snapshot.image, variant).bind()
+        load(WritingImageOwner.Campaign(campaign), (if (details) a.snapshot.detailsImage else a.snapshot.image), variant).bind()
     } }
-    fun exported(campaign: UUID, draft: UUID, artifact: UUID, variant: ImageVariant) = tx.run { either {
+    fun exported(campaign: UUID, draft: UUID, artifact: UUID, variant: ImageVariant, details: Boolean = false) = tx.run { either {
         campaigns.configuration(campaign).bind()
         val a = ensureNotNull(exports.get(campaign, draft, artifact)) { missing() }
-        load(WritingImageOwner.Campaign(campaign), a.snapshot.image, variant).bind()
+        load(WritingImageOwner.Campaign(campaign), (if (details) a.snapshot.detailsImage else a.snapshot.image), variant).bind()
     } }
-    fun recovered(workspace: UUID, key: String, variant: ImageVariant) = either {
+    fun recovered(workspace: UUID, key: String, variant: ImageVariant, details: Boolean = false) = either {
         val d = recovery.detail(workspace, key).bind()
-        load(WritingImageOwner.Recovery(workspace), d.snapshot.image, variant).bind()
+        load(WritingImageOwner.Recovery(workspace), (if (details) d.snapshot.detailsImage else d.snapshot.image), variant).bind()
     }
 }

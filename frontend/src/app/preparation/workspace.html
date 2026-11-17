@@ -434,12 +434,13 @@
             @if (cardOpen()) {
               <playing-card
                 [artwork]="artwork.item(state.current()!.campaign, state.current()!.id, prepared)"
+      [detailsImage]="artwork.details(state.current()!.campaign, state.current()!.id, prepared)"
                 [title]="card.title ?? prepared.title"
                 [type]="card.type ?? ''"
                 [tags]="card.tags ?? []"
                 [summary]="card.summary ?? ''"
                 [quote]="card.quote ?? ''"
-                [backText]="card.backText ?? ''"
+                [backText]="card.backText ?? ''" [stats]="prepared.stats ?? null"
                 [visibilityKey]="state.current()!.id + ':' + prepared.id"
                 [context]="
                   state.current()!.id + ':' + prepared.id + ':' + prepared.provenance.contentHash

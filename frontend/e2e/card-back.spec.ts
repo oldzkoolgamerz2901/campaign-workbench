@@ -31,7 +31,7 @@ test('authors a separate back, reports physical fit and preserves frozen and rec
         },
       })
     ).json();
-    const session = await (
+    let session = await (
       await request.post(`/api/campaigns/${campaign.id}/sessions`, {
         data: { title: 'Back test', objective: '' },
       })
@@ -43,13 +43,14 @@ test('authors a separate back, reports physical fit and preserves frozen and rec
     await expect(back).toHaveValue('Long back line\n'.repeat(30));
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
     await expect(back).toHaveValue('Long back line\n'.repeat(30));
-    await expect(page.getByLabel('Card fit feedback').first()).toContainText(
-      'Back text does not fit',
+    await page.getByText('Check physical card fit', { exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Physical card fit' })).toContainText(
+      'Back text continues in Details',
     );
     let entry = (
       await (await request.get(`/api/campaigns/${campaign.id}/cards`)).json()
     ).entries.find((e: any) => e.draft === draft.id);
-    expect(entry.ready).toBe(false);
+    expect(entry.ready).toBe(true);
     const blocked = await request.post(
       `/api/campaigns/${campaign.id}/sessions/${session.id}/library`,
       {
@@ -62,11 +63,24 @@ test('authors a separate back, reports physical fit and preserves frozen and rec
         },
       },
     );
-    expect(blocked.status()).toBe(400);
+    expect(blocked.ok(), await blocked.text()).toBe(true);
+    const longFrozen = (await blocked.json()).session;
+    expect(longFrozen.items[0].capturedSource.classification.metadata.backText).toBe('Long back line\n'.repeat(30));
+    const fullCard = page.locator('writing-workspace playing-card');
+    await fullCard.getByRole('button', { name: 'Flip to back' }).click();
+    await expect(fullCard.locator('svg [data-field="continuation"]')).toHaveText('…');
+    await fullCard.getByRole('button', { name: 'Details', exact: true }).press('Enter');
+    const details = page.getByRole('dialog', { name: 'Card details', exact: true });
+    await expect(details.locator('[data-details-back]')).toHaveText('Long back line\n'.repeat(30));
+    await page.keyboard.press('Escape');
+    await expect(fullCard.getByRole('button', { name: 'Details', exact: true })).toBeFocused();
+    // Use a second session to inspect a separately frozen short revision.
+    session = await (await request.post(`/api/campaigns/${campaign.id}/sessions`, {
+      data: { title: 'Short back test', objective: '' },
+    })).json();
     const text = 'Motivation\nProtect the harbour.\n\n<script>literal text</script>';
     await back.fill(text);
     await expect(page.getByLabel('Draft save status')).toHaveText('Saved');
-    await page.getByText('Check physical card fit', { exact: true }).click();
     const fit = page.getByRole('region', { name: 'Physical card fit' });
     await expect(fit).toContainText('Both sides fit on the card.');
     await fit.getByRole('button', { name: 'Back layout', exact: true }).click();
@@ -109,7 +123,7 @@ test('authors a separate back, reports physical fit and preserves frozen and rec
     const backup = await request.get(`/api/writing-recovery/campaigns/${campaign.id}/archive`);
     expect(backup.ok(), await backup.text()).toBe(true);
     const archive = await backup.json();
-    expect(archive.version).toBe(5);
+    expect(archive.version).toBe(11);
     expect(archive.drafts[0].fields.backText).toBe('Changed working back.');
     await page.goto('/writing/recovery');
     await page.getByLabel('Restore Writing archive', { exact: true }).setInputFiles({

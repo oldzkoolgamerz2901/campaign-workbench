@@ -56,6 +56,14 @@
 ///   of summary and body, with the same revision, durability, limits and unsaved-edit
 ///   guarantees as other working text fields.
 ///
+/// ### WSD-R8: Additional Details image
+/// - **WSD-R8.1** — Saving/replacing/removing the optional Details image shall be a revisioned Draft edit independent of front artwork, with the same durability, stale-save rejection, local failure retention and delayed-acknowledgement safeguards.
+/// - **WSD-R8.2** — An image change shall preserve retained approval/export images and newer local image/text edits; invalid or failed uploads shall not replace stored content.
+///
+/// ### WSD-R9: Optional structured stats
+/// - **WSD-R9.1** — Save shall retain optional authored stats independently of back text, with the same revision, durability, stale-save rejection, failure retention and delayed-acknowledgement safeguards as other working fields. Removing stats shall preserve back text.
+/// - **WSD-R9.2** — Stats shall contain only supported typed values within working limits; invalid stats shall reject the whole save without replacing the stored revision. Incomplete valid stats shall remain saveable.
+///
 /// ## Invariants
 /// - Saved drafts are campaign-scoped.
 /// - A successful save advances the draft's working revision.

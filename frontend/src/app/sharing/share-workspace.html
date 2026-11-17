@@ -132,7 +132,7 @@
                   [summary]="card.summary"
                   [quote]="card.quote ?? ''"
                   [tags]="card.tags"
-                  [backText]="card.backText"
+                  [backText]="card.backText" [stats]="item.stats ?? null"
                   [artwork]="artwork(item)"
                   [context]="item.id"
                   [documentAvailable]="false"
@@ -198,6 +198,7 @@
             [organizer]="collection() === 'group'"
             (organize)="organize($event)"
             [artwork]="sharedArtwork"
+            [detailsImage]="sharedDetailsImage"
             [identity]="campaign() + collection()"
             [actions]="cardActions"
             [disabled]="lifecycleBusy() || !access()"
@@ -306,7 +307,8 @@
       <p role="alert">{{ deliveryError() }}</p>
     }
     @if (preview(); as p) {
-      <p>Review the front, back and artwork players will receive.</p>
+      <p>Review exactly what players will receive. Front-only cards remain flippable.</p>
+      @if (p.detailsImage && !previewDetailsReady()) { <p role="status">Open Details to review the additional image before confirming.</p> }
       <div class="delivery-content">
         <playing-card
           [title]="p.visible.title"
@@ -314,12 +316,21 @@
           [summary]="p.visible.summary"
           [quote]="p.visible.quote ?? ''"
           [tags]="p.visible.tags"
-          [backText]="p.visible.backText"
+          [backText]="p.visible.backText" [stats]="p.visible.stats ?? null"
+          [backRevealed]="deliveryReveal()"
           [artwork]="previewArtwork()"
+          [detailsImage]="previewDetailsImage()"
           [context]="p.fingerprint"
           [documentAvailable]="false"
         />
         <div class="delivery-controls">
+          <label>
+            <input type="checkbox" aria-label="Reveal back immediately"
+              [disabled]="deliveryBusy() || uncertain()"
+              [ngModel]="deliveryReveal()" (ngModelChange)="deliveryReveal.set($event)" />
+            Reveal back immediately
+          </label>
+          <p>{{ deliveryReveal() ? 'Back information will be shared.' : 'Back information stays hidden until you reveal it.' }}</p>
           <label
             >Recipient
             <select
@@ -394,6 +405,7 @@
         !deliveryMode() ||
         deliveryBusy() ||
         !previewImageReady() ||
+        !previewDetailsReady() ||
         (destination() === 'group' && deliveryPile() === 'new' && !newPileName().trim())
       "
       (click)="confirmDelivery()"
@@ -442,6 +454,8 @@
       >
     }
     <p>Move this inventory instance to the chosen destination.</p>
+  } @else if (lifecycleAction() === 'Reveal back') {
+    <p>Permanently reveal this frozen back to its current and future recipients.</p>
   } @else {
     <p>Remove this card from its collection? It can be restored through Removed cards.</p>
   }
@@ -456,7 +470,7 @@
     "
     (click)="confirmCardCommand()"
   >
-    {{ lifecycleAction() === 'Transfer' ? 'Transfer now' : 'Confirm removal' }}
+    {{ lifecycleAction() === 'Transfer' ? 'Transfer now' : lifecycleAction() === 'Reveal back' ? 'Reveal back now' : 'Confirm removal' }}
   </button>
   <button matButton type="button" (click)="lifecycleDialog.close()">Cancel</button>
 </dialog>

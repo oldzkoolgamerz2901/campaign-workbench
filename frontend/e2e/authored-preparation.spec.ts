@@ -65,7 +65,8 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
     await page.getByRole('button', { name: 'Add material', exact: true }).click();
     const chooser = page.getByRole('region', { name: 'Session Library', exact: true });
     await chooser.getByRole('button', { name: 'Captain Mira · npc', exact: true }).click();
-    await expect(chooser.getByLabel('Playing card preview')).toContainText('A watchful captain.');
+    await expect(chooser.getByLabel('Playing card preview')).toContainText('Captain Mira');
+    await expect(chooser.getByLabel('Playing card preview')).not.toContainText('A watchful captain.');
     await chooser
       .getByRole('button', { name: 'Add selected card to session', exact: true })
       .click();
@@ -129,7 +130,7 @@ test('approves an exact draft into a mixed session and reads a frozen portable c
         data: { sessions: [session.id] },
       })
     ).json();
-    expect(archive.version).toBe(11);
+    expect(archive.version).toBe(14);
     const imported = await (
       await request.post(`/api/campaigns/${destination.id}/sessions/import`, { data: archive })
     ).json();

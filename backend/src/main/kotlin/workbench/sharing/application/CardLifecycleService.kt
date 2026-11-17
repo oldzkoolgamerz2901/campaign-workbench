@@ -4,6 +4,7 @@ import arrow.core.raise.*
 import workbench.campaigns.api.Campaigns
 import workbench.platform.api.*
 import workbench.sharing.api.*
+import workbench.sharing.domain.BackDisclosure
 import java.util.UUID
 
 class CardLifecycleService(private val campaigns: Campaigns, private val identity: PlayerAccess,
@@ -13,13 +14,19 @@ class CardLifecycleService(private val campaigns: Campaigns, private val identit
         val player=identity.identify(campaign,credential).bind()
         val current=active(campaign,card)
         ensure(current.card.mode==SharingMode.INVENTORY && current.recipient==null) { conflict() }
-        cards.transition(campaign,card,player.player,"ACTIVE","CLAIMED",clock.now())
+        cards.transition(campaign,card,player.player,"ACTIVE","CLAIMED",clock.now()).forPlayer()
     } }
     override fun remove(campaign: UUID, credential: String?, card: UUID) = tx.run { either {
         val player=identity.identify(campaign,credential).bind()
         val current=active(campaign,card)
         ensure(current.recipient==player.player && current.card.mode==SharingMode.INVENTORY) { conflict() }
-        cards.transition(campaign,card,current.recipient,"DISCARDED","DISCARDED",clock.now())
+        cards.transition(campaign,card,current.recipient,"DISCARDED","DISCARDED",clock.now()).forPlayer()
+    } }
+    fun revealBack(campaign: UUID, card: UUID) = tx.run { either {
+        campaigns.configuration(campaign).bind()
+        val current = active(campaign, card).card
+        val disclosure = if (current.backRevealed) BackDisclosure.REVEALED else BackDisclosure.UNREVEALED
+        if (disclosure.reveal() == disclosure) current else cards.reveal(campaign, card, clock.now())
     } }
     fun transfer(campaign: UUID, card: UUID, request: TransferSharedCard) = tx.run { either {
         campaigns.configuration(campaign).bind()

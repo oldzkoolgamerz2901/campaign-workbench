@@ -26,7 +26,7 @@ class RecoveryService(private val campaigns: Campaigns, private val drafts: Draf
         // the exact 64 MiB wire cap, and approved enumeration omits stored rendering entirely.
         val size = source.size(campaign)
         ensure(size.drafts <= 1000 && size.retained <= 10000 && size.bytes <= RECOVERY_BYTES * 2L) { invalid() }
-        val archive = WritingArchive("workbench-writing-recovery", if (illustrated) 8 else 7, campaign, c.name, Instant.now().toString(), drafts.list(campaign).map(::draftData),
+        val archive = WritingArchive("workbench-writing-recovery", if (illustrated) 12 else 11, campaign, c.name, Instant.now().toString(), drafts.list(campaign).map(::draftData),
             source.approved(campaign), source.exports(campaign), source.associations(campaign))
         ensure(illustrated || artwork(archive).isEmpty()) { Failure.Invalid("writing.artwork-archive", "Artwork requires portable ZIP export.") }
         checked { validation.validate(archive) }.bind(); archive
@@ -42,11 +42,11 @@ class RecoveryService(private val campaigns: Campaigns, private val drafts: Draf
         } }
     fun list(): RecoveryList = RecoveryList(store.list())
     fun workspace(id: UUID): Either<Failure, WritingArchive> = either { ensureNotNull(store.get(id)) { missing() } }
-    fun artwork(a: WritingArchive): List<workbench.platform.api.ImageMetadata> = (a.drafts + a.approved.map { it.snapshot } + a.exports.map { it.snapshot }).mapNotNull { it.image }
+    fun artwork(a: WritingArchive): List<workbench.platform.api.ImageMetadata> = (a.drafts + a.approved.map { it.snapshot } + a.exports.map { it.snapshot }).flatMap { listOfNotNull(it.image, it.detailsImage) }
     fun archive(id: UUID): Either<Failure, ByteArray> = either {
         val a = workspace(id).bind()
         ensure(artwork(a).isEmpty()) { Failure.Invalid("writing.artwork-archive", "Artwork requires portable ZIP export.") }
-        checked { codec.write(a.copy(version = 7)) }.bind()
+        checked { codec.write(a.copy(version = 11)) }.bind()
     }
     private fun records(a: WritingArchive) = a.drafts.map { RecoveryRecord("draft:${it.id}", "draft", it.id, it.revision, it.fields.title, it.fields.type) } +
         a.approved.map { r -> r.snapshot.let { RecoveryRecord("approved:${it.id}:${it.revision}", "approved", it.id, it.revision, it.fields.title, it.fields.type) } } +
@@ -75,8 +75,8 @@ class RecoveryService(private val campaigns: Campaigns, private val drafts: Draf
         val f = d.fields
         val origin = d.origin?.let { DraftOrigin(it.campaign, it.capture, it.path, it.card, it.raw, it.hash, it.retainedEnvelope, it.issues, it.interpretation) }
         val copied = Draft(UUID.randomUUID(), request.campaign, UUID.randomUUID(), 0, f.title, f.type, f.status, f.tags, f.summary, f.body, f.path, origin,
-            RecoveryOrigin(id, d.campaign, d.id, d.card, d.revision), d.image, f.backText, d.encoding, f.quote)
-        d.image?.let { m ->
+            RecoveryOrigin(id, d.campaign, d.id, d.card, d.revision), d.image, f.backText, d.encoding, f.quote, d.detailsImage, f.stats)
+        listOfNotNull(d.image, d.detailsImage).distinctBy { it.hash }.forEach { m ->
             val image = ensureNotNull(images?.bundle(WritingImageOwner.Recovery(id), m.hash)) { Failure.Unreadable("image.unavailable", "Recovered artwork is unavailable.") }
             ensure(image.metadata == m) { Failure.Unreadable("image.unavailable", "Recovered artwork descriptor differs.") }
             images!!.put(WritingImageOwner.Campaign(request.campaign), image)
